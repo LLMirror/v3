@@ -14,9 +14,20 @@
             <el-date-picker v-model="filters.dateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期"
                 style="width:300px" />
             <el-button type="primary" @click="search">查询</el-button>
+            <el-dropdown @command="handleExport">
+                <el-button type="success">
+                    导出Excel<el-icon class="el-icon--right"><arrow-down /></el-icon>
+                </el-button>
+                <template #dropdown>
+                    <el-dropdown-menu>
+                        <el-dropdown-item command="current">导出当前页</el-dropdown-item>
+                        <el-dropdown-item command="all">导出全部数据</el-dropdown-item>
+                    </el-dropdown-menu>
+                </template>
+            </el-dropdown>
         </div>
         <!-- 底部汇总 -->
-        <div class="summary" style="margin-top:10px;">
+        <!-- <div class="summary" style="margin-top:10px;">
             <el-table :data="summary" border style="width:1600px;" size="small">
                 <el-table-column prop="company" label="公司" />
                 <el-table-column prop="bank" label="银行" />
@@ -24,9 +35,9 @@
                 <el-table-column prop="totalExpense" label="总支出" />
                 <el-table-column prop="balance" label="余额" />
             </el-table>
-        </div>
+        </div> -->
         <!-- 表格 -->
-        <el-table :data="records" border style="width:100%" size="small">
+        <el-table :data="records" border style="width:100%" size="small" height="600" max-height="600">
             <el-table-column prop="seq" label="序号" width="60" />
             <el-table-column prop="date" label="日期" width="100">
                 <template #default="{ row }">
@@ -141,21 +152,27 @@
         </el-table>
 
 
-        <el-pagination v-if="total > pageSize" background layout="prev, pager, next, jumper" :current-page="page"
-            :page-size="pageSize" :total="total" @current-change="handlePageChange" style="margin-top:10px;" />
-
-
-
-
-     
-        <el-button type="success" @click="addRow" style="margin-top:10px;">新增行</el-button>
+        <el-pagination 
+            v-if="total > pageSize" 
+            background 
+            layout="prev, pager, next, jumper, sizes, total" 
+            :current-page="page"
+            :page-size="pageSize" 
+            :page-sizes="pageSizes"
+            :total="total" 
+            @current-change="handlePageChange"
+            @size-change="handlePageSizeChange"
+            style="margin-top:10px;" 
+        />
     </div>
 </template>
 
 
 <script setup>
 import { reactive, ref, onMounted } from 'vue';
+import { ArrowDown } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import * as XLSX from 'xlsx';
 import useUserStore from '@/store/modules/user';
 import {
     getCashRecords,
@@ -182,6 +199,8 @@ const summary = ref([]);
 const total = ref(0);
 const page = ref(1);
 const pageSize = ref(15);
+// 分页大小选项
+const pageSizes = [10, 15, 20, 50, 100];
 
 // 数字验证函数
 const validateNumber = (row, field) => {
@@ -193,10 +212,17 @@ const validateNumber = (row, field) => {
 const companyList = ref([]);
 const bankList = ref([]);
 
-
+// 处理页码变化
 const handlePageChange = (newPage) => {
     page.value = newPage;   // 更新页码
     getRecords();           // 重新请求数据
+};
+
+// 处理页面大小变化
+const handlePageSizeChange = (newSize) => {
+    pageSize.value = newSize;  // 更新页面大小
+    page.value = 1;            // 重置为第一页
+    getRecords();              // 重新请求数据
 };
 
 // 查询按钮点击时重置页码
@@ -281,22 +307,6 @@ const cancelEdit = (row) => {
     row.editing = false;
 };
 
-// 新增行
-const addRow = () => {
-    records.value.push({
-        seq: records.value.length + 1,
-        date: '',
-        company: '',
-        bank: '',
-        summary: '',
-        income: 0,
-        expense: 0,
-        balance: 0,
-        remark: '',
-        invoice: '',
-        editing: true // 新增行默认处于编辑状态
-    });
-};
 
 // 保存行
 const saveRow = async (row) => {
@@ -320,6 +330,106 @@ const delRow = async (row, index) => {
         ElMessage.success('删除成功');
         getRecords();
     } catch (err) { }
+};
+
+// 处理导出Excel
+const handleExport = async (command) => {
+    if (command === 'current') {
+        // 导出当前页数据
+        exportToExcel(records.value.filter(r => r.id), '当前页资金明细');
+    } else if (command === 'all') {
+        // 导出全部数据
+        ElMessage.info('正在导出全部数据，请稍候...');
+        try {
+            const res = await getCashRecords({
+                username: userStore.name,
+                data: {
+                    summary: filters.summary,
+                    company: filters.company,
+                    bank: filters.bank,
+                    dateFrom: filters.dateRange[0],
+                    dateTo: filters.dateRange[1],
+                    page: 1,
+                    size: 99999 // 尽可能大的数量，获取全部数据
+                }
+            });
+            exportToExcel(res.data, '全部资金明细');
+            ElMessage.success('导出成功');
+        } catch (err) {
+            ElMessage.error('导出失败，请重试');
+        }
+    }
+};
+
+// 显示添加对话框
+const showAddDialog = () => {
+    // 重置表单数据
+    formData.date = '';
+    formData.company = '';
+    formData.bank = '';
+    formData.summary = '';
+    formData.income = 0;
+    formData.expense = 0;
+    formData.remark = '';
+    formData.invoice = '';
+    // 显示对话框
+    dialogVisible.value = true;
+};
+
+// 保存表单数据
+const saveFormData = async () => {
+    try {
+        await addCashRecord({ username: userStore.name, data: formData });
+        ElMessage.success('保存成功');
+        // 关闭对话框
+        dialogVisible.value = false;
+        // 重新加载数据
+        getRecords();
+    } catch (err) {
+        ElMessage.error('保存失败');
+    }
+};
+
+// 导出Excel的通用方法
+const exportToExcel = (data, filename) => {
+    // 准备导出数据
+    const exportData = data.map(item => ({
+        '序号': item.seq,
+        '日期': item.date,
+        '公司': item.company,
+        '银行': item.bank,
+        '摘要': item.summary,
+        '收入': item.income || 0,
+        '支出': item.expense || 0,
+        '余额': item.balance,
+        '备注': item.remark || '',
+        '发票': item.invoice || ''
+    }));
+    
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // 设置列宽
+    const colWidths = [
+        { wch: 8 },  // 序号
+        { wch: 15 }, // 日期
+        { wch: 20 }, // 公司
+        { wch: 20 }, // 银行
+        { wch: 50 }, // 摘要
+        { wch: 15 }, // 收入
+        { wch: 15 }, // 支出
+        { wch: 15 }, // 余额
+        { wch: 30 }, // 备注
+        { wch: 30 }  // 发票
+    ];
+    ws['!cols'] = colWidths;
+    
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(wb, ws, '资金明细');
+    
+    // 生成Excel文件并下载
+    XLSX.writeFile(wb, `${filename}_${new Date().toLocaleDateString()}.xlsx`);
 };
 
 
