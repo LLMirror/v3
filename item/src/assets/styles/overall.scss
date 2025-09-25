@@ -1,0 +1,30 @@
+/*弹性布局*/
+@mixin myFlex($judge:1) {
+  display: flex;
+  align-items: center;
+  @if($judge==1) {
+    justify-content: flex-start
+  }
+  @if($judge==2) {
+    justify-content: center
+  }
+  @if($judge==3) {
+    justify-content: space-between
+  }
+  @if($judge==4) {
+    justify-content: space-around
+  }
+  @if($judge==5) {
+    justify-content: flex-end
+  }
+}
+
+//文字溢出隐藏
+@mixin wrap($is:1) {
+  word-break: break-all;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: $is;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  display: -webkit-box;
+}

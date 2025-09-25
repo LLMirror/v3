@@ -1,0 +1,10 @@
+{
+  "ignore": [
+    "node_modules",
+    "logs",
+    "public",
+    "dist",
+    "*.test.js",
+    "*.spec.js"
+  ]
+}

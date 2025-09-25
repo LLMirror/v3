@@ -1,0 +1,20 @@
+{"date":"2025-09-21 17:37:02","type":"FATAL","data":"{
+  err: false,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:56:26","type":"FATAL","data":"{
+  err: false,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+

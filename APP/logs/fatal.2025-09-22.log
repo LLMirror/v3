@@ -1,0 +1,618 @@
+{"date":"2025-09-22 11:00:11","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:00:18","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:01:41","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:01:56","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:01:57","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:02:12","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:02:21","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:05:30","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:05:32","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:07:05","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:07:07","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:07:08","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:07:11","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:07:16","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:08:24","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:08:27","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:547:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:10:25","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:750:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:10:26","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:750:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:11:06","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:750:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:11:08","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:707:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:17:37","type":"FATAL","data":"{
+  err: ReferenceError: checkPermi is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:548:5
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:21:09","type":"FATAL","data":"{
+  err: TypeError: Cannot read properties of undefined (reading 'cashQuery')
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:548:67
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 11:22:12","type":"FATAL","data":"{
+  err: TypeError: Cannot read properties of undefined (reading 'cashQuery')
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:549:67
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:47:12)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\layer.js:95:5)
+      at trim_prefix (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:328:13)
+      at E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:286:9
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\express@4.21.2\node_modules\express\lib\router\index.js:280:10)
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/app.js:41:3,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 14:53:21","type":"FATAL","data":"{
+  err: false,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-22 17:45:27","type":"FATAL","data":"{
+  err: false,
+  code: 500,
+  msg: '后端系统错误！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+

@@ -1,0 +1,43 @@
+//设置字段权限
+export const systemSettings={
+    menus:{
+        menuQuery:"menu_query",
+          menuAdd:"menu_add",
+          menuUp:"menu_up",
+          menuDelete:"menu_delete",
+    },
+    user:{
+        userQuery:"user_query",
+          userAdd:"user_add",
+          userUp:"user_up",
+          userDelete:"user_delete",
+          userPwd:"user_pwd",
+    },
+    role:{
+        roleQuery:"role_query",
+          roleAdd:"role_add",
+          roleUp:"role_up",
+          roleDelete:"role_delete"
+    },
+    more:{
+        moreQuery:"more_query",
+          moreAdd:"more_add",
+          moreUp:"more_up",
+          moreDelete:"more_delete"
+    },
+    logs:{
+        logsQuery:"logs_query"
+    }
+}
+//文件字段权限
+export const fileAdmins={
+    menu:{
+        fileMenuAdd:'file_menu_add',
+        fileMenuUp:'file_menu_up',
+        fileMenuDelete:'file_menu_delete'
+    },
+    file:{
+        fileAdd:'file_add',
+        fileDelete:'file_delete'
+    }
+}

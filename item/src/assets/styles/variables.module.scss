@@ -1,0 +1,73 @@
+// base color
+$blue: #324157;
+$light-blue: #3A71A8;
+$red: #C03639;
+$pink: #E65D6E;
+$green: #30B08F;
+$tiffany: #4AB7BD;
+$yellow: #FEC171;
+$panGreen: #30B08F;
+
+// 默认菜单主题风格
+$base-menu-color: #bfcbd9;
+$base-menu-color-active: #f4f4f5;
+$base-menu-background: #304156;
+$base-logo-title-color: #ffffff;
+
+$base-menu-light-color: rgba(0, 0, 0, 0.7);
+$base-menu-light-background: #ffffff;
+$base-logo-light-title-color: #001529;
+
+$base-sub-menu-background: #1f2d3d;
+$base-sub-menu-hover: #001528;
+
+// 自定义暗色菜单风格
+/**
+$base-menu-color:hsla(0,0%,100%,.65);
+$base-menu-color-active:#fff;
+$base-menu-background:#001529;
+$base-logo-title-color: #ffffff;
+
+$base-menu-light-color:rgba(0,0,0,.70);
+$base-menu-light-background:#ffffff;
+$base-logo-light-title-color: #001529;
+
+$base-sub-menu-background:#000c17;
+$base-sub-menu-hover:#001528;
+*/
+
+$--color-primary: #409EFF;
+$--color-success: #67C23A;
+$--color-warning: #E6A23C;
+$--color-danger: #F56C6C;
+$--color-info: #909399;
+
+$base-sidebar-width: 200px;
+
+$menuBg:var(--menuBg-color, #304156);//默认背景
+$menuSubBg:var(--menuSubBg-color, #304156);//展开内部背景颜色
+$menuText:var(--menuText-color, #bfcad5);//默认文字
+$menuActiveText:var(--menuActiveText-color, #409eff);//选中的文字
+$menuSubActiveText:var(--menuSubActiveText-color, #fff);//展开选中父级的文字颜色
+$menuHoverBg:var(--menuHoverBg-color, #001528);//hover背景颜色
+
+// the :export directive is the magic sauce for webpack
+// https://www.bluematador.com/blog/how-to-share-variables-between-js-and-sass
+:export {
+  menuBackground: $menuBg;//默认背景
+  subMenuBackground: $menuSubBg;//展开内部背景颜色
+  menuColor: $menuText;//默认文字
+  menuActiveText: $menuActiveText;//选中后文字颜色
+  menuColorActive: $menuSubActiveText; //展开选中父级的文字颜色
+  subMenuHover: $menuHoverBg;//hover背景颜色
+  menuLightBackground: $base-menu-light-background;
+  sideBarWidth: $base-sidebar-width;
+  logoTitleColor: $base-logo-title-color;
+  logoLightTitleColor: $base-logo-light-title-color;
+  primaryColor: $--color-primary;
+  menuLightColor: $base-menu-light-color;
+  successColor: $--color-success;
+  dangerColor: $--color-danger;
+  infoColor: $--color-info;
+  warningColor: $--color-warning;
+}

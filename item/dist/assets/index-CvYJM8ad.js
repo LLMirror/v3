@@ -1,0 +1,1 @@
+import{a as e,o as s,c as t,e as o}from"./index-Dom6VubR.js";const a={class:"app-container"},c=o("div",{class:"title"},"企业车辆后台管理",-1),_=[c],p={__name:"index",setup(n){return e(),(r,i)=>(s(),t("div",a,_))}};export{p as default};

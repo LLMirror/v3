@@ -1,0 +1,1 @@
+import{_ as e,o as c,c as o,e as s}from"./index-Dom6VubR.js";const t={},n={class:"app-container"},_=s("h1",null,"页面2-2 隐藏页面",-1),a=[_];function r(d,i){return c(),o("div",n,a)}const f=e(t,[["render",r]]);export{f as default};

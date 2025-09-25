@@ -1,0 +1,559 @@
+{"date":"2025-09-21 15:16:00","type":"ERROR","data":"{
+  err: undefined,
+  code: -1,
+  msg: '验证码错误！！！',
+  portName: '/system/login',
+  body: {
+    name: 'admin',
+    pwd: '63f6deb737ab85677d6f11beea14a08b',
+    captcha: '3nxt'
+  },
+  query: {},
+  method: 'POST'
+}"} 
+
+{"date":"2025-09-21 17:19:21","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '数据导入成功！！！',
+  portName: '/system/importData',
+  body: {
+    tableName: 'db1',
+    data: [
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object]
+    ]
+  },
+  query: {},
+  method: 'POST'
+}"} 
+
+{"date":"2025-09-21 17:20:11","type":"ERROR","data":"{
+  err: Error: Unknown column 'cph' in 'field list'
+      at Packet.asError (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\packets\packet.js:740:17)
+      at Query.execute (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\commands\command.js:29:26)
+      at PoolConnection.handlePacket (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:475:34)
+      at PacketParser.onPacket (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:93:12)
+      at PacketParser.executeStart (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\packet_parser.js:75:16)
+      at Socket.<anonymous> (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:100:25)
+      at Socket.emit (node:events:517:28)
+      at addChunk (node:internal/streams/readable:368:12)
+      at readableAddChunk (node:internal/streams/readable:341:9)
+      at Readable.push (node:internal/streams/readable:278:10) {
+    code: 'ER_BAD_FIELD_ERROR',
+    errno: 1054,
+    sqlState: '42S22',
+    sqlMessage: "Unknown column 'cph' in 'field list'",
+    sql: "INSERT INTO `db1` (`cph`,`qzsj`,`tzsj`,`zlgs`,`zt`) VALUES ('川AA67733','45523','45594','捷凯','已退')"
+  },
+  code: -1,
+  msg: '服务器异常！',
+  portName: '/system/importData',
+  body: {
+    tableName: 'db1',
+    data: [
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object]
+    ]
+  },
+  query: {},
+  method: 'POST'
+}"} 
+
+{"date":"2025-09-21 17:20:28","type":"ERROR","data":"{
+  err: Error: Unknown column 'cph' in 'field list'
+      at Packet.asError (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\packets\packet.js:740:17)
+      at Query.execute (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\commands\command.js:29:26)
+      at PoolConnection.handlePacket (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:475:34)
+      at PacketParser.onPacket (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:93:12)
+      at PacketParser.executeStart (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\packet_parser.js:75:16)
+      at Socket.<anonymous> (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:100:25)
+      at Socket.emit (node:events:517:28)
+      at addChunk (node:internal/streams/readable:368:12)
+      at readableAddChunk (node:internal/streams/readable:341:9)
+      at Readable.push (node:internal/streams/readable:278:10) {
+    code: 'ER_BAD_FIELD_ERROR',
+    errno: 1054,
+    sqlState: '42S22',
+    sqlMessage: "Unknown column 'cph' in 'field list'",
+    sql: "INSERT INTO `db1` (`cph`,`qzsj`,`tzsj`,`zlgs`,`zt`) VALUES ('川AA67733','45523','45594','捷凯','已退')"
+  },
+  code: -1,
+  msg: '服务器异常！',
+  portName: '/system/importData',
+  body: {
+    tableName: 'db1',
+    data: [
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object]
+    ]
+  },
+  query: {},
+  method: 'POST'
+}"} 
+
+{"date":"2025-09-21 17:20:37","type":"ERROR","data":"{
+  err: Error: Unknown column 'cph' in 'field list'
+      at Packet.asError (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\packets\packet.js:740:17)
+      at Query.execute (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\commands\command.js:29:26)
+      at PoolConnection.handlePacket (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:475:34)
+      at PacketParser.onPacket (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:93:12)
+      at PacketParser.executeStart (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\packet_parser.js:75:16)
+      at Socket.<anonymous> (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:100:25)
+      at Socket.emit (node:events:517:28)
+      at addChunk (node:internal/streams/readable:368:12)
+      at readableAddChunk (node:internal/streams/readable:341:9)
+      at Readable.push (node:internal/streams/readable:278:10) {
+    code: 'ER_BAD_FIELD_ERROR',
+    errno: 1054,
+    sqlState: '42S22',
+    sqlMessage: "Unknown column 'cph' in 'field list'",
+    sql: "INSERT INTO `db1` (`cph`,`qzsj`,`tzsj`,`zlgs`,`zt`) VALUES ('川AA67733','45523','45594','捷凯','已退')"
+  },
+  code: -1,
+  msg: '服务器异常！',
+  portName: '/system/importData',
+  body: {
+    tableName: 'db1',
+    data: [
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object]
+    ]
+  },
+  query: {},
+  method: 'POST'
+}"} 
+
+{"date":"2025-09-21 17:23:54","type":"ERROR","data":"{
+  err: ReferenceError: pool is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:471:28
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:47:12),
+  code: -1,
+  msg: '服务器异常！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:24:05","type":"ERROR","data":"{
+  err: ReferenceError: pool is not defined
+      at file:///E:/%E8%B4%A2%E5%8A%A1%E5%BB%BA%E8%AE%BE/VN1.1.1/APP/router/system/index.js:471:28
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\layer.js:95:5)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\route.js:149:13)
+      at Route.dispatch (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\route.js:119:3)
+      at Layer.handle [as handle_request] (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\layer.js:95:5)
+      at E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:284:15
+      at Function.process_params (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:346:12)
+      at next (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:280:10)
+      at Function.handle (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:175:3)
+      at router (E:\财务建设\VN1.1.1\APP\node_modules\express\lib\router\index.js:47:12),
+  code: -1,
+  msg: '服务器异常！',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:25:32","type":"ERROR","data":"{
+  err: Error: Unknown column 'cph' in 'field list'
+      at Packet.asError (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\packets\packet.js:740:17)
+      at Query.execute (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\commands\command.js:29:26)
+      at PoolConnection.handlePacket (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:475:34)
+      at PacketParser.onPacket (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:93:12)
+      at PacketParser.executeStart (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\packet_parser.js:75:16)
+      at Socket.<anonymous> (E:\财务建设\VN1.1.1\APP\node_modules\mysql2\lib\base\connection.js:100:25)
+      at Socket.emit (node:events:517:28)
+      at addChunk (node:internal/streams/readable:368:12)
+      at readableAddChunk (node:internal/streams/readable:341:9)
+      at Readable.push (node:internal/streams/readable:278:10) {
+    code: 'ER_BAD_FIELD_ERROR',
+    errno: 1054,
+    sqlState: '42S22',
+    sqlMessage: "Unknown column 'cph' in 'field list'",
+    sql: "INSERT INTO `db1` (`cph`,`qzsj`,`tzsj`,`zlgs`,`zt`) VALUES ('川AA67733','45523','45594','捷凯','已退'),('川AAB4990','45523','45657','捷凯','已退'),('川AA85546','45523','45644','捷凯','已退'),('川AA62186','45523','45614','捷凯','已退'),('川AA88471','45523','45617','捷凯','已退'),('川AAY9017','45523','45561','捷凯','已退'),('川ADC4050','45523','45621','捷凯','已退'),('川AAU6709','45523','45835','捷凯','已退'),('川AAP9945','45523','45603','捷凯','已退'),('川ABU7130','45695',NULL,'捷凯','已租'),('川ABU7236','45695',NULL,'捷凯','已租'),('川ABU2352','45695',NULL,'捷凯','已租'),('川ABU3017','45695',NULL,'捷凯','已租'),('川ABU2513','45695',NULL,'捷凯','已租'),('川ABU7361','45695','45728','捷凯','已退'),('川ABU8729','45695',NULL,'捷凯','已租'),('川ABU6037','45695',NULL,'捷凯','已租'),('川ABU1735','45695',NULL,'捷凯','已租'),('川ABU6563','45695',NULL,'捷凯','已租'),('川ABU3275','45704',NULL,'捷凯','已租'),('川ABU9273','45704',NULL,'捷凯','已租'),('川ABU1521','45704',NULL,'捷凯','已租'),('川ABU7563','45704',NULL,'捷凯','已租'),('川ABU2682','45704',NULL,'捷凯','已租'),('川ABU0716','45705',NULL,'捷凯','已租'),('川ABU7381','45705',NULL,'捷凯','已租'),('川ABU2097','45705','45728','捷凯','已退'),('川ABU6607','45705',NULL,'捷凯','已租'),('川ABU5173','45705',NULL,'捷凯','已租'),('川ABU3701','45705','45728','捷凯','已退'),('川ABU2972','45705',NULL,'捷凯','已租'),('川ABU7351','45705',NULL,'捷凯','已租'),('川ABU5793','45705',NULL,'捷凯','已租'),('川ABU0573','45705',NULL,'捷凯','已租'),('川ABU5970','45706',NULL,'捷凯','已租'),('川ABU9071','45706',NULL,'捷凯','已租'),('川ABU5370','45706',NULL,'捷凯','已租'),('川ABU6993','45706',NULL,'捷凯','已租'),('川ABU2735','45706',NULL,'捷凯','已租'),('川ABU0531','45706',NULL,'捷凯','已租'),('川ABU6302','45706',NULL,'捷凯','已租'),('川ABU6083','45706',NULL,'捷凯','已租'),('川ABU3127','45706',NULL,'捷凯','已租'),('川ABU9275','45706',NULL,'捷凯','已租'),('川ABU5320','45706',NULL,'捷凯','已租'),('川ABU6316','45706',NULL,'捷凯','已租'),('川ABU5607','45706',NULL,'捷凯','已租'),('川ABU7153','45706',NULL,'捷凯','已租'),('川ABU1582','45706',NULL,'捷凯','已租'),('川ABU0901','45706',NULL,'捷凯','已租'),('川ABU5910','45706',NULL,'捷凯','已租'),('川ABU6135','45706',NULL,'捷凯','已租'),('川ABU2605','45706',NULL,'捷凯','已租'),('川ABU2109','45706',NULL,'捷凯','已租'),('川ABU2693','45707',NULL,'捷凯','已租'),('川ABU5957','45707',NULL,'捷凯','已租'),('川ABU6209','45707',NULL,'捷凯','已租'),('川ABU8012','45707',NULL,'捷凯','已租'),('川ABU0449','45707',NULL,'捷凯','已租'),('川ABU2531','45707',NULL,'捷凯','已租'),('川ABU7230','45707','45728','捷凯','已退'),('川ABU6310','45707',NULL,'捷凯','已租'),('川ABU0749','45707',NULL,'捷凯','已租'),('川ABU6537','45707',NULL,'捷凯','已租'),('川ABU0620','45712',NULL,'捷凯','已租'),('川ABU3753','45712',NULL,'捷凯','已租'),('川ABU6269','45712',NULL,'捷凯','已租'),('川ABU3072','45712',NULL,'捷凯','已租'),('川ABU0935','45712',NULL,'捷凯','已租'),('川ABU1291','45713',NULL,'捷凯','已租'),('川ABU1251','45713',NULL,'捷凯','已租'),('川ABU8230','45713',NULL,'捷凯','已租'),('川ABU1092','45713',NULL,'捷凯','已租'),('川ABU7631','45713',NULL,'捷凯','已租'),('川ABU7059','45716',NULL,'捷凯','已租'),('川ABU8932','45716',NULL,'捷凯','已租'),('川ABU5763','45716',NULL,'捷凯','已租'),('川ABU2310','45716',NULL,'捷凯','已租'),('川ABU1307','45716',NULL,'捷凯','已租'),('川ABU8715','45718',NULL,'捷凯','已租'),('川ABU6397','45718',NULL,'捷凯','已租'),('川ABU3920','45718',NULL,'捷凯','已租'),('川ABU0951','45718','45728','捷凯','已退'),('川ABU3952','45718',NULL,'捷凯','已租'),('川AC17556','45793',NULL,'捷凯','已租'),('川AC35380','45793',NULL,'捷凯','已租'),('川AC50069','45793',NULL,'捷凯','已租'),('川AC51959','45793',NULL,'捷凯','已租'),('川AC56770','45793',NULL,'捷凯','已租'),('川AC56811','45793',NULL,'捷凯','已租'),('川AC82105','45793',NULL,'捷凯','已租'),('川AC93912','45793',NULL,'捷凯','已租'),('川AC95859','45793',NULL,'捷凯','已租'),('川AD71073','45793',NULL,'捷凯','已租'),('川AC37750','45806',NULL,'捷凯','已租'),('川AC07550','45806',NULL,'捷凯','已租'),('川AC33176','45806',NULL,'捷凯','已租'),('川AC53212','45806',NULL,'捷凯','已租'),('川ADR3871','45806',NULL,'捷凯','已租'),('川AC92302','45808',NULL,'捷凯','已租')"
+  },
+  code: -1,
+  msg: '服务器异常！',
+  portName: '/system/importData',
+  body: {
+    tableName: 'db1',
+    data: [
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object]
+    ]
+  },
+  query: {},
+  method: 'POST'
+}"} 
+
+{"date":"2025-09-21 17:27:02","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:27:06","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:28:37","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:37:00","type":"ERROR","data":"{
+  err: Error: Data truncated for column 'id' at row 1
+      at Packet.asError (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\packets\packet.js:740:17)
+      at Query.execute (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\commands\command.js:29:26)
+      at PoolConnection.handlePacket (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\base\connection.js:475:34)
+      at PacketParser.onPacket (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\base\connection.js:93:12)
+      at PacketParser.executeStart (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\packet_parser.js:75:16)
+      at Socket.<anonymous> (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\base\connection.js:100:25)
+      at Socket.emit (node:events:517:28)
+      at addChunk (node:internal/streams/readable:368:12)
+      at readableAddChunk (node:internal/streams/readable:341:9)
+      at Readable.push (node:internal/streams/readable:278:10) {
+    code: 'WARN_DATA_TRUNCATED',
+    errno: 1265,
+    sqlState: '01000',
+    sqlMessage: "Data truncated for column 'id' at row 1",
+    sql: "INSERT INTO `db1` (`cph`,`qzsj`,`tzsj`,`zlgs`,`zt`,id,operator,create_time) VALUES ('川AA67733','45523','45594','捷凯','已退','1e3ce236-6cbb-45f0-863d-f441be053634','admin','2025-09-21 17:37:00.177'),('川AAB4990','45523','45657','捷凯','已退','66d98428-6e01-4137-95be-4740faeeab8e','admin','2025-09-21 17:37:00.177'),('川AA85546','45523','45644','捷凯','已退','c43426bb-61e6-45c0-a309-729e2c3852d7','admin','2025-09-21 17:37:00.177'),('川AA62186','45523','45614','捷凯','已退','bb8dc43d-a7bf-4a95-8b5b-2d74a4d04e27','admin','2025-09-21 17:37:00.177'),('川AA88471','45523','45617','捷凯','已退','955caa26-1b78-405e-9917-55f5437bcd61','admin','2025-09-21 17:37:00.177'),('川AAY9017','45523','45561','捷凯','已退','094852c1-e21c-4d4a-ba90-12f490e916d3','admin','2025-09-21 17:37:00.177'),('川ADC4050','45523','45621','捷凯','已退','81ca7472-4db2-47bc-ad07-7943b92034ea','admin','2025-09-21 17:37:00.177'),('川AAU6709','45523','45835','捷凯','已退','d7c7b736-9dde-49cb-a6b0-b1547bf2dbe3','admin','2025-09-21 17:37:00.177'),('川AAP9945','45523','45603','捷凯','已退','b517321c-63e1-4cfb-8e17-0ea839efaaa8','admin','2025-09-21 17:37:00.177'),('川ABU7130','45695',NULL,'捷凯','已租','28f2cf4a-e508-4b3f-83f7-b71af0f0fe3a','admin','2025-09-21 17:37:00.177'),('川ABU7236','45695',NULL,'捷凯','已租','5f820b23-4ae0-475a-a730-8d1910b16998','admin','2025-09-21 17:37:00.177'),('川ABU2352','45695',NULL,'捷凯','已租','3e9d013b-2069-4845-82c5-094f098cec67','admin','2025-09-21 17:37:00.177'),('川ABU3017','45695',NULL,'捷凯','已租','f2022c99-ed09-46bc-9dcb-fbd5f9d4357c','admin','2025-09-21 17:37:00.177'),('川ABU2513','45695',NULL,'捷凯','已租','ae4e5980-cf34-4525-82e4-58045d8a73af','admin','2025-09-21 17:37:00.177'),('川ABU7361','45695','45728','捷凯','已退','7a65ff11-f359-42e9-93a8-a9a9d8b1f3fb','admin','2025-09-21 17:37:00.177'),('川ABU8729','45695',NULL,'捷凯','已租','178fa1fb-0e74-4b63-8f14-aea466fb2aae','admin','2025-09-21 17:37:00.177'),('川ABU6037','45695',NULL,'捷凯','已租','83218bf3-e43b-4d0b-8cd4-d741c92957fd','admin','2025-09-21 17:37:00.177'),('川ABU1735','45695',NULL,'捷凯','已租','774b936a-9ffb-45f6-8ce4-12dc1907ddb1','admin','2025-09-21 17:37:00.177'),('川ABU6563','45695',NULL,'捷凯','已租','c0face20-5f03-4b28-9c0b-10db0bc2ca2e','admin','2025-09-21 17:37:00.177'),('川ABU3275','45704',NULL,'捷凯','已租','2d9c297d-601e-4df5-9523-0e874a5e3664','admin','2025-09-21 17:37:00.177'),('川ABU9273','45704',NULL,'捷凯','已租','fcb23344-9593-480e-bd60-1c736dff4f74','admin','2025-09-21 17:37:00.177'),('川ABU1521','45704',NULL,'捷凯','已租','ef024400-a4c9-46b1-8f16-f545674d2fbf','admin','2025-09-21 17:37:00.177'),('川ABU7563','45704',NULL,'捷凯','已租','bdbf7f4e-b641-4d93-a451-4b2e38f3023e','admin','2025-09-21 17:37:00.177'),('川ABU2682','45704',NULL,'捷凯','已租','71e7e344-9c87-4d5e-add9-fab71a6c4c24','admin','2025-09-21 17:37:00.177'),('川ABU0716','45705',NULL,'捷凯','已租','e51cfbc3-de10-411b-9e3f-32ffbc44f676','admin','2025-09-21 17:37:00.177'),('川ABU7381','45705',NULL,'捷凯','已租','4ef8a5ed-ba08-4c1f-a881-7b60e9ad1488','admin','2025-09-21 17:37:00.177'),('川ABU2097','45705','45728','捷凯','已退','e9ffcac6-f687-4b90-9c40-5433e2afa1a2','admin','2025-09-21 17:37:00.177'),('川ABU6607','45705',NULL,'捷凯','已租','1444a477-c5c6-4888-8f5f-70b7e8e2591e','admin','2025-09-21 17:37:00.177'),('川ABU5173','45705',NULL,'捷凯','已租','6405ce4c-d161-41e4-bfd3-0f33c03f99f0','admin','2025-09-21 17:37:00.177'),('川ABU3701','45705','45728','捷凯','已退','7881f8d0-3af6-45cc-8eee-6d685917bd90','admin','2025-09-21 17:37:00.177'),('川ABU2972','45705',NULL,'捷凯','已租','f6c0aafc-6b00-4f72-be78-2c04e0d15564','admin','2025-09-21 17:37:00.177'),('川ABU7351','45705',NULL,'捷凯','已租','0f762679-9f25-4499-859c-69dde9bd650b','admin','2025-09-21 17:37:00.177'),('川ABU5793','45705',NULL,'捷凯','已租','9060ea19-2e6d-41be-979c-349bb414bd59','admin','2025-09-21 17:37:00.177'),('川ABU0573','45705',NULL,'捷凯','已租','4ebc21fa-611b-4859-8eb1-7a355a790739','admin','2025-09-21 17:37:00.177'),('川ABU5970','45706',NULL,'捷凯','已租','4beeca22-4643-49ff-a1ad-8b792845a742','admin','2025-09-21 17:37:00.177'),('川ABU9071','45706',NULL,'捷凯','已租','90bc31a1-3265-49d4-97a8-560325bf9337','admin','2025-09-21 17:37:00.177'),('川ABU5370','45706',NULL,'捷凯','已租','48a36094-fcca-4975-925c-50f53f696b00','admin','2025-09-21 17:37:00.177'),('川ABU6993','45706',NULL,'捷凯','已租','1ae52966-e1c3-4ddd-893a-ed3b6b138aee','admin','2025-09-21 17:37:00.177'),('川ABU2735','45706',NULL,'捷凯','已租','17389509-6fb2-473c-8bf0-d84c6925658c','admin','2025-09-21 17:37:00.177'),('川ABU0531','45706',NULL,'捷凯','已租','fbd9b7fc-3c1d-486b-a2e1-f5befa0c2580','admin','2025-09-21 17:37:00.177'),('川ABU6302','45706',NULL,'捷凯','已租','bfcd15c8-e607-44ce-b932-a6e6aacedebb','admin','2025-09-21 17:37:00.177'),('川ABU6083','45706',NULL,'捷凯','已租','c743f20e-4d2f-4fed-8066-49aad54dff33','admin','2025-09-21 17:37:00.177'),('川ABU3127','45706',NULL,'捷凯','已租','9cc7f446-9547-4c41-aa3e-a2860def21d0','admin','2025-09-21 17:37:00.177'),('川ABU9275','45706',NULL,'捷凯','已租','188025df-a429-4bf6-82fd-3f60ee50e7a6','admin','2025-09-21 17:37:00.177'),('川ABU5320','45706',NULL,'捷凯','已租','ac44695d-3186-4b20-b76b-b4936c93e8ff','admin','2025-09-21 17:37:00.177'),('川ABU6316','45706',NULL,'捷凯','已租','fcfdadab-f06f-48e9-9817-4f850981f97a','admin','2025-09-21 17:37:00.177'),('川ABU5607','45706',NULL,'捷凯','已租','8c8c353f-e4e5-4732-9dea-eb064c3fb1d1','admin','2025-09-21 17:37:00.177'),('川ABU7153','45706',NULL,'捷凯','已租','339d3746-2b55-4168-bd9a-9c06e5b9f889','admin','2025-09-21 17:37:00.177'),('川ABU1582','45706',NULL,'捷凯','已租','0e90839f-4026-4f8e-9f09-91164e253db2','admin','2025-09-21 17:37:00.177'),('川ABU0901','45706',NULL,'捷凯','已租','bcedc49f-3c4b-49da-83e9-6443747f6db8','admin','2025-09-21 17:37:00.177'),('川ABU5910','45706',NULL,'捷凯','已租','d507c99d-e863-4cfd-b0fa-9f43a923960f','admin','2025-09-21 17:37:00.177'),('川ABU6135','45706',NULL,'捷凯','已租','2cb0ac85-fa26-4296-a731-4bea2303b45c','admin','2025-09-21 17:37:00.177'),('川ABU2605','45706',NULL,'捷凯','已租','5aba8eb7-6dec-4416-a098-8b50d8bf5976','admin','2025-09-21 17:37:00.177'),('川ABU2109','45706',NULL,'捷凯','已租','1eb9ce13-de22-42ae-adfc-3116cd14e924','admin','2025-09-21 17:37:00.177'),('川ABU2693','45707',NULL,'捷凯','已租','6f3be68b-c01a-4a81-9d45-e7b12c50d9a0','admin','2025-09-21 17:37:00.177'),('川ABU5957','45707',NULL,'捷凯','已租','7ad52ae4-b1c0-4d12-9b55-8845d96f2958','admin','2025-09-21 17:37:00.177'),('川ABU6209','45707',NULL,'捷凯','已租','e8e81078-09bc-46bf-8699-38eecd467a57','admin','2025-09-21 17:37:00.177'),('川ABU8012','45707',NULL,'捷凯','已租','8f1b9f1d-e8da-463c-a10f-81b3c10f3500','admin','2025-09-21 17:37:00.177'),('川ABU0449','45707',NULL,'捷凯','已租','e8d36725-b9e6-45bc-82e2-1cccbaf49b61','admin','2025-09-21 17:37:00.177'),('川ABU2531','45707',NULL,'捷凯','已租','cbe6895d-dae6-4a4c-a026-ebff08e106e2','admin','2025-09-21 17:37:00.177'),('川ABU7230','45707','45728','捷凯','已退','327852c5-8cb2-4a11-8c1d-b29b04ad2cf5','admin','2025-09-21 17:37:00.177'),('川ABU6310','45707',NULL,'捷凯','已租','4a74cc6d-b379-48da-a7c1-e312df0b24c3','admin','2025-09-21 17:37:00.177'),('川ABU0749','45707',NULL,'捷凯','已租','9175208d-3a63-486b-ad25-8972d7dc66df','admin','2025-09-21 17:37:00.177'),('川ABU6537','45707',NULL,'捷凯','已租','d8e7c465-43a7-4fd8-945a-79fe18d50255','admin','2025-09-21 17:37:00.177'),('川ABU0620','45712',NULL,'捷凯','已租','f64ae8bf-06c1-4750-91e8-c94a8dce7149','admin','2025-09-21 17:37:00.177'),('川ABU3753','45712',NULL,'捷凯','已租','6d9ae845-adb8-4e6e-ab73-a40c05af119d','admin','2025-09-21 17:37:00.177'),('川ABU6269','45712',NULL,'捷凯','已租','59477547-d798-4a1b-b525-811da5ef4d7f','admin','2025-09-21 17:37:00.177'),('川ABU3072','45712',NULL,'捷凯','已租','c9b4be55-c229-4c21-9bd6-2c01bff8e5ab','admin','2025-09-21 17:37:00.177'),('川ABU0935','45712',NULL,'捷凯','已租','76e9ff81-2c21-4881-9bbc-7a3951c64fc3','admin','2025-09-21 17:37:00.177'),('川ABU1291','45713',NULL,'捷凯','已租','e6dc0a95-ca01-4a08-b8b6-3591b9f70657','admin','2025-09-21 17:37:00.177'),('川ABU1251','45713',NULL,'捷凯','已租','86910e87-be20-4328-94ca-3cb6c59a71bb','admin','2025-09-21 17:37:00.177'),('川ABU8230','45713',NULL,'捷凯','已租','a328d16e-757f-4d3a-a5f6-ffcf4a1d319b','admin','2025-09-21 17:37:00.177'),('川ABU1092','45713',NULL,'捷凯','已租','449b1181-c7d9-4b44-893a-c33c49e1b368','admin','2025-09-21 17:37:00.177'),('川ABU7631','45713',NULL,'捷凯','已租','1af8e306-9753-4351-a9af-24aa77c880ec','admin','2025-09-21 17:37:00.177'),('川ABU7059','45716',NULL,'捷凯','已租','9a93079f-0873-4d5b-93e3-460ae1b76f87','admin','2025-09-21 17:37:00.177'),('川ABU8932','45716',NULL,'捷凯','已租','483cfef1-3e3b-4efc-9203-a07249691dce','admin','2025-09-21 17:37:00.177'),('川ABU5763','45716',NULL,'捷凯','已租','bd2c7cce-6881-44b0-816d-004429670d46','admin','2025-09-21 17:37:00.177'),('川ABU2310','45716',NULL,'捷凯','已租','72a363ce-c77c-46aa-b0de-c95dae293b2d','admin','2025-09-21 17:37:00.177'),('川ABU1307','45716',NULL,'捷凯','已租','cc1d841d-d1af-4fee-bb39-f0d4d8dfc920','admin','2025-09-21 17:37:00.177'),('川ABU8715','45718',NULL,'捷凯','已租','b0c8fd71-2abc-4891-8178-a23bb62dd9de','admin','2025-09-21 17:37:00.177'),('川ABU6397','45718',NULL,'捷凯','已租','57811916-90dc-4dc6-b2ab-a311b7e0255a','admin','2025-09-21 17:37:00.177'),('川ABU3920','45718',NULL,'捷凯','已租','31470467-eb3a-47e9-9dd0-2c0e18b9c68f','admin','2025-09-21 17:37:00.177'),('川ABU0951','45718','45728','捷凯','已退','49787351-ce94-4dfc-a39d-977af676d45e','admin','2025-09-21 17:37:00.177'),('川ABU3952','45718',NULL,'捷凯','已租','b7ba25b6-7c85-44e3-8d28-0c9d0d049027','admin','2025-09-21 17:37:00.177'),('川AC17556','45793',NULL,'捷凯','已租','cf2deec0-0170-4a3a-96c6-1eb2048bec4b','admin','2025-09-21 17:37:00.177'),('川AC35380','45793',NULL,'捷凯','已租','60cc10f6-f7fc-4afe-8d3e-10c38f2622ac','admin','2025-09-21 17:37:00.177'),('川AC50069','45793',NULL,'捷凯','已租','28fc4899-2b69-481f-a769-bbc86525c688','admin','2025-09-21 17:37:00.177'),('川AC51959','45793',NULL,'捷凯','已租','4fc212f9-e739-4c6c-ba51-0d37d1da8953','admin','2025-09-21 17:37:00.177'),('川AC56770','45793',NULL,'捷凯','已租','53afc3b2-0187-4fa3-b4a6-f231179d8a36','admin','2025-09-21 17:37:00.177'),('川AC56811','45793',NULL,'捷凯','已租','8871e9c1-a2b0-458a-b6c9-b625580f85e3','admin','2025-09-21 17:37:00.177'),('川AC82105','45793',NULL,'捷凯','已租','a94bf266-bfba-4c81-9f81-5eead"... 1024 more characters
+  },
+  code: -1,
+  msg: '服务器异常！',
+  portName: '/system/importData',
+  body: {
+    tableName: 'db1',
+    data: [
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object]
+    ],
+    operator: 'admin'
+  },
+  query: {},
+  method: 'POST'
+}"} 
+
+{"date":"2025-09-21 17:37:02","type":"ERROR","data":"{
+  err: undefined,
+  code: 203,
+  msg: '登陆失效，请重新登陆！',
+  portName: '/system/importData',
+  body: {},
+  query: {},
+  method: 'GET'
+}"} 
+
+{"date":"2025-09-21 17:40:13","type":"ERROR","data":"{
+  err: Error: Incorrect integer value: 'ce66d4b9-028c-4731-8cfa-287566c141ac' for column 'id' at row 1
+      at Packet.asError (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\packets\packet.js:740:17)
+      at Query.execute (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\commands\command.js:29:26)
+      at PoolConnection.handlePacket (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\base\connection.js:475:34)
+      at PacketParser.onPacket (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\base\connection.js:93:12)
+      at PacketParser.executeStart (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\packet_parser.js:75:16)
+      at Socket.<anonymous> (E:\财务建设\VN1.1.1\APP\node_modules\.pnpm\mysql2@3.15.0\node_modules\mysql2\lib\base\connection.js:100:25)
+      at Socket.emit (node:events:517:28)
+      at addChunk (node:internal/streams/readable:368:12)
+      at readableAddChunk (node:internal/streams/readable:341:9)
+      at Readable.push (node:internal/streams/readable:278:10) {
+    code: 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD',
+    errno: 1366,
+    sqlState: 'HY000',
+    sqlMessage: "Incorrect integer value: 'ce66d4b9-028c-4731-8cfa-287566c141ac' for column 'id' at row 1",
+    sql: "INSERT INTO `db1` (`cph`,`qzsj`,`tzsj`,`zlgs`,`zt`,`id`,`operator`,`create_time`) VALUES ('川AA67733','45523','45594','捷凯','已退','ce66d4b9-028c-4731-8cfa-287566c141ac','admin','2025-09-21 09:40:13'),('川AAB4990','45523','45657','捷凯','已退','5e0d25ed-37aa-4a12-b748-f7a1c8730534','admin','2025-09-21 09:40:13'),('川AA85546','45523','45644','捷凯','已退','69f03c48-9a18-4486-9304-fa94ee956fda','admin','2025-09-21 09:40:13'),('川AA62186','45523','45614','捷凯','已退','d1ad3b9f-c202-4ad5-b657-de90d41a54d5','admin','2025-09-21 09:40:13'),('川AA88471','45523','45617','捷凯','已退','d13f0781-9340-4fcf-9ddb-cadf114610fa','admin','2025-09-21 09:40:13'),('川AAY9017','45523','45561','捷凯','已退','8cca1c74-c204-4429-b733-4aa800dd4a3e','admin','2025-09-21 09:40:13'),('川ADC4050','45523','45621','捷凯','已退','059a015c-ceb0-49d1-891a-178c83b07bbb','admin','2025-09-21 09:40:13'),('川AAU6709','45523','45835','捷凯','已退','18972219-8cc4-4b97-b2f8-a284f6353cf4','admin','2025-09-21 09:40:13'),('川AAP9945','45523','45603','捷凯','已退','c85237b5-9e62-43d1-8fb2-60b1fb3ec9c1','admin','2025-09-21 09:40:13'),('川ABU7130','45695',NULL,'捷凯','已租','f57325de-8a19-44a6-b5aa-32b4983a5755','admin','2025-09-21 09:40:13'),('川ABU7236','45695',NULL,'捷凯','已租','7faacfc5-4b2f-488b-a11e-fe92c9f17ad8','admin','2025-09-21 09:40:13'),('川ABU2352','45695',NULL,'捷凯','已租','29ace6fb-3146-4227-af3d-3a198b43cb5d','admin','2025-09-21 09:40:13'),('川ABU3017','45695',NULL,'捷凯','已租','e33ddd8c-7342-4edb-859c-5f827e12a04c','admin','2025-09-21 09:40:13'),('川ABU2513','45695',NULL,'捷凯','已租','3e9bf736-bbba-4b54-8db2-55139a90baff','admin','2025-09-21 09:40:13'),('川ABU7361','45695','45728','捷凯','已退','9a88320f-8e41-4692-bed2-82a34931161a','admin','2025-09-21 09:40:13'),('川ABU8729','45695',NULL,'捷凯','已租','bdd9a7c5-691a-430a-beab-5118dc58db84','admin','2025-09-21 09:40:13'),('川ABU6037','45695',NULL,'捷凯','已租','28f75c1a-1694-43e9-aa41-3ffa054c8c3b','admin','2025-09-21 09:40:13'),('川ABU1735','45695',NULL,'捷凯','已租','2a073e8f-8275-4926-a6f0-da1ca9ae73fd','admin','2025-09-21 09:40:13'),('川ABU6563','45695',NULL,'捷凯','已租','128ae4b0-d591-412b-aeae-780261cdd23c','admin','2025-09-21 09:40:13'),('川ABU3275','45704',NULL,'捷凯','已租','46401ae0-691d-4211-b565-23b66acadaa5','admin','2025-09-21 09:40:13'),('川ABU9273','45704',NULL,'捷凯','已租','ccbca9d4-1199-4276-8cb6-d734ec3c6647','admin','2025-09-21 09:40:13'),('川ABU1521','45704',NULL,'捷凯','已租','1abc0179-046d-4aa1-a6f4-0d507d8ca54b','admin','2025-09-21 09:40:13'),('川ABU7563','45704',NULL,'捷凯','已租','e1db3954-385f-4e54-812a-4f0dc7b3a963','admin','2025-09-21 09:40:13'),('川ABU2682','45704',NULL,'捷凯','已租','4e85eb38-cf98-45ae-af0d-1f66c98456dd','admin','2025-09-21 09:40:13'),('川ABU0716','45705',NULL,'捷凯','已租','410f68bd-342f-447a-b581-9c545f05ab15','admin','2025-09-21 09:40:13'),('川ABU7381','45705',NULL,'捷凯','已租','5c95d984-ecc5-4c40-870d-96c31f3b0ef0','admin','2025-09-21 09:40:13'),('川ABU2097','45705','45728','捷凯','已退','bc99d1e9-cc65-48e7-b8bc-f9b4e88bcff3','admin','2025-09-21 09:40:13'),('川ABU6607','45705',NULL,'捷凯','已租','ace150e3-61cb-444f-bf9b-a6c8002d9f93','admin','2025-09-21 09:40:13'),('川ABU5173','45705',NULL,'捷凯','已租','3a945b81-0b5e-40c4-9e5b-ebdbc156a437','admin','2025-09-21 09:40:13'),('川ABU3701','45705','45728','捷凯','已退','a55cb89d-e248-4a16-8009-0d15ad891c8f','admin','2025-09-21 09:40:13'),('川ABU2972','45705',NULL,'捷凯','已租','c61ff0e3-bd13-4821-9c1f-71054e1d3429','admin','2025-09-21 09:40:13'),('川ABU7351','45705',NULL,'捷凯','已租','b60b5a50-34e3-41b4-92e8-1b4952ceca0a','admin','2025-09-21 09:40:13'),('川ABU5793','45705',NULL,'捷凯','已租','0dc4e452-212d-4150-9ee6-7d7eb9806edd','admin','2025-09-21 09:40:13'),('川ABU0573','45705',NULL,'捷凯','已租','3240aa6f-480e-44d2-a251-74a904ec8de6','admin','2025-09-21 09:40:13'),('川ABU5970','45706',NULL,'捷凯','已租','f67a519b-b339-40ee-a639-c6424fcd3fc4','admin','2025-09-21 09:40:13'),('川ABU9071','45706',NULL,'捷凯','已租','0950d600-63bd-47af-992b-dbb9e747a6c8','admin','2025-09-21 09:40:13'),('川ABU5370','45706',NULL,'捷凯','已租','71c35f69-0e1a-4777-a483-71e75b10a16f','admin','2025-09-21 09:40:13'),('川ABU6993','45706',NULL,'捷凯','已租','f6151af3-589d-496f-86ea-846f646aa54f','admin','2025-09-21 09:40:13'),('川ABU2735','45706',NULL,'捷凯','已租','ee2358c6-f9cc-472d-a331-b12001c349c4','admin','2025-09-21 09:40:13'),('川ABU0531','45706',NULL,'捷凯','已租','99884cd0-9af5-44b7-aee7-88fd6ae98108','admin','2025-09-21 09:40:13'),('川ABU6302','45706',NULL,'捷凯','已租','3c0603bc-4d36-489e-8c78-06471a354781','admin','2025-09-21 09:40:13'),('川ABU6083','45706',NULL,'捷凯','已租','e6012399-016c-4797-802c-6f5f65749f1b','admin','2025-09-21 09:40:13'),('川ABU3127','45706',NULL,'捷凯','已租','a59b1f56-27db-45af-82c9-ab165fdd98c3','admin','2025-09-21 09:40:13'),('川ABU9275','45706',NULL,'捷凯','已租','94a8f6d3-201b-44be-9074-3c39ee3599c1','admin','2025-09-21 09:40:13'),('川ABU5320','45706',NULL,'捷凯','已租','14d11e16-65f5-4a3b-8af6-82378e7fdfe4','admin','2025-09-21 09:40:13'),('川ABU6316','45706',NULL,'捷凯','已租','286e5d92-f746-4720-8c84-da9dfa9e17b4','admin','2025-09-21 09:40:13'),('川ABU5607','45706',NULL,'捷凯','已租','a1483881-ffcb-48e1-ae2c-e91cc699adf5','admin','2025-09-21 09:40:13'),('川ABU7153','45706',NULL,'捷凯','已租','174b04f3-db0a-44a2-a816-4f1df5887fd0','admin','2025-09-21 09:40:13'),('川ABU1582','45706',NULL,'捷凯','已租','5043868f-6e5c-42b3-940e-8c65caf56665','admin','2025-09-21 09:40:13'),('川ABU0901','45706',NULL,'捷凯','已租','492d8646-b9c8-4e49-899d-609d141ff24f','admin','2025-09-21 09:40:13'),('川ABU5910','45706',NULL,'捷凯','已租','c52d6c4b-29c8-460d-b568-6bed594d09c1','admin','2025-09-21 09:40:13'),('川ABU6135','45706',NULL,'捷凯','已租','2e4433a4-e4d8-422b-8fb7-d55b2e420803','admin','2025-09-21 09:40:13'),('川ABU2605','45706',NULL,'捷凯','已租','9510f864-b1c0-4547-8aaa-2df33411585d','admin','2025-09-21 09:40:13'),('川ABU2109','45706',NULL,'捷凯','已租','a3c91e64-76fa-4f2f-adaf-bc8a0d81f57b','admin','2025-09-21 09:40:13'),('川ABU2693','45707',NULL,'捷凯','已租','0fc12c66-9ef4-415f-b609-fc249bc42b35','admin','2025-09-21 09:40:13'),('川ABU5957','45707',NULL,'捷凯','已租','f707efcd-1424-4e12-928d-65685ba0957f','admin','2025-09-21 09:40:13'),('川ABU6209','45707',NULL,'捷凯','已租','82aebf6a-ab7e-4cef-b964-2e361eabfc8f','admin','2025-09-21 09:40:13'),('川ABU8012','45707',NULL,'捷凯','已租','61b434fd-8b86-43a6-b69b-ba5776fe8269','admin','2025-09-21 09:40:13'),('川ABU0449','45707',NULL,'捷凯','已租','83c18316-7b9e-4f42-b162-52185547583f','admin','2025-09-21 09:40:13'),('川ABU2531','45707',NULL,'捷凯','已租','e2ff31da-a70e-4bbd-b1fc-523a327c262e','admin','2025-09-21 09:40:13'),('川ABU7230','45707','45728','捷凯','已退','5b3a2586-c434-40cb-a28e-472740f21dc1','admin','2025-09-21 09:40:13'),('川ABU6310','45707',NULL,'捷凯','已租','611c9baa-721b-450e-b228-aa65f0b068f5','admin','2025-09-21 09:40:13'),('川ABU0749','45707',NULL,'捷凯','已租','3c30b641-6d70-4398-a845-95320661d3ea','admin','2025-09-21 09:40:13'),('川ABU6537','45707',NULL,'捷凯','已租','dbe33833-fe5a-477b-8b79-00f89321fd6f','admin','2025-09-21 09:40:13'),('川ABU0620','45712',NULL,'捷凯','已租','66a46684-27bc-457b-9aa5-14d0c15ff3f0','admin','2025-09-21 09:40:13'),('川ABU3753','45712',NULL,'捷凯','已租','63294bb2-ca4d-4cd0-a9b9-a003448cfee1','admin','2025-09-21 09:40:13'),('川ABU6269','45712',NULL,'捷凯','已租','06d13991-c571-4de1-8793-77b5b5f2aaa2','admin','2025-09-21 09:40:13'),('川ABU3072','45712',NULL,'捷凯','已租','9a15758b-f5e3-4c64-ab73-f67dc60a6760','admin','2025-09-21 09:40:13'),('川ABU0935','45712',NULL,'捷凯','已租','6d424fec-f9bb-4220-8d1a-f618e788213c','admin','2025-09-21 09:40:13'),('川ABU1291','45713',NULL,'捷凯','已租','28f4be57-6d52-4bbc-b8b0-8e9c6d43aef8','admin','2025-09-21 09:40:13'),('川ABU1251','45713',NULL,'捷凯','已租','6ccc2d4a-a63b-4c31-a55c-e0bbc7a02065','admin','2025-09-21 09:40:13'),('川ABU8230','45713',NULL,'捷凯','已租','120f8e34-11f7-458a-bac8-3b1c700d50b2','admin','2025-09-21 09:40:13'),('川ABU1092','45713',NULL,'捷凯','已租','96a83625-2e89-42f2-8e01-d7d0f0510ed3','admin','2025-09-21 09:40:13'),('川ABU7631','45713',NULL,'捷凯','已租','22fd199c-9593-4a8a-b261-8d4fd32c464c','admin','2025-09-21 09:40:13'),('川ABU7059','45716',NULL,'捷凯','已租','f2eb6988-dea6-4787-a334-32dd238f4ad7','admin','2025-09-21 09:40:13'),('川ABU8932','45716',NULL,'捷凯','已租','40912353-c680-4ac8-8049-a12904b6195d','admin','2025-09-21 09:40:13'),('川ABU5763','45716',NULL,'捷凯','已租','bf9b3281-1bbc-44ba-a57f-a3dc66873944','admin','2025-09-21 09:40:13'),('川ABU2310','45716',NULL,'捷凯','已租','c562c6f4-3d1e-4dde-92e9-d16a97b1ef67','admin','2025-09-21 09:40:13'),('川ABU1307','45716',NULL,'捷凯','已租','27525c65-4e95-443f-9635-4d55ca0df333','admin','2025-09-21 09:40:13'),('川ABU8715','45718',NULL,'捷凯','已租','dc4af912-b477-406a-b2b9-9def323ed292','admin','2025-09-21 09:40:13'),('川ABU6397','45718',NULL,'捷凯','已租','b071b7b5-9e41-4176-9362-b8aeb5f0c6c5','admin','2025-09-21 09:40:13'),('川ABU3920','45718',NULL,'捷凯','已租','f00b1774-ba0e-48b6-b5f9-a50c5103f8c9','admin','2025-09-21 09:40:13'),('川ABU0951','45718','45728','捷凯','已退','008fcca9-a971-47e3-81c1-74525f32e2e0','admin','2025-09-21 09:40:13'),('川ABU3952','45718',NULL,'捷凯','已租','9b7d0051-0570-4896-9ed1-95f55be1fa8b','admin','2025-09-21 09:40:13'),('川AC17556','45793',NULL,'捷凯','已租','57a754b0-a961-45bd-a864-231f65c1b745','admin','2025-09-21 09:40:13'),('川AC35380','45793',NULL,'捷凯','已租','20db82c5-9a26-489a-ba81-23d1a9127c89','admin','2025-09-21 09:40:13'),('川AC50069','45793',NULL,'捷凯','已租','ccf1a202-3549-444e-98a5-3b8c0f76b44a','admin','2025-09-21 09:40:13'),('川AC51959','45793',NULL,'捷凯','已租','620a552a-7399-4783-a4fd-1b28f9505faa','admin','2025-09-21 09:40:13'),('川AC56770','45793',NULL,'捷凯','已租','6a40738a-487d-4ac8-b095-f26f0721064c','admin','2025-09-21 09:40:13'),('川AC56811','45793',NULL,'捷凯','已租','c2229d3c-e960-494c-a383-966d1fd4aac9','admin','2025-09-21 09:40:13'),('川AC82105','45793',NULL,'捷凯','已租','847d9900-bd08-4b33-a8c6-e3758336f8f6','admin','2025-09-21 09:40:13'),('川AC93912','45793',NULL,'捷凯','已租','357dd305-a911-45b6-a979-fc4184d3a804','admin','2025-09-21 09:40:13'),('川AC95859','45793',NULL,'捷凯','已租','3fef50f3-0038-4cb4-8d45-58b30b2d307c','admin','2025-09-21 09:40:13'),('川AD71073','45793',NULL,'捷凯','已租','eb6ca385-d30d-4c7f-830e-671c0919cbb5','admin','2025-09-21 09:40:13')"... 630 more characters
+  },
+  code: -1,
+  msg: '服务器异常！',
+  portName: '/system/importData',
+  body: {
+    tableName: 'db1',
+    data: [
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object], [Object], [Object],
+      [Object], [Object], [Object], [Object]
+    ],
+    operator: 'admin'
+  },
+  query: {},
+  method: 'POST'
+}"} 
+
+{"date":"2025-09-21 17:40:34","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:42:11","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:48:01","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:49:11","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:50:12","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:53:15","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:55:56","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:56:23","type":"ERROR","data":"{
+  err: undefined,
+  code: 0,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 17:56:26","type":"ERROR","data":"{
+  err: undefined,
+  code: 203,
+  msg: '登陆失效，请重新登陆！',
+  portName: '/system/importData',
+  body: {},
+  query: {},
+  method: 'GET'
+}"} 
+
+{"date":"2025-09-21 18:08:21","type":"ERROR","data":"{
+  err: undefined,
+  code: 200,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 18:24:20","type":"ERROR","data":"{
+  err: undefined,
+  code: 200,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 18:30:32","type":"ERROR","data":"{
+  err: undefined,
+  code: 200,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 18:30:59","type":"ERROR","data":"{
+  err: undefined,
+  code: 200,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 18:34:30","type":"ERROR","data":"{
+  err: undefined,
+  code: 200,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
+{"date":"2025-09-21 18:36:06","type":"ERROR","data":"{
+  err: undefined,
+  code: 200,
+  msg: '导入成功',
+  portName: undefined,
+  body: undefined,
+  query: undefined,
+  method: undefined
+}"} 
+
