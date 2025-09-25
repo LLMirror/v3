@@ -243,7 +243,6 @@ const delRow = async (row, index) => {
 onMounted(() => {
     getFilters();
     getRecords();
-    getCashSummaryList();
 });
 </script>
 

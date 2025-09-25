@@ -27,7 +27,7 @@
     "mysql2": "^3.14.3",
     "node-schedule": "^2.1.1",
     "node-xlsx": "^0.23.0",
-    "nodemon": "^3.1.0",
+    "nodemon": "^3.1.10",
     "pdfkit": "^0.17.2",
     "request": "^2.88.2",
     "svg-captcha": "^1.4.0",

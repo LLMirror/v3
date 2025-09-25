@@ -617,6 +617,7 @@ router.post('/deleteCashRecord', async (req, res) => {
 
 /** 修改现金记录 */
 router.post('/updateCashRecord', async (req, res) => {
+    console.log("updateCashRecord",req.body)
     const obj = req.body;
     const dateTimeStr = obj.data.date ? dayjs(obj.data.date).format('YYYY-MM-DD HH:mm:ss') : null;
 
@@ -659,23 +660,54 @@ router.post('/getCashRecords', async (req, res) => {
     res.send(utils.returnData({ data: result, total }));
 });
 
-/** 公共函数：重新计算余额 */
+/** 公共函数：重新计算余额 - 优化版本 */
 async function recalcBalances(company, bank, res, req) {
-    const recordsRes = await pools({
-        sql: `SELECT id, income, expense FROM cash_records 
-              WHERE company=? AND bank=? ORDER BY seq ASC`,
-        val: [company, bank],
-        res, req
-    });
-
-    let balance = 0;
-    for (let r of recordsRes.result) {
-        balance = balance + Number(r.income || 0) - Number(r.expense || 0);
-        await pools({
-            sql: `UPDATE cash_records SET balance=? WHERE id=?`,
-            val: [balance, r.id],
+    try {
+        // 1. 首先获取所有记录
+        const recordsRes = await pools({
+            sql: `SELECT id, income, expense FROM cash_records 
+                  WHERE company=? AND bank=? ORDER BY seq ASC`,
+            val: [company, bank],
             res, req
         });
+
+        if (!recordsRes.result || recordsRes.result.length === 0) {
+            return; // 没有记录需要更新，直接返回
+        }
+
+        // 2. 计算所有记录的新余额
+        let balance = 0;
+        const updateValues = [];
+        
+        for (let r of recordsRes.result) {
+            balance = balance + Number(r.income || 0) - Number(r.expense || 0);
+            updateValues.push([balance, r.id]);
+        }
+
+        // 3. 使用批量更新而不是单条更新，减少数据库连接使用
+        // MySQL批量更新语法
+        let sql = "INSERT INTO cash_records (balance, id) VALUES";
+        const placeholders = [];
+        const values = [];
+        
+        updateValues.forEach(([bal, id], index) => {
+            if (index > 0) sql += ",";
+            sql += " (?, ?)";
+            values.push(bal, id);
+        });
+        
+        sql += " ON DUPLICATE KEY UPDATE balance = VALUES(balance)";
+        
+        await pools({
+            sql: sql,
+            val: values,
+            res, req
+        });
+        
+    } catch (error) {
+        console.error("重新计算余额失败:", error);
+        // 发生错误时仍然继续，让调用者处理响应
+        throw error;
     }
 }
 
