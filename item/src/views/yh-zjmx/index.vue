@@ -121,7 +121,13 @@
             </el-table-column>
 
 
-            <el-table-column prop="balance" label="余额" width="120" />
+            <el-table-column prop="balance" label="余额" width="120">
+                <template #default="{ row }">
+                    <span :style="{ color: parseFloat(row.balance) < 0 ? 'red' : '' }">
+                        {{ row.balance }}
+                    </span>
+                </template>
+            </el-table-column>
             <el-table-column prop="remark" label="备注">
                 <template #default="{ row }">
                     <template v-if="row.editing">
@@ -165,25 +171,41 @@
         </el-table>
 
         <!-- 添加资金明细对话框 -->
-        <el-dialog v-model="dialogVisible" title="录入资金明细" width="600px" center>
+        <el-dialog v-model="dialogVisible" title="录入资金明细" width="600px" center height="500px">
             <div class="dialog-content">
                 <el-form label-width="80px" :model="formData">
-                    <el-form-item label="日期">
-                        <el-date-picker v-model="formData.date" type="date" style="width:100%" />
-                    </el-form-item>
-                    <el-form-item label="公司">
-                        <el-select v-model="formData.company" placeholder="请选择公司" style="width:100%">
-                            <el-option v-for="c in companyList" :key="c" :label="c" :value="c" />
-                        </el-select>
-                    </el-form-item>
-                    <el-form-item label="银行">
-                        <el-select v-model="formData.bank" placeholder="请选择银行" style="width:100%">
-                            <el-option v-for="b in bankList" :key="b" :label="b" :value="b" />
-                        </el-select>
-                    </el-form-item>
-                    <el-form-item label="摘要">
-                        <el-input v-model="formData.summary" placeholder="请输入摘要" />
-                    </el-form-item>
+            <el-form-item label="日期">
+                <el-date-picker v-model="formData.date" type="date" style="width:100%" />
+            </el-form-item>
+            <el-form-item label="公司">
+                <el-select v-model="formData.company" placeholder="请选择公司" style="width:100%" @change="getHistorySummaries">
+                    <el-option v-for="c in companyList" :key="c" :label="c" :value="c" />
+                </el-select>
+            </el-form-item>
+            <el-form-item label="银行">
+                <el-select v-model="formData.bank" placeholder="请选择银行" style="width:100%" :disabled="!formData.company" @change="getHistorySummaries">
+                    <el-option v-for="b in bankList" :key="b" :label="b" :value="b" />
+                </el-select>
+            </el-form-item>
+            <el-form-item label="摘要">
+                <el-autocomplete
+                    v-model="formData.summary"
+                    :fetch-suggestions="querySearch"
+                    placeholder="请输入摘要"
+                    :disabled="!formData.company || !formData.bank"
+                    clearable
+                    :trigger-on-focus="false"  
+                    :select-when-unmatched="true"  
+                    debounce="100"  
+                    class="w-full"
+                    @select="handleSummarySelect"  
+                >
+                    <template #default="{ item }">
+                        <!-- 自定义下拉选项模板 -->
+                        <div>{{ item }}</div>
+                    </template>
+                </el-autocomplete>
+            </el-form-item>
                     <el-form-item label="收入">
                         <el-input-number v-model="formData.income" :min="0" :controls="false" :precision="2" @input="validateNumber(formData, 'income')" style="width:100%" />
                     </el-form-item>
@@ -200,8 +222,8 @@
             </div>
             <template #footer>
                 <span class="dialog-footer">
-                    <el-button @click="dialogVisible = false">取消</el-button>
-                    <el-button type="primary" @click="saveFormData">确定</el-button>
+                    <el-button @click="handleCancel">取消</el-button>
+        <el-button type="primary" @click="saveFormData">确定</el-button>
                 </span>
             </template>
         </el-dialog>
@@ -223,7 +245,7 @@
 
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, onMounted, watch } from 'vue';
 import { ArrowDown } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import * as XLSX from 'xlsx';
@@ -268,6 +290,30 @@ const formData = reactive({
     invoice: ''
 });
 
+const historySummaries = ref([]); // 历史摘要列表
+const isLoading = ref(false); // 防止重复提交的loading状态
+
+const handleSummarySelect = (item) => {
+    formData.summary = item; // 点击下拉项后赋值
+};
+
+// 自动完成搜索函数
+const querySearch = (queryString, cb) => {
+      // 输入时实时联想，不依赖查询按钮
+      let suggestions = [];
+      
+      // 只有在公司和银行都有值且用户输入了查询字符串时才进行过滤
+      if (queryString && formData.company && formData.bank) {
+          // 实时过滤历史摘要，支持模糊匹配
+          suggestions = historySummaries.value
+              .filter(item => item.toLowerCase().includes(queryString.toLowerCase()))
+              .slice(0, 100); // 限制最大返回100条
+      }
+      
+      // 立即回调返回过滤后的结果
+      cb(suggestions);
+  };
+
 // 数字验证函数
 const validateNumber = (row, field) => {
     if (row[field] === null || row[field] === undefined || isNaN(row[field])) {
@@ -295,7 +341,7 @@ const handlePageSizeChange = (newSize) => {
 const search = () => {
     page.value = 1;
     getRecords();
-};
+};  
 
 // 获取公司和银行列表
 const getFilters = async () => {
@@ -304,6 +350,47 @@ const getFilters = async () => {
     const bRes = await getBankList();
     bankList.value = bRes.data || [];
 };
+
+// 获取历史摘要列表（根据公司和银行筛选）
+const getHistorySummaries = async () => {
+    // 如果已经有请求在进行中，或者没有选择公司或银行，则不发起新请求
+    if (isLoading.value || !formData.company || !formData.bank) {
+        // 只有当没有选择公司或银行时才清空历史摘要
+        if (!formData.company || !formData.bank) {
+            historySummaries.value = [];
+        }
+        return;
+    }
+    
+    try {
+        isLoading.value = true; // 设置loading状态，防止重复提交
+        const res = await getCashSummaryList({
+            username: userStore.name,
+            data: {
+                company: formData.company,
+                bank: formData.bank,
+                summary: formData.summary
+            }
+        });
+        historySummaries.value = res.data || [];
+    } catch (error) {
+        console.error('获取历史摘要失败', error);
+        historySummaries.value = [];
+    } finally {
+        // 无论成功失败，都要在最后重置loading状态
+        isLoading.value = false;
+    }
+};
+
+// 监听公司和银行变化，更新历史摘要
+watch(() => [formData.company, formData.bank, formData.summary], () => {
+    // 只有在公司和银行都有值时才更新历史摘要
+    if (formData.company && formData.bank && formData.summary) {
+        getHistorySummaries();
+    } else {
+        historySummaries.value = [];
+    }
+}, { deep: true });
 
 // 获取记录
 const getRecords = async () => {
@@ -352,6 +439,10 @@ const showAddDialog = () => {
     formData.expense = 0;
     formData.remark = '';
     formData.invoice = '';
+    // 清空历史摘要列表
+    historySummaries.value = [];
+    // 重置loading状态
+    isLoading.value = false;
     // 显示对话框
     dialogVisible.value = true;
 };
@@ -363,10 +454,14 @@ const saveFormData = async () => {
         ElMessage.success('保存成功');
         // 关闭对话框
         dialogVisible.value = false;
+        // 重置loading状态
+        isLoading.value = false;
         // 重新加载数据
         getRecords();
     } catch (err) {
         ElMessage.error('保存失败');
+        // 重置loading状态
+        isLoading.value = false;
     }
 };
 
@@ -385,6 +480,13 @@ const cancelEdit = (row) => {
         delete row.originalData;
     }
     row.editing = false;
+};
+
+// 处理对话框取消
+const handleCancel = () => {
+    dialogVisible.value = false;
+    // 重置loading状态
+    isLoading.value = false;
 };
 
 

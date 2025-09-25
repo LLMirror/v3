@@ -849,19 +849,57 @@ router.post('/getBankList', async (req, res) => {
     res.send(utils.returnData({ data }));
 });
 
-
 router.post('/getCashSummaryList', async (req, res) => {
-    console.log('getCashSummaryList');
-    try {
-        const sql = `SELECT DISTINCT summary FROM cash_records WHERE summary IS NOT NULL AND summary <> ''`;
-        const { result } = await pools({ sql, res, req });
-        const summaries = result.map(r => r.summary);
-        res.json({ code: 200, data: summaries });
-        console.log('获取历史摘要成功', summaries);
-    } catch (err) {
-        res.json({ code: 500, msg: '获取历史摘要失败' });
+  console.log('getCashSummaryList', req.body);
+  try {
+    const payload = (req.body && req.body.data) ? req.body.data : req.body;
+    let { company, bank, summary } = payload || {};
+
+    company = company ? String(company).trim() : '';
+    bank = bank ? String(bank).trim() : '';
+    summary = summary ? String(summary).trim() : '';
+
+    let sql = `SELECT DISTINCT summary 
+               FROM cash_records 
+               WHERE summary IS NOT NULL AND summary <> ''`;
+    const params = [];
+
+    if (company) {
+      sql += ` AND company = ?`;
+      params.push(company);
     }
+
+    if (bank) {
+      sql += ` AND bank = ?`;
+      params.push(bank);
+    }
+
+    if (summary) {
+      sql += ` AND summary LIKE ?`;
+      params.push(`%${summary}%`);
+    }
+
+    sql += ` LIMIT 100`; // 排序并限制 100 条
+
+    console.log('SQL:', sql, 'params:', params);
+
+    // ⚠️ pools 返回结果统一处理成 rows
+   const rows = await pools({ sql, val: params, res, req });
+    const summaries = (rows?.result || []).map(r => r.summary || '');
+
+    res.send(utils.returnData({ data: summaries }));
+    console.log('获取历史摘要成功, count=', summaries.length);
+  } catch (err) {
+     console.error('获取历史摘要失败', err);
+    res.send(utils.returnData({
+        code: 500,
+        msg: '获取历史摘要失败',
+        err
+    }));
+  }
 });
+
+
 
 
 // ---------------------------------------------------------------------------------出纳结束----------------------------------------------
