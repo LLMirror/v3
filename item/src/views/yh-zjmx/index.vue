@@ -207,11 +207,27 @@
                 </el-autocomplete>
             </el-form-item>
                     <el-form-item label="收入">
-                        <el-input-number v-model="formData.income" :min="0" :controls="false" :precision="2" @input="validateNumber(formData, 'income')" style="width:100%" />
-                    </el-form-item>
-                    <el-form-item label="支出">
-                        <el-input-number v-model="formData.expense" :min="0" :controls="false" :precision="2" @input="validateNumber(formData, 'expense')" style="width:100%" />
-                    </el-form-item>
+                        <el-input-number
+                            v-model="formData.income"
+                            :min="0"
+                            :controls="false"
+                            :precision="2"
+                            @input="handleIncomeInput(formData)"
+                            style="width:100%; color: green;"
+                        />
+                        </el-form-item>
+
+                        <el-form-item label="支出">
+                        <el-input-number
+                            v-model="formData.expense"
+                            :min="0"
+                            :controls="false"
+                            :precision="2"
+                            @input="handleExpenseInput(formData)"
+                            style="width:100%; color: red;"
+                        />
+                        </el-form-item>
+
                     <el-form-item label="备注">
                         <el-input v-model="formData.remark" placeholder="请输入备注" type="textarea" :rows="2" />
                     </el-form-item>
@@ -293,9 +309,23 @@ const formData = reactive({
 const historySummaries = ref([]); // 历史摘要列表
 const isLoading = ref(false); // 防止重复提交的loading状态
 
+// 摘要下拉框选择事件处理
 const handleSummarySelect = (item) => {
     formData.summary = item; // 点击下拉项后赋值
 };
+// 录入收入时，支出归零
+const handleIncomeInput = (row) => {
+  if (row.income > 0) row.expense = 0;
+  if (isNaN(row.income) || row.income === null) row.income = 0;
+};
+
+// 录入支出时，收入归零
+const handleExpenseInput = (row) => {
+  if (row.expense > 0) row.income = 0;
+  if (isNaN(row.expense) || row.expense === null) row.expense = 0;
+};
+
+
 
 // 自动完成搜索函数
 const querySearch = (queryString, cb) => {
