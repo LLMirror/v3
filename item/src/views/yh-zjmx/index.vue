@@ -40,15 +40,28 @@
             </el-upload>
         </div>
         <!-- 底部汇总 -->
-        <!-- <div class="summary" style="margin-top:10px;">
+        <div class="summary" style="margin-top:10px;">
             <el-table :data="summary" border style="width:1600px;" size="small">
                 <el-table-column prop="company" label="公司" />
                 <el-table-column prop="bank" label="银行" />
-                <el-table-column prop="totalIncome" label="总收入" />
-                <el-table-column prop="totalExpense" label="总支出" />
-                <el-table-column prop="balance" label="余额" />
+                <el-table-column 
+                prop="totalIncome" 
+                label="总收入" 
+                :formatter="formatMoney" 
+                />
+                <el-table-column 
+                prop="totalExpense" 
+                label="总支出" 
+                :formatter="formatMoney" 
+                />
+                <el-table-column 
+                prop="balance" 
+                label="余额" 
+                :formatter="formatMoney" 
+                />
             </el-table>
-        </div> -->.
+            </div>
+
         <!-- 表格 -->
         <el-table :data="records" border style="width:100%" size="small" height="600" max-height="600">
             <el-table-column prop="seq" label="序号" width="60" />
@@ -100,7 +113,7 @@
                 <template #default="{ row }">
                     <template v-if="row.editing">
                         <el-input-number v-model="row.income" size="small" :min="0" :controls="false" :precision="2"
-                            @input="validateNumber(row, 'income')" style="width: 100%;" />
+                            @input="validateNumber(row, 'income')" style="width: 100%;"  />
                     </template>
                     <template v-else>
                         {{ row.income || 0 }}
@@ -323,6 +336,15 @@ const handleIncomeInput = (row) => {
 const handleExpenseInput = (row) => {
   if (row.expense > 0) row.income = 0;
   if (isNaN(row.expense) || row.expense === null) row.expense = 0;
+};
+
+// 会计金额格式化，千分位+两位小数
+const formatMoney = (row, column, cellValue) => {
+  if (cellValue === null || cellValue === undefined) return '0.00';
+  return Number(cellValue).toLocaleString('en-US', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
 };
 
 
