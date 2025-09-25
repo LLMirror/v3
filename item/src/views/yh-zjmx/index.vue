@@ -109,7 +109,7 @@
                     </template>
                 </template>
             </el-table-column>
-            <el-table-column prop="income" label="收入" width="120">
+            <el-table-column prop="income" label="收入" width="100">
                 <template #default="{ row }">
                     <template v-if="row.editing">
                         <el-input-number v-model="row.income" size="small" :min="0" :controls="false" :precision="2"
@@ -121,7 +121,7 @@
                 </template>
             </el-table-column>
 
-            <el-table-column prop="expense" label="支出" width="120">
+            <el-table-column prop="expense" label="支出" width="100">
                 <template #default="{ row }">
                     <template v-if="row.editing">
                         <el-input-number v-model="row.expense" size="small" :min="0" :controls="false" :precision="2"
@@ -134,7 +134,7 @@
             </el-table-column>
 
 
-            <el-table-column prop="balance" label="余额" width="120">
+            <el-table-column prop="balance" label="余额" width="100">
                 <template #default="{ row }">
                     <span :style="{ color: parseFloat(row.balance) < 0 ? 'red' : '' }">
                         {{ row.balance }}
