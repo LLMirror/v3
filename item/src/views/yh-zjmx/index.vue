@@ -14,8 +14,9 @@
             <el-date-picker v-model="filters.dateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期"
                 style="width:300px" />
             <el-button type="primary" @click="search">查询</el-button>
+            <el-button type="success" @click="showAddDialog">录入资金明细</el-button>
             <el-dropdown @command="handleExport">
-                <el-button type="success">
+                <el-button type="info">
                     导出Excel<el-icon class="el-icon--right"><arrow-down /></el-icon>
                 </el-button>
                 <template #dropdown>
@@ -140,9 +141,9 @@
                         <el-button type="success" size="small" @click="saveRow(row)">保存</el-button>
                         <el-button type="danger" size="small" @click="cancelEdit(row)">取消</el-button>
                     </template>
-                    <!-- 删除按钮（非第一行且非编辑状态） -->
+                    <!-- 删除按钮（非编辑状态） -->
                     <el-button 
-                        v-if="$index > 0 && !row.editing" 
+                        v-if="!row.editing" 
                         type="danger" 
                         size="small" 
                         @click="delRow(row, $index)"
@@ -151,6 +152,47 @@
             </el-table-column>
         </el-table>
 
+        <!-- 添加资金明细对话框 -->
+        <el-dialog v-model="dialogVisible" title="录入资金明细" width="600px" center>
+            <div class="dialog-content">
+                <el-form label-width="80px" :model="formData">
+                    <el-form-item label="日期">
+                        <el-date-picker v-model="formData.date" type="date" style="width:100%" />
+                    </el-form-item>
+                    <el-form-item label="公司">
+                        <el-select v-model="formData.company" placeholder="请选择公司" style="width:100%">
+                            <el-option v-for="c in companyList" :key="c" :label="c" :value="c" />
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item label="银行">
+                        <el-select v-model="formData.bank" placeholder="请选择银行" style="width:100%">
+                            <el-option v-for="b in bankList" :key="b" :label="b" :value="b" />
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item label="摘要">
+                        <el-input v-model="formData.summary" placeholder="请输入摘要" />
+                    </el-form-item>
+                    <el-form-item label="收入">
+                        <el-input-number v-model="formData.income" :min="0" :controls="false" :precision="2" @input="validateNumber(formData, 'income')" style="width:100%" />
+                    </el-form-item>
+                    <el-form-item label="支出">
+                        <el-input-number v-model="formData.expense" :min="0" :controls="false" :precision="2" @input="validateNumber(formData, 'expense')" style="width:100%" />
+                    </el-form-item>
+                    <el-form-item label="备注">
+                        <el-input v-model="formData.remark" placeholder="请输入备注" type="textarea" :rows="2" />
+                    </el-form-item>
+                    <el-form-item label="发票">
+                        <el-input v-model="formData.invoice" placeholder="请输入发票信息" />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="dialogVisible = false">取消</el-button>
+                    <el-button type="primary" @click="saveFormData">确定</el-button>
+                </span>
+            </template>
+        </el-dialog>
 
         <el-pagination 
             v-if="total > pageSize" 
@@ -201,6 +243,18 @@ const page = ref(1);
 const pageSize = ref(15);
 // 分页大小选项
 const pageSizes = [10, 15, 20, 50, 100];
+// 对话框相关
+const dialogVisible = ref(false);
+const formData = reactive({
+    date: '',
+    company: '',
+    bank: '',
+    summary: '',
+    income: 0,
+    expense: 0,
+    remark: '',
+    invoice: ''
+});
 
 // 数字验证函数
 const validateNumber = (row, field) => {
@@ -272,21 +326,35 @@ const getRecords = async () => {
     });
     summary.value = sumRes.data;
 
-    // 保证至少一行空白
-    if (!records.value.length || records.value[0].id) {
-        records.value.unshift({
-            seq: 1,
-            date: '',
-            company: '',
-            bank: '',
-            summary: '',
-            income: 0,
-            expense: 0,
-            balance: 0,
-            remark: '',
-            invoice: '',
-            editing: true // 新增行默认处于编辑状态
-        });
+    // 移除之前的空白行逻辑，因为现在使用对话框进行录入
+};
+
+// 显示添加对话框
+const showAddDialog = () => {
+    // 重置表单数据
+    formData.date = '';
+    formData.company = '';
+    formData.bank = '';
+    formData.summary = '';
+    formData.income = 0;
+    formData.expense = 0;
+    formData.remark = '';
+    formData.invoice = '';
+    // 显示对话框
+    dialogVisible.value = true;
+};
+
+// 保存表单数据
+const saveFormData = async () => {
+    try {
+        await addCashRecord({ username: userStore.name, data: formData });
+        ElMessage.success('保存成功');
+        // 关闭对话框
+        dialogVisible.value = false;
+        // 重新加载数据
+        getRecords();
+    } catch (err) {
+        ElMessage.error('保存失败');
     }
 };
 
@@ -323,7 +391,6 @@ const saveRow = async (row) => {
 
 // 删除行
 const delRow = async (row, index) => {
-    if (index === 0) return;
     try {
         await ElMessageBox.confirm('确认删除该条记录吗？', '提示', { type: 'warning' });
         await deleteCashRecord({ username: userStore.name, data: { id: row.id } });
@@ -361,34 +428,7 @@ const handleExport = async (command) => {
     }
 };
 
-// 显示添加对话框
-const showAddDialog = () => {
-    // 重置表单数据
-    formData.date = '';
-    formData.company = '';
-    formData.bank = '';
-    formData.summary = '';
-    formData.income = 0;
-    formData.expense = 0;
-    formData.remark = '';
-    formData.invoice = '';
-    // 显示对话框
-    dialogVisible.value = true;
-};
 
-// 保存表单数据
-const saveFormData = async () => {
-    try {
-        await addCashRecord({ username: userStore.name, data: formData });
-        ElMessage.success('保存成功');
-        // 关闭对话框
-        dialogVisible.value = false;
-        // 重新加载数据
-        getRecords();
-    } catch (err) {
-        ElMessage.error('保存失败');
-    }
-};
 
 // 导出Excel的通用方法
 const exportToExcel = (data, filename) => {
@@ -456,5 +496,10 @@ onMounted(() => {
     margin-top: 10px;
     margin-bottom: 10px;
     /* margin: 10px; */
+}
+
+.dialog-content {
+    max-height: 400px;
+    overflow-y: auto;
 }
 </style>
