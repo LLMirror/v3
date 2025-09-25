@@ -644,7 +644,7 @@ router.post('/updateCashRecord', async (req, res) => {
 router.post('/getCashRecords', async (req, res) => {
     const obj = req.body;
 
-    let sql = `SELECT id, seq, date, company, bank, summary, income, expense, balance, remark, invoice, created_by AS createdBy, created_at AS createdAt
+    let sql = `SELECT id, seq, LEFT(date, 10) AS date, company, bank, summary, income, expense, balance, remark, invoice, created_by AS createdBy, created_at AS createdAt
                FROM cash_records WHERE 1=1`;
     sql = utils.setLike(sql, 'company', obj.data.company);
     sql = utils.setLike(sql, 'bank', obj.data.bank);
