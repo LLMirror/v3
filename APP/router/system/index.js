@@ -549,34 +549,113 @@ router.post("/importData", async (req, res) => {
 // /** 新增现金记录 */
 router.post('/addCashRecord', async (req, res) => {
     const obj = req.body;
-    const id = uuidv4();
-    const dateTimeStr = obj.data.date ? dayjs(obj.data.date).format('YYYY-MM-DD HH:mm:ss') : null;
+    let insertedCount = 0;
+    
+    try {
+        // 判断是单条插入还是批量插入
+        if (Array.isArray(obj.data)) {
+            // 批量插入处理
+            // 按公司和银行分组
+            const groupedData = {};
+            obj.data.forEach(item => {
+                const key = `${item.company}-${item.bank}`;
+                if (!groupedData[key]) {
+                    groupedData[key] = [];
+                }
+                groupedData[key].push(item);
+            });
+            
+            // 处理每组数据
+            for (const key in groupedData) {
+                const group = groupedData[key];
+                const [company, bank] = key.split('-');
+                
+                // 获取当前最大 seq
+                const maxSeqResult = await pools({
+                    sql: `SELECT MAX(seq) AS maxSeq FROM cash_records WHERE company=? AND bank=?`,
+                    val: [company, bank],
+                    res, req
+                });
+                let currentSeq = (maxSeqResult.result[0]?.maxSeq || 0);
+                
+                // 批量插入SQL
+                let insertSql = `INSERT INTO cash_records
+                      (id, seq, date, company, bank, summary, income, expense, balance, remark, invoice, created_by)
+                      VALUES `;
+                const values = [];
+                
+                // 准备批量插入数据
+                group.forEach(item => {
+                    currentSeq++;
+                    const id = uuidv4();
+                    const dateTimeStr = item.date ? dayjs(item.date).format('YYYY-MM-DD HH:mm:ss') : null;
+                    
+                    if (values.length > 0) {
+                        insertSql += ',';
+                    }
+                    insertSql += '(?,?,?,?,?,?,?,?,?,?,?,?)';
+                    
+                    values.push(
+                        id, currentSeq, dateTimeStr, item.company, item.bank, item.summary,
+                        item.income || 0, item.expense || 0, 0,
+                        item.remark, item.invoice, obj.username
+                    );
+                });
+                
+                // 执行批量插入
+                await pools({
+                    sql: insertSql,
+                    val: values,
+                    res, req
+                });
+                
+                insertedCount += group.length;
+                
+                // 重新计算该公司和银行的余额
+                await recalcBalances(company, bank, res, req);
+            }
+            
+            res.send(utils.returnData({ msg: `批量新增成功，共${insertedCount}条记录` }));
+        } else {
+            // 单条插入处理（原有逻辑）
+            const id = uuidv4();
+            const dateTimeStr = obj.data.date ? dayjs(obj.data.date).format('YYYY-MM-DD HH:mm:ss') : null;
 
-    // 获取当前最大 seq
-    const maxSeqResult = await pools({
-        sql: `SELECT MAX(seq) AS maxSeq FROM cash_records WHERE company=? AND bank=?`,
-        val: [obj.data.company, obj.data.bank],
-        res, req
-    });
-    const seq = (maxSeqResult.result[0]?.maxSeq || 0) + 1;
+            // 获取当前最大 seq
+            const maxSeqResult = await pools({
+                sql: `SELECT MAX(seq) AS maxSeq FROM cash_records WHERE company=? AND bank=?`,
+                val: [obj.data.company, obj.data.bank],
+                res, req
+            });
+            const seq = (maxSeqResult.result[0]?.maxSeq || 0) + 1;
 
-    // 插入新纪录（余额暂时置 0，后面统一更新）
-    await pools({
-        sql: `INSERT INTO cash_records
-              (id, seq, date, company, bank, summary, income, expense, balance, remark, invoice, created_by)
-              VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-        val: [
-            id, seq, dateTimeStr, obj.data.company, obj.data.bank, obj.data.summary,
-            obj.data.income || 0, obj.data.expense || 0, 0,
-            obj.data.remark, obj.data.invoice, obj.username
-        ],
-        res, req
-    });
+            // 插入新纪录（余额暂时置 0，后面统一更新）
+            await pools({
+                sql: `INSERT INTO cash_records
+                      (id, seq, date, company, bank, summary, income, expense, balance, remark, invoice, created_by)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+                val: [
+                    id, seq, dateTimeStr, obj.data.company, obj.data.bank, obj.data.summary,
+                    obj.data.income || 0, obj.data.expense || 0, 0,
+                    obj.data.remark, obj.data.invoice, obj.username
+                ],
+                res, req
+            });
 
-    // 重新计算余额
-    await recalcBalances(obj.data.company, obj.data.bank, res, req);
+            // 重新计算余额
+            await recalcBalances(obj.data.company, obj.data.bank, res, req);
 
-    res.send(utils.returnData({ msg: '新增成功' }));
+            res.send(utils.returnData({ msg: '新增成功' }));
+        }
+    } catch (error) {
+        console.error('插入现金记录失败:', error);
+        res.send(utils.returnData({ 
+            code: 500, 
+            msg: insertedCount > 0 ? 
+                `部分插入成功（${insertedCount}条），部分失败，请检查数据` : 
+                '插入失败，请检查数据' 
+        }));
+    }
 });
 
 /** 删除现金记录 */

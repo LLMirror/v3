@@ -4,7 +4,7 @@
 
         <!-- 筛选区 -->
         <div class="filters">
-            <el-input v-model="filters.summary" placeholder="摘要" style="width:200px" />
+            <el-input v-model="filters.summary" placeholder="摘要" style="width:150px; height: 32px;" />
             <el-select v-model="filters.company" placeholder="公司" clearable style="width:150px">
                 <el-option v-for="c in companyList" :key="c" :label="c" :value="c" />
             </el-select>
@@ -15,17 +15,29 @@
                 style="width:300px" />
             <el-button type="primary" @click="search">查询</el-button>
             <el-button type="success" @click="showAddDialog">录入资金明细</el-button>
-            <el-dropdown @command="handleExport">
-                <el-button type="info">
-                    导出Excel<el-icon class="el-icon--right"><arrow-down /></el-icon>
-                </el-button>
-                <template #dropdown>
-                    <el-dropdown-menu>
-                        <el-dropdown-item command="current">导出当前页</el-dropdown-item>
-                        <el-dropdown-item command="all">导出全部数据</el-dropdown-item>
-                    </el-dropdown-menu>
-                </template>
+            <el-dropdown trigger="click" @command="handleExport">
+              <el-button type="primary" plain>
+                 导出 <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+               </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="template">导出录入模板</el-dropdown-item>
+                  <el-dropdown-item command="current">导出当前页</el-dropdown-item>
+                  <el-dropdown-item command="all">导出全部数据</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
             </el-dropdown>
+            <el-upload
+              class="upload-demo"
+              action=""
+              :auto-upload="false"
+              :on-change="handleFileChange"
+              accept=".xlsx,.xls"
+              :limit="1"
+              :disabled="importing"
+            >
+              <el-button type="success" plain :loading="importing">批量导入</el-button>
+            </el-upload>
         </div>
         <!-- 底部汇总 -->
         <!-- <div class="summary" style="margin-top:10px;">
@@ -36,7 +48,7 @@
                 <el-table-column prop="totalExpense" label="总支出" />
                 <el-table-column prop="balance" label="余额" />
             </el-table>
-        </div> -->
+        </div> -->.
         <!-- 表格 -->
         <el-table :data="records" border style="width:100%" size="small" height="600" max-height="600">
             <el-table-column prop="seq" label="序号" width="60" />
@@ -401,7 +413,10 @@ const delRow = async (row, index) => {
 
 // 处理导出Excel
 const handleExport = async (command) => {
-    if (command === 'current') {
+    if (command === 'template') {
+        // 导出录入模板
+        exportTemplate();
+    } else if (command === 'current') {
         // 导出当前页数据
         exportToExcel(records.value.filter(r => r.id), '当前页资金明细');
     } else if (command === 'all') {
@@ -425,6 +440,188 @@ const handleExport = async (command) => {
         } catch (err) {
             ElMessage.error('导出失败，请重试');
         }
+    }
+};
+
+// 导出录入模板
+const exportTemplate = () => {
+    // 创建模板数据（空数据，只有表头）
+    const templateData = [{
+        '日期': '2024-01-01', // 示例日期格式
+        '公司': '',
+        '银行': '',
+        '摘要': '',
+        '收入': '',
+        '支出': '',
+        '备注': '',
+        '发票': ''
+    }];
+    
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    
+    // 设置列宽
+    const colWidths = [
+        { wch: 15 }, // 日期
+        { wch: 20 }, // 公司
+        { wch: 20 }, // 银行
+        { wch: 50 }, // 摘要
+        { wch: 15 }, // 收入
+        { wch: 15 }, // 支出
+        { wch: 30 }, // 备注
+        { wch: 30 }  // 发票
+    ];
+    ws['!cols'] = colWidths;
+    
+    // 添加工作表到工作簿
+    XLSX.utils.book_append_sheet(wb, ws, '资金明细模板');
+    
+    // 生成Excel文件并下载
+    XLSX.writeFile(wb, `资金明细录入模板_${new Date().toLocaleDateString()}.xlsx`);
+    ElMessage.success('模板导出成功');
+};
+
+// 处理文件上传变化
+const handleFileChange = async (file) => {
+    // 如果正在导入中，不允许再次上传
+    if (importing.value) {
+        ElMessage.warning('数据处理中请勿重复提交');
+        return;
+    }
+    try {
+        ElMessage.info('正在解析文件，请稍候...');
+        
+        // 读取文件内容
+        const data = await readFile(file.raw);
+        
+        // 解析Excel文件
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[worksheetName];
+        
+        // 将Excel数据转换为JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // 验证数据格式
+        const validatedData = validateImportData(jsonData);
+        
+        if (validatedData.length === 0) {
+            ElMessage.warning('未找到有效的数据记录');
+            return;
+        }
+        
+        // 确认导入
+        await ElMessageBox.confirm(
+            `共解析到 ${validatedData.length} 条记录，确认导入吗？`,
+            '导入确认',
+            { type: 'warning' }
+        );
+        
+        // 批量导入数据
+        await batchImportData(validatedData);
+        
+    } catch (error) {
+        if (error !== 'cancel') {
+            ElMessage.error('导入失败：' + (error.message || '未知错误'));
+        }
+    } finally {
+        // 清空上传组件
+        const uploadComponent = document.querySelector('.upload-demo .el-upload__input');
+        if (uploadComponent) {
+            uploadComponent.value = '';
+        }
+    }
+};
+
+// 读取文件内容
+const readFile = (file) => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            resolve(e.target.result);
+        };
+        reader.onerror = (error) => {
+            reject(error);
+        };
+        reader.readAsArrayBuffer(file);
+    });
+};
+
+// 验证导入数据
+const validateImportData = (data) => {
+    const validatedData = [];
+    
+    data.forEach((row, index) => {
+        // 跳过示例行
+        if (index === 0 && row['日期'] === '2024-01-01') {
+            return;
+        }
+        
+        // 验证必填字段
+        if (!row['日期'] || !row['公司'] || !row['银行'] || !row['摘要']) {
+            return;
+        }
+        
+        // 转换数字字段
+        const income = parseFloat(row['收入']) || 0;
+        const expense = parseFloat(row['支出']) || 0;
+        
+        // 验证收入和支出不能同时为0
+        if (income === 0 && expense === 0) {
+            return;
+        }
+        
+        // 构造有效的数据记录
+        validatedData.push({
+            date: row['日期'],
+            company: row['公司'],
+            bank: row['银行'],
+            summary: row['摘要'],
+            income: income,
+            expense: expense,
+            remark: row['备注'] || '',
+            invoice: row['发票'] || ''
+        });
+    });
+    
+    return validatedData;
+};
+
+// 导入加载状态
+const importing = ref(false);
+
+// 批量导入数据
+const batchImportData = async (data) => {
+    if (importing.value) {
+        ElMessage.warning('数据处理中请勿重复提交');
+        return;
+    }
+    
+    importing.value = true;
+    ElMessage.info('正在导入数据，请稍候...');
+    
+    try {
+        // 直接将整个数据数组发送到后端，利用后端的批量插入功能
+        const result = await addCashRecord({ 
+            username: userStore.name, 
+            data: data // 发送整个数组
+        });
+        
+        ElMessage.success(`全部 ${data.length} 条记录导入成功`);
+    } catch (error) {
+        // 检查响应中是否包含部分成功的信息
+        if (error.response && error.response.data && error.response.data.message && error.response.data.message.includes('部分成功')) {
+            const successCount = error.response.data.successCount || 0;
+            const failCount = data.length - successCount;
+            ElMessage.warning(`${successCount} 条记录导入成功，${failCount} 条记录导入失败`);
+        } else {
+            ElMessage.error('导入失败：' + (error.message || '未知错误'));
+        }
+    } finally {
+        importing.value = false;
+        // 重新加载数据
+        getRecords();
     }
 };
 
@@ -501,5 +698,10 @@ onMounted(() => {
 .dialog-content {
     max-height: 400px;
     overflow-y: auto;
+}
+
+.upload-demo {
+    display: inline-block;
+    margin-left: 10px;
 }
 </style>
