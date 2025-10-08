@@ -161,7 +161,7 @@
                     </template>
                 </template>
             </el-table-column>
-            <el-table-column label="操作" width="130" align="center">
+            <el-table-column label="操作" width="150" align="center">
                 <template #default="{ row, $index }">
                     <!-- 历史记录（有id且未编辑） -->
                     <template v-if="row.id && !row.editing">
