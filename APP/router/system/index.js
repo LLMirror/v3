@@ -905,4 +905,286 @@ router.post('/getCashSummaryList', async (req, res) => {
 // ---------------------------------------------------------------------------------出纳结束----------------------------------------------
 
 
+// ==================== 数据库管理系统(ty-dbwh)相关 API ====================
+
+/**
+ * 数据表结构定义：
+ * ty_dbwh_data - 数据库管理系统数据表
+ *   id - 主键ID
+ *   user_id - 创建用户ID
+ *   table_name - 表名
+ *   table_desc - 表描述
+ *   columns_config - 列配置(JSON格式)
+ *   status - 状态(0禁用/1启用)
+ *   create_time - 创建时间
+ *   update_time - 更新时间
+ */
+
+/**
+ * 确保数据表存在
+ * @param {String} tableName 表名
+ * @param {String} createTableSql 创建表SQL
+ */
+async function ensureDbwhTableExists(tableName, createTableSql) {
+  try {
+    // 检查表是否存在
+    const checkSql = `SHOW TABLES LIKE '${tableName}'`;
+    const checkResult = await pools({ sql: checkSql, run: true });
+    
+    // 如果表不存在，则创建
+    if (checkResult.result.length === 0) {
+      await pools({ sql: createTableSql, run: true });
+      console.log(`创建表 ${tableName} 成功`);
+    }
+  } catch (error) {
+    console.error(`确保表 ${tableName} 存在时出错:`, error);
+    throw error;
+  }
+}
+
+// 确保数据库管理系统表存在
+(async () => {
+  try {
+    await ensureDbwhTableExists('ty_dbwh_data', `
+      CREATE TABLE ty_dbwh_data (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id INT NOT NULL COMMENT '创建用户ID',
+        table_name VARCHAR(100) NOT NULL COMMENT '表名',
+        table_desc VARCHAR(200) COMMENT '表描述',
+        columns_config TEXT COMMENT '列配置(JSON格式)',
+        status TINYINT DEFAULT 1 COMMENT '状态(0禁用/1启用)',
+        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+        UNIQUE KEY uk_user_table (user_id, table_name)
+      ) COMMENT='数据库管理系统数据表'
+    `);
+  } catch (error) {
+    console.error('初始化数据库表时出错:', error);
+  }
+})();
+
+/**
+ * 获取数据库表列表
+ * @api {post} /ty-dbwh/data/list
+ * @return {Array} 表列表
+ */
+router.post('/ty-dbwh/data/list', async (req, res) => {
+  try {
+    const user = await utils.getUserInfo({ req, res });
+    if (!user) return res.send(utils.returnData({ code: -1, msg: '用户未登录', req }));
+    
+    const obj = req.body || {};
+    let sql = `SELECT id, table_name AS tableName, table_desc AS tableDesc, status, 
+               DATE_FORMAT(create_time, '%Y-%m-%d %H:%i:%s') AS createTime, 
+               DATE_FORMAT(update_time, '%Y-%m-%d %H:%i:%s') AS updateTime 
+               FROM ty_dbwh_data WHERE user_id = ?`;
+    
+    // 搜索条件
+    sql = utils.setLike(sql, 'table_name', obj.tableName);
+    sql = utils.setLike(sql, 'table_desc', obj.tableDesc);
+    if (obj.status !== undefined) {
+      sql = utils.setAssign(sql, 'status', obj.status);
+    }
+    
+    // 获取总数
+    const { total } = await utils.getSum({ sql, name: 'ty_dbwh_data', res, req });
+    
+    // 排序和分页
+    sql += ` ORDER BY update_time DESC`;
+    sql = utils.pageSize(sql, obj.page, obj.size);
+    
+    const { result } = await pools({ sql, val: [user.id], res, req });
+    res.send(utils.returnData({ data: result, total }));
+  } catch (error) {
+    console.error('获取数据库表列表失败:', error);
+    res.send(utils.returnData({ code: -1, msg: '获取列表失败', req }));
+  }
+});
+
+/**
+ * 获取数据库表详情
+ * @api {post} /ty-dbwh/data/detail
+ * @return {Object} 表详情
+ */
+router.post('/ty-dbwh/data/detail', async (req, res) => {
+  try {
+    const user = await utils.getUserInfo({ req, res });
+    if (!user) return res.send(utils.returnData({ code: -1, msg: '用户未登录', req }));
+    
+    const { id } = req.body;
+    if (!id) return res.send(utils.returnData({ code: -1, msg: '参数错误', req }));
+    
+    const sql = `SELECT id, table_name AS tableName, table_desc AS tableDesc, 
+               columns_config AS columnsConfig, status 
+               FROM ty_dbwh_data WHERE id = ? AND user_id = ?`;
+    
+    const { result } = await pools({ sql, val: [id, user.id], res, req });
+    if (result.length === 0) {
+      return res.send(utils.returnData({ code: -1, msg: '记录不存在', req }));
+    }
+    
+    // 解析JSON字符串为对象
+    const data = result[0];
+    if (data.columnsConfig) {
+      data.columnsConfig = JSON.parse(data.columnsConfig);
+    }
+    
+    res.send(utils.returnData({ data }));
+  } catch (error) {
+    console.error('获取数据库表详情失败:', error);
+    res.send(utils.returnData({ code: -1, msg: '获取详情失败', req }));
+  }
+});
+
+/**
+ * 添加数据库表
+ * @api {post} /ty-dbwh/data/add
+ */
+router.post('/ty-dbwh/data/add', async (req, res) => {
+  try {
+    const user = await utils.getUserInfo({ req, res });
+    if (!user) return res.send(utils.returnData({ code: -1, msg: '用户未登录', req }));
+    
+    const obj = req.body;
+    if (!obj.tableName) return res.send(utils.returnData({ code: -1, msg: '表名不能为空', req }));
+    
+    // 检查表名是否已存在
+    const checkSql = `SELECT id FROM ty_dbwh_data WHERE table_name = ? AND user_id = ?`;
+    const checkResult = await pools({ sql: checkSql, val: [obj.tableName, user.id], run: true });
+    if (checkResult.result.length > 0) {
+      return res.send(utils.returnData({ code: -1, msg: '表名已存在', req }));
+    }
+    
+    // 保存列配置为JSON字符串
+    const columnsConfig = obj.columnsConfig ? JSON.stringify(obj.columnsConfig) : '[]';
+    
+    const sql = `INSERT INTO ty_dbwh_data(user_id, table_name, table_desc, columns_config, status) 
+               VALUES(?, ?, ?, ?, ?)`;
+    
+    await pools({ 
+      sql, 
+      val: [user.id, obj.tableName, obj.tableDesc || '', columnsConfig, obj.status || 1], 
+      res, 
+      req, 
+      run: false 
+    });
+    
+    res.send(utils.returnData({ msg: '添加成功' }));
+  } catch (error) {
+    console.error('添加数据库表失败:', error);
+    res.send(utils.returnData({ code: -1, msg: '添加失败', req }));
+  }
+});
+
+/**
+ * 修改数据库表
+ * @api {post} /ty-dbwh/data/update
+ */
+router.post('/ty-dbwh/data/update', async (req, res) => {
+  try {
+    const user = await utils.getUserInfo({ req, res });
+    if (!user) return res.send(utils.returnData({ code: -1, msg: '用户未登录', req }));
+    
+    const obj = req.body;
+    if (!obj.id) return res.send(utils.returnData({ code: -1, msg: '参数错误', req }));
+    
+    // 检查记录是否存在且属于当前用户
+    const checkSql = `SELECT id FROM ty_dbwh_data WHERE id = ? AND user_id = ?`;
+    const checkResult = await pools({ sql: checkSql, val: [obj.id, user.id], run: true });
+    if (checkResult.result.length === 0) {
+      return res.send(utils.returnData({ code: -1, msg: '记录不存在', req }));
+    }
+    
+    // 如果修改表名，检查新表名是否已存在
+    if (obj.tableName) {
+      const nameCheckSql = `SELECT id FROM ty_dbwh_data WHERE table_name = ? AND user_id = ? AND id != ?`;
+      const nameCheckResult = await pools({ sql: nameCheckSql, val: [obj.tableName, user.id, obj.id], run: true });
+      if (nameCheckResult.result.length > 0) {
+        return res.send(utils.returnData({ code: -1, msg: '表名已存在', req }));
+      }
+    }
+    
+    // 构建更新SQL
+    const updateFields = [];
+    const updateValues = [];
+    
+    if (obj.tableName !== undefined) updateFields.push('table_name = ?'), updateValues.push(obj.tableName);
+    if (obj.tableDesc !== undefined) updateFields.push('table_desc = ?'), updateValues.push(obj.tableDesc);
+    if (obj.columnsConfig !== undefined) {
+      updateFields.push('columns_config = ?');
+      updateValues.push(JSON.stringify(obj.columnsConfig));
+    }
+    if (obj.status !== undefined) updateFields.push('status = ?'), updateValues.push(obj.status);
+    
+    if (updateFields.length === 0) {
+      return res.send(utils.returnData({ msg: '没有需要更新的字段' }));
+    }
+    
+    updateValues.push(obj.id, user.id);
+    const sql = `UPDATE ty_dbwh_data SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`;
+    
+    await pools({ sql, val: updateValues, res, req, run: false });
+    res.send(utils.returnData({ msg: '更新成功' }));
+  } catch (error) {
+    console.error('修改数据库表失败:', error);
+    res.send(utils.returnData({ code: -1, msg: '更新失败', req }));
+  }
+});
+
+/**
+ * 删除数据库表
+ * @api {post} /ty-dbwh/data/delete
+ */
+router.post('/ty-dbwh/data/delete', async (req, res) => {
+  try {
+    const user = await utils.getUserInfo({ req, res });
+    if (!user) return res.send(utils.returnData({ code: -1, msg: '用户未登录', req }));
+    
+    const { id } = req.body;
+    if (!id) return res.send(utils.returnData({ code: -1, msg: '参数错误', req }));
+    
+    // 检查记录是否存在且属于当前用户
+    const checkSql = `SELECT id FROM ty_dbwh_data WHERE id = ? AND user_id = ?`;
+    const checkResult = await pools({ sql: checkSql, val: [id, user.id], run: true });
+    if (checkResult.result.length === 0) {
+      return res.send(utils.returnData({ code: -1, msg: '记录不存在', req }));
+    }
+    
+    const sql = `DELETE FROM ty_dbwh_data WHERE id = ? AND user_id = ?`;
+    await pools({ sql, val: [id, user.id], res, req, run: false });
+    res.send(utils.returnData({ msg: '删除成功' }));
+  } catch (error) {
+    console.error('删除数据库表失败:', error);
+    res.send(utils.returnData({ code: -1, msg: '删除失败', req }));
+  }
+});
+
+/**
+ * 切换数据库表状态
+ * @api {post} /ty-dbwh/data/changeStatus
+ */
+router.post('/ty-dbwh/data/changeStatus', async (req, res) => {
+  try {
+    const user = await utils.getUserInfo({ req, res });
+    if (!user) return res.send(utils.returnData({ code: -1, msg: '用户未登录', req }));
+    
+    const { id, status } = req.body;
+    if (id === undefined || status === undefined) {
+      return res.send(utils.returnData({ code: -1, msg: '参数错误', req }));
+    }
+    
+    const sql = `UPDATE ty_dbwh_data SET status = ? WHERE id = ? AND user_id = ?`;
+    const { result } = await pools({ sql, val: [status, id, user.id], run: true });
+    
+    if (result.affectedRows === 0) {
+      return res.send(utils.returnData({ code: -1, msg: '记录不存在或无权限操作', req }));
+    }
+    
+    res.send(utils.returnData({ msg: '状态更新成功' }));
+  } catch (error) {
+    console.error('切换数据库表状态失败:', error);
+    res.send(utils.returnData({ code: -1, msg: '操作失败', req }));
+  }
+});
+
 export default router;

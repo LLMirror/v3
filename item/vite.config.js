@@ -60,11 +60,19 @@ export default defineConfig(({ mode, command }) => {
           }
         ]
       },
-      preprocessorOptions: {
-        scss: {
-          additionalData: `@use "@/assets/styles/overall.scss" as *;`
-        }
-      },
+      // preprocessorOptions: {
+      //   scss: {
+      //     additionalData: `@use "@/assets/styles/overall.scss" as *;`
+      //   }
+      // },
+      css: {
+  preprocessorOptions: {
+    scss: {
+      additionalData: `@import "@/assets/styles/overall.scss";`
+    }
+  }
+}
+
     }
   }
 })
