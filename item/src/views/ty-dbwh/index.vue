@@ -11,7 +11,7 @@
       <el-button type="primary" @click="openFile">📂 选择 Excel</el-button>
       <el-button @click="exportExcel">💾 导出 Excel</el-button>
 
-      <!-- <el-button @click="addRow">➕ 添加行</el-button> -->
+      <el-button @click="addRow">➕ 添加行</el-button>
       <!-- <el-button @click="addColumn">➕ 添加列</el-button> -->
       <!-- <el-button @click="undo">↩ 撤销</el-button> -->
       <!-- <el-button @click="redo">↪ 重做</el-button> -->
@@ -50,6 +50,19 @@
 
 <script setup>
 import { ref, reactive, nextTick, computed, onMounted } from "vue";
+
+// 防抖函数
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 import { HotTable } from "@handsontable/vue3";
 import Handsontable from "handsontable";
 import "handsontable/dist/handsontable.full.min.css";
@@ -59,10 +72,16 @@ import { ElMessage } from "element-plus";
 import useUserStore from '@/store/modules/user'
 
 import { importExcelData, getExcelData } from "@/api/system/index.js";
+// 导入获取历史摘要列表的API
+import { getCashSummaryList } from "@/api/system/index.js";
 
 // 注册 numeric 类型
-import { registerCellType, NumericCellType } from "handsontable/cellTypes";
+import { registerCellType, NumericCellType, AutocompleteCellType } from "handsontable/cellTypes";
 registerCellType("numeric", NumericCellType);
+registerCellType("autocomplete", AutocompleteCellType);
+
+// 常用摘要关键词，用于输入联想（从API获取）
+const commonKeywords = ref([]);
 
 /* ====== refs & state ====== */
 const hotTableRef = ref(null);
@@ -72,6 +91,7 @@ const uploading = ref(false);
 const saving = ref(false);
 const batchSize = ref(1000);
 const userStore = useUserStore();
+const loadingKeywords = ref(false);
 
 const tableData = ref([]);     // 全部数据
 const colHeaders = ref([]);
@@ -145,8 +165,38 @@ const hotSettings = reactive({
   }
 });
 
+// 获取历史摘要列表
+const getHistorySummaries = async () => {
+  if (loadingKeywords.value) return;
+  
+  try {
+    loadingKeywords.value = true;
+    const res = await getCashSummaryList({
+      username: userStore.name,
+      data: {
+        // 不指定特定公司和银行，获取所有可用的摘要
+        summary: ""
+      }
+    });
+    commonKeywords.value = res.data || [];
+  } catch (error) {
+    console.error('获取历史摘要失败', error);
+    // 错误时使用默认关键词作为备选
+    commonKeywords.value = [
+      '收到投资款', '支付租金', '办公费用', '差旅费', '工资支出',
+      '销售收入', '采购成本', '水电费', '通讯费', '交通费',
+      '广告宣传', '业务招待', '税费缴纳', '社保公积金', '报销费用'
+    ];
+  } finally {
+    loadingKeywords.value = false;
+  }
+};
+
 /* ====== 初始化示例 ====== */
-onMounted(() => {
+onMounted(async () => {
+  // 先获取历史摘要
+  await getHistorySummaries();
+  
   const initData = [
     { 日期: "2023-08-17", 摘要: "收到投资款", 收入: 880000.0, 支出: "", 余额: 880000.0, 备注: "zx-1" },
     { 日期: "2023-08-17", 摘要: "支付租金", 收入: "", 支出: 450000.0, 余额: 430000.0, 备注: "zx-2" }
@@ -181,14 +231,176 @@ function initTableFromObjects(objArray) {
   keys.forEach(k => {
     const v = objArray[0][k];
     const isNum = v !== null && v !== "" && !isNaN(Number(v));
-    columns.value.push({
+    
+    // 创建列配置
+    const columnConfig = {
       data: k,
-      type: isNum ? "numeric" : "text",
-      validator: isNum
-        ? (value, cb) => cb(value === "" || !isNaN(Number(value)))
-        : undefined,
+      type: isNum ? "numeric" : (k === "摘要" ? "autocomplete" : "text"),
       allowInvalid: true,
-    });
+    };
+    
+    // 添加验证器
+    if (isNum) {
+      columnConfig.validator = (value, cb) => cb(value === "" || !isNaN(Number(value)));
+    }
+    
+    // 为摘要列配置输入联想
+    if (k === "摘要") {
+      // 创建防抖的API调用函数，2000ms后执行，确保用户有充足时间完成输入
+        const debouncedFetchSummaries = debounce(async (query, callback) => {
+          // 先进行trim处理
+          const trimmedQuery = query ? query.trim() : '';
+          
+          // 判断是否为纯中文
+          const isChineseOnly = trimmedQuery && /^[\u4e00-\u9fa5]+$/.test(trimmedQuery);
+          
+          // 严格限制：只有当输入不为空、长度至少为2个字符（纯中文可以放宽到2个）或包含完整的词语模式时才触发API请求
+          if (!trimmedQuery || loadingKeywords.value || 
+              // 基础长度限制：至少2个字符（纯中文）或3个字符（其他情况）
+              (isChineseOnly && trimmedQuery.length < 2) || 
+              (!isChineseOnly && trimmedQuery.length < 3) ||
+              // 排除混合中英文的情况
+              (/\w+/.test(trimmedQuery) && /[\u4e00-\u9fa5]+/.test(trimmedQuery))) {
+            // 如果有回调，返回空数组或本地过滤结果
+              if (callback) {
+                const filtered = commonKeywords.value.filter(item => 
+                  item && item.toLowerCase().includes(trimmedQuery.toLowerCase())
+                );
+                console.log('【本地过滤】输入条件不满足API调用，返回本地过滤结果:', filtered.length, '条');
+                callback(filtered);
+              }
+            return;
+          }
+          
+          try {
+            loadingKeywords.value = true;
+            // 等待API请求返回结果
+            const res = await getCashSummaryList({
+              username: userStore.name,
+              data: {
+                summary: trimmedQuery
+              }
+            });
+            
+            // 将新获取的摘要添加到现有列表中
+            const newSummaries = res.data || [];
+            // 合并并去重
+            const uniqueSummaries = [...new Set([...commonKeywords.value, ...newSummaries])];
+            commonKeywords.value = uniqueSummaries;
+            
+            // API请求返回后，再查找匹配结果并回调
+            if (callback) {
+              // 使用完整的关键词列表进行过滤
+              const finalResults = uniqueSummaries.filter(item => 
+                item && item.toLowerCase().includes(trimmedQuery.toLowerCase())
+              );
+              console.log('【API回调】API请求完成，过滤结果数量:', finalResults.length, '条');
+              // 确保回调只在API请求完成后执行一次
+              callback(finalResults.length > 0 ? finalResults : ['未找到匹配结果']);
+            }
+          } catch (err) {
+            console.error('获取最新摘要失败', err);
+            // 错误处理：即使API失败，也返回本地过滤结果
+            if (callback) {
+              const filtered = commonKeywords.value.filter(item => 
+                item && item.toLowerCase().includes(trimmedQuery.toLowerCase())
+              );
+              callback(filtered.length > 0 ? filtered : ['获取数据失败，显示本地结果']);
+            }
+          } finally {
+            loadingKeywords.value = false;
+          }
+        }, 2000); // 2000ms延迟，确保用户完成输入
+
+      columnConfig.source = function(query, processCallback) {
+          // 测试日志：打印用户正在输入的摘要内容及上下文信息
+          console.log('【实时输入】用户输入的摘要(搜索关键词):', query, '长度:', query?.length, '当前关键词列表数量:', commonKeywords.value.length);
+          
+          // 检查是否处于输入法中间状态（包含拼音分隔符等）
+          const isComposingState = query && 
+                // 只检测引号和混合中英文的情况，不再检测空格
+                (/['`]/.test(query) || 
+                 // 混合中英文模式
+                 (/\w+/.test(query) && /[\u4e00-\u9fa5]+/.test(query)));
+          
+          // 如果正在加载关键词，显示加载中状态
+          if (loadingKeywords.value) {
+            processCallback(['加载中...']);
+            return;
+          }
+          
+          // 对于输入法中间状态，返回空数组以避免干扰输入体验
+          if (isComposingState) {
+            console.log('【输入法状态】检测到输入法中间状态，暂停处理');
+            processCallback([]);
+            return;
+          }
+          
+          // 当用户输入长度达到一定条件时，调用API请求
+          // 等待API返回后再查找并显示结果
+          const trimmedQuery = query ? query.trim() : '';
+          const isChineseOnly = trimmedQuery && /^[\u4e00-\u9fa5]+$/.test(trimmedQuery);
+          
+          if (trimmedQuery && 
+              ((isChineseOnly && trimmedQuery.length >= 2) || 
+               (!isChineseOnly && trimmedQuery.length >= 3))) {
+            // 先显示加载状态
+            processCallback(['加载中...']);
+            // 调用防抖的API函数，传入processCallback以在API返回后处理结果
+              console.log('【API触发】满足条件，触发API调用:', trimmedQuery, '纯中文:', isChineseOnly);
+              debouncedFetchSummaries(trimmedQuery, processCallback);
+          } else {
+            // 输入较短时，只使用本地过滤结果
+            const filtered = commonKeywords.value.filter(item => 
+              item && item.toLowerCase().includes((query || '').toLowerCase())
+            );
+            processCallback(filtered);
+          }
+        };
+        
+        // 合并单元格事件处理，避免重复定义
+        columnConfig.cells = function(row, col, prop) {
+          const cellProperties = {};
+          
+          cellProperties.afterSetValue = function(val) {
+            // 测试日志：打印用户最终确认输入的摘要内容及详细信息
+            console.log('【确认输入】用户确认输入的摘要(最终值):', val, '类型:', typeof val);
+            
+            // 用户确认输入（按下Enter或失去焦点）后，如果输入的值符合条件
+            if (val && typeof val === 'string' && val.trim() && val.trim().length >= 2) {
+              const trimmedVal = val.trim();
+              
+              // 测试日志：打印处理后的摘要值和详细信息
+              console.log('【值处理】处理后的摘要值(trim):', trimmedVal, '长度:', trimmedVal.length);
+              console.log('【关键词检查】当前关键词列表数量:', commonKeywords.value.length, '是否已存在:', commonKeywords.value.includes(trimmedVal));
+              
+              // 使用一个单独的延迟函数，确保在用户完全完成编辑后才执行
+              setTimeout(() => {
+                // 直接更新本地列表，不触发额外的API请求
+                if (!commonKeywords.value.includes(trimmedVal)) {
+                  commonKeywords.value.push(trimmedVal);
+                  console.log('【关键词更新】新摘要已添加到关键词列表:', trimmedVal);
+                }
+              }, 300);
+              
+              // 如果输入的值不在现有关键词列表中，调用API获取相关摘要
+              if (!commonKeywords.value.some(item => item === trimmedVal)) {
+                console.log('【API调用】摘要不在现有列表中，准备调用API获取相关摘要:', trimmedVal);
+                debouncedFetchSummaries(trimmedVal);
+              }
+            }
+          };
+          
+          return cellProperties;
+        };
+      
+      // 重要：禁用严格模式和验证，允许任何输入值
+      columnConfig.strict = false; // 允许输入不在建议列表中的值
+      columnConfig.allowInvalid = true; // 允许无效值，避免输入后出现下划线
+      columnConfig.trimDropdown = false; // 不过滤空白项
+    }
+    
+    columns.value.push(columnConfig);
   });
 
   // 初始化第一页
