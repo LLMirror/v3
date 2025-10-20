@@ -13,8 +13,8 @@
 
       <!-- <el-button @click="addRow">➕ 添加行</el-button> -->
       <!-- <el-button @click="addColumn">➕ 添加列</el-button> -->
-      <el-button @click="undo">↩ 撤销</el-button>
-      <el-button @click="redo">↪ 重做</el-button>
+      <!-- <el-button @click="undo">↩ 撤销</el-button> -->
+      <!-- <el-button @click="redo">↪ 重做</el-button> -->
 
       <el-button type="success" @click="uploadToDB" :loading="uploading">⬆️ 同步到数据库</el-button>
       <el-button type="info" @click="saveChanges" :loading="saving">💾 保存编辑</el-button>
@@ -37,10 +37,12 @@
     <div class="mt-2 flex justify-end">
       <el-pagination
         v-model:current-page="currentPage"
-        :page-size="pageSize"
+        v-model:page-size="pageSize"
         :total="tableData.length"
+        :page-size-options="['10', '20', '50', '100']"
+        @size-change="handleSizeChange"
         @current-change="handlePageChange"
-        layout="prev, pager, next, total"
+        layout="prev, pager, next, total, sizes"
       />
     </div>
   </div>
@@ -186,8 +188,6 @@ function initTableFromObjects(objArray) {
         ? (value, cb) => cb(value === "" || !isNaN(Number(value)))
         : undefined,
       allowInvalid: true,
-      width: 80,
-      minWidth: 80,
       maxWidth: 200
     });
   });
@@ -201,6 +201,13 @@ function initTableFromObjects(objArray) {
 /* ====== 翻页 ====== */
 function handlePageChange(page) {
   currentPage.value = page;
+  loadCurrentPage();
+}
+
+// 处理每页显示条数变化
+function handleSizeChange(size) {
+  pageSize.value = size;
+  currentPage.value = 1; // 重置为第一页
   loadCurrentPage();
 }
 
@@ -337,6 +344,5 @@ async function loadFromDB() {
   background: rgba(255,0,0,0.12) !important;
   border: 1px solid rgba(255,0,0,0.2) !important;
 }
-
 </style>
 
