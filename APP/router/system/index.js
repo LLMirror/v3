@@ -1197,62 +1197,82 @@ router.post("/importExcelData", async (req, res) => {
   console.log("📥 importExcelData");
 
   try {
+    // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
-    // 公司ID
-    const 录入人 = user.user.name;
-    console.log(user.user);
-    const { tableName, data } = req.body;
+    const userName = user.user.name; // 录入人
 
+    const { tableName, data } = req.body;
     if (!tableName || !Array.isArray(data) || data.length === 0) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
     }
 
-    const keys = Object.keys(data[0]);
+    // 处理字段：将“录入人”统一替换成 name
+    const rawKeys = Object.keys(data[0]);
+    const keys = rawKeys.map(k => (k === "录入人" ? "name" : k));
+
+    // 创建字段 SQL
     const createCols = keys.map(k => `\`${k}\` TEXT`).join(",");
 
-   // 创建表
-const createSQL = `
-  CREATE TABLE IF NOT EXISTS \`${tableName}\` (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
-    \`录入人\` VARCHAR(255),
-    ${createCols},
-    unique_key VARCHAR(255) UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  )
-`;
-await pools({ sql: createSQL, res, req });
+    // ✅ 创建表
+    const createSQL = `
+      CREATE TABLE IF NOT EXISTS \`${tableName}\` (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        ${createCols},
+        unique_key VARCHAR(255) UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    await pools({ sql: createSQL, res, req });
 
-// 构造 values
-const values = data.map(row => {
-  const uniqueStr = `${row['日期'] || ''}|${row['摘要'] || ''}|${row['收入'] || ''}|${row['支出'] || ''}`;
-  const uniqueKey = crypto.createHash('md5').update(uniqueStr).digest('hex');
-  return [userId, 录入人, ...keys.map(k => row[k] ?? ''), uniqueKey];
-});
+    // 判断是否已有 name 字段
+    const hasNameField = keys.includes("name");
 
-// 占位符
-const placeholders = '(' + Array(2 + keys.length + 1).fill('?').join(',') + ')'; // user_id + name + keys + unique_key
-const sql = `
-  INSERT INTO \`${tableName}\` (user_id, \`录入人\`, ${keys.join(",")}, unique_key)
-  VALUES ${values.map(() => placeholders).join(',')}
-  ON DUPLICATE KEY UPDATE created_at=VALUES(created_at)
-`;
+    // ✅ 构造插入数据
+    const values = data.map(row => {
+      const cleanRow = { ...row };
+      // “录入人”映射成 name
+      if ("录入人" in cleanRow) cleanRow.name = cleanRow["录入人"];
+      // 如果 Excel 没有录入人字段，自动填当前用户
+      if (!hasNameField) cleanRow.name = userName;
 
+      const uniqueStr = `${cleanRow["日期"] || ""}|${cleanRow["摘要"] || ""}|${cleanRow["收入"] || ""}|${cleanRow["支出"] || ""}`;
+      const uniqueKey = crypto.createHash("md5").update(uniqueStr).digest("hex");
 
+      // user_id + 所有字段值 + unique_key
+      const rowValues = [userId, ...keys.map(k => cleanRow[k] ?? ""), uniqueKey];
+      return rowValues;
+    });
+
+    // ✅ 插入字段
+    const allFields = ["user_id", ...keys, "unique_key"].map(f => `\`${f}\``).join(",");
+
+    // 每行占位符精确计算
+    const rowPlaceholder = "(" + Array(1 + keys.length + 1).fill("?").join(",") + ")";
+
+    // 拼接 SQL
+    const sql = `
+      INSERT INTO \`${tableName}\` (${allFields})
+      VALUES ${values.map(() => rowPlaceholder).join(",")}
+      ON DUPLICATE KEY UPDATE created_at = VALUES(created_at)
+    `;
+
+    // 执行 SQL
     await pools({ sql, val: values.flat(), res, req });
 
     res.send(utils.returnData({
       code: 1,
-      msg: `✅ 成功导入 ${data.length} 条记录（重复会自动忽略）`,
+      msg: `✅ 成功导入 ${data.length} 条记录（重复将自动忽略）`,
       data: { count: data.length }
     }));
-
   } catch (err) {
     console.error("❌ 导入 Excel 出错:", err);
     res.send(utils.returnData({ code: 500, msg: err.message }));
   }
 });
+
+
 
 
 /**
@@ -1261,7 +1281,7 @@ const sql = `
 router.post("/getExcelData", async (req, res) => {
   const { tableName } = req.body;
   if (!tableName) return res.send(utils.returnData({ code: 400, msg: "缺少表名" }));
-  const sql = `SELECT  录入人 ,日期,摘要,收入,支出,余额,备注,发票 FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
+  const sql = `SELECT  name AS 录入人 ,日期,摘要,收入,支出,余额,备注,发票 FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
 });

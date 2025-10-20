@@ -70,7 +70,7 @@ const fileInput = ref(null);
 const tableName = ref("finance_2025_10");
 const uploading = ref(false);
 const saving = ref(false);
-const batchSize = ref(500);
+const batchSize = ref(1000);
 const userStore = useUserStore();
 
 const tableData = ref([]);     // 全部数据
