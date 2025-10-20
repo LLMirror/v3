@@ -304,3 +304,20 @@ export function getCashSummaryList(data) {
 	});
 }
 // ---------------------------------------------------------出纳结算----------------------------------------------------------------------
+// 导入 Excel 数据
+export function importExcelData(params) {
+  return request({
+    url: "/system/importExcelData",
+    method: "post",
+    data: params
+  });
+}
+
+// 获取表格数据
+export function getExcelData(params) {
+  return request({
+    url: "/system/getExcelData",
+    method: "post",
+    data: params
+  });
+}

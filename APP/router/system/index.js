@@ -8,6 +8,8 @@ import moment from 'moment';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import dayjs from 'dayjs';
+import crypto from 'crypto';
+
 
 
 const router = express.Router();
@@ -1185,6 +1187,130 @@ router.post('/ty-dbwh/data/changeStatus', async (req, res) => {
     console.error('切换数据库表状态失败:', error);
     res.send(utils.returnData({ code: -1, msg: '操作失败', req }));
   }
+});
+
+/**
+ * 📥 导入 Excel 数据写入数据库
+ */
+// router.post("/importExcelData", async (req, res) => {
+//   console.log("📥 importExcelData");
+
+//   try {
+//     const user = await utils.getUserRole(req, res);
+//     const userId = user.user.id;
+//     const { tableName, data } = req.body;
+
+//     if (!tableName || !Array.isArray(data) || data.length === 0) {
+//       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
+//     }
+
+//     const keys = Object.keys(data[0]);
+//     const createCols = keys.map(k => `\`${k}\` TEXT`).join(",");
+//     const createSQL = `
+//       CREATE TABLE IF NOT EXISTS \`${tableName}\` (
+//         id INT AUTO_INCREMENT PRIMARY KEY,
+//         user_id INT,
+//         ${createCols},
+//         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+//       )
+//     `;
+//     await pools({ sql: createSQL, res, req });
+
+//     // ✅ 生成占位符和批量参数
+//     const placeholders = '(' + ['?'.repeat(keys.length + 1)].join(',') + ')'; // +1 是 user_id
+//     // 其实上面那句可以简化写成
+//     // const placeholders = '(' + Array(keys.length + 1).fill('?').join(',') + ')';
+//     const sql = `
+//       INSERT INTO \`${tableName}\` (user_id, ${keys.join(",")})
+//       VALUES ${data.map(() => '(' + Array(keys.length + 1).fill('?').join(',') + ')').join(',')}
+//     `;
+
+//     const values = data.flatMap(row => [userId, ...keys.map(k => row[k] ?? '')]);
+
+//     await pools({ sql, val: values, res, req });
+
+//     res.send(utils.returnData({
+//       code: 1,
+//       msg: `✅ 成功导入 ${data.length} 条记录`,
+//       data: { count: data.length }
+//     }));
+
+//   } catch (err) {
+//     console.error("❌ 导入 Excel 出错:", err);
+//     res.send(utils.returnData({ code: 500, msg: err.message }));
+//   }
+// });
+router.post("/importExcelData", async (req, res) => {
+  console.log("📥 importExcelData");
+
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    // 公司ID
+    const name = user.user.name;
+    console.log(user.user);
+    const { tableName, data } = req.body;
+
+    if (!tableName || !Array.isArray(data) || data.length === 0) {
+      return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
+    }
+
+    const keys = Object.keys(data[0]);
+    const createCols = keys.map(k => `\`${k}\` TEXT`).join(",");
+
+   // 创建表
+const createSQL = `
+  CREATE TABLE IF NOT EXISTS \`${tableName}\` (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    name VARCHAR(255),
+    ${createCols},
+    unique_key VARCHAR(255) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`;
+await pools({ sql: createSQL, res, req });
+
+// 构造 values
+const values = data.map(row => {
+  const uniqueStr = `${row['日期'] || ''}|${row['摘要'] || ''}|${row['收入'] || ''}|${row['支出'] || ''}`;
+  const uniqueKey = crypto.createHash('md5').update(uniqueStr).digest('hex');
+  return [userId, name, ...keys.map(k => row[k] ?? ''), uniqueKey];
+});
+
+// 占位符
+const placeholders = '(' + Array(2 + keys.length + 1).fill('?').join(',') + ')'; // user_id + name + keys + unique_key
+const sql = `
+  INSERT INTO \`${tableName}\` (user_id, name, ${keys.join(",")}, unique_key)
+  VALUES ${values.map(() => placeholders).join(',')}
+  ON DUPLICATE KEY UPDATE created_at=VALUES(created_at)
+`;
+
+
+    await pools({ sql, val: values.flat(), res, req });
+
+    res.send(utils.returnData({
+      code: 1,
+      msg: `✅ 成功导入 ${data.length} 条记录（重复会自动忽略）`,
+      data: { count: data.length }
+    }));
+
+  } catch (err) {
+    console.error("❌ 导入 Excel 出错:", err);
+    res.send(utils.returnData({ code: 500, msg: err.message }));
+  }
+});
+
+
+/**
+ * 📤 获取数据库数据
+ */
+router.post("/getExcelData", async (req, res) => {
+  const { tableName } = req.body;
+  if (!tableName) return res.send(utils.returnData({ code: 400, msg: "缺少表名" }));
+  const sql = `SELECT  录入人 ,日期,摘要,收入,支出,余额,备注,发票 FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
+  const { result } = await pools({ sql, res });
+  res.send(utils.returnData({ data: result }));
 });
 
 export default router;
