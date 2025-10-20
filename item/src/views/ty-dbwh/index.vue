@@ -188,7 +188,6 @@ function initTableFromObjects(objArray) {
         ? (value, cb) => cb(value === "" || !isNaN(Number(value)))
         : undefined,
       allowInvalid: true,
-      maxWidth: 200
     });
   });
 
