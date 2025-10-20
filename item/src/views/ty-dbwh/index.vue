@@ -49,7 +49,7 @@ const colHeaders = ref([]);
 const columns = ref([]);
 
 // ✅ 初始化默认数据（页面打开就能看到）
-onMounted(() => {
+onMounted(async () => {
   const initData = [
     { 姓名: "张三", 工资: 5000 },
     { 姓名: "李四", 工资: 7000 },
@@ -63,6 +63,13 @@ onMounted(() => {
     allowInvalid: false,
   }));
   tableData.value = initData;
+  
+  // 等待DOM更新后，强制加载数据到Handsontable实例
+  await nextTick();
+  if (hotTableRef.value) {
+    const hot = hotTableRef.value.hotInstance;
+    hot.loadData(initData); // 确保数据正确显示
+  }
 });
 
 // ✅ 导入 Excel 文件
