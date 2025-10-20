@@ -27,6 +27,8 @@
       :language="'zh-CN'"
       :height="600"
       :licenseKey="'non-commercial-and-evaluation'"
+      :wordWrap="true"  
+      :renderAllRows="true"
     />
   </div>
 </template>
@@ -157,5 +159,30 @@ button {
 }
 button:hover {
   background: #1d4ed8;
+}
+
+/* 设置表格容器的最大宽度 */
+:deep(.htCore) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* 为单元格设置最大宽度和自动换行 */
+:deep(.htCore td) {
+  max-width: 200px; /* 设置最大宽度为200px */
+  white-space: normal; /* 允许换行 */
+  word-wrap: break-word; /* 长单词也会换行 */
+  word-break: break-all; /* 强制换行，即使在单词中间 */
+  line-height: 1.4; /* 调整行高以更好地显示多行文本 */
+}
+
+/* 表头也应用相同的样式 */
+:deep(.htCore th) {
+  max-width: 200px;
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-all;
+  line-height: 1.4;
+  vertical-align: top; /* 表头内容顶部对齐 */
 }
 </style>
