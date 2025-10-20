@@ -39,7 +39,7 @@
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
         :total="tableData.length"
-        :page-size-options="['10', '20', '50', '100']"
+        :page-sizes="[25, 50, 100, 200, 500]"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
         layout="prev, pager, next, total, sizes"
@@ -79,7 +79,7 @@ const columns = ref([]);
 
 // 分页
 const currentPage = ref(1);
-const pageSize = ref(20); // 每页 20 条
+const pageSize = ref(25); // 每页 20 条
 
 const pagedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
@@ -327,7 +327,7 @@ async function saveChanges() {
 async function loadFromDB() {
   if (!tableName.value) return ElMessage.warning("请先填写表名");
   try {
-    const res = await getExcelData({ tableName: tableName.value });
+    const res = await getExcelData({ tableName: tableName.value ,rolesId:userStore.name});
     if (res?.code !== 1) return ElMessage.error("加载失败：" + res?.msg);
     const rows = res.data || [];
     if (!rows.length) return initTableFromObjects([]), ElMessage.info("表中没有数据");
