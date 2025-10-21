@@ -9,12 +9,12 @@
          <el-cascader
         v-model="selectedCompanyBank"
         :options="companyBankOptions"
-        :props="{ checkStrictly: true, expandTrigger: 'hover', label: 'name', value: 'id', children: 'banks' }"
+        :props="{ checkStrictly: true, expandTrigger: 'hover' }"
         placeholder="选择公司和银行"
         class="mr-2"
         style="margin-right: 16px;"
       />
-      <el-button @click="exportExcel" type="primary">查询</el-button>
+      <el-button @click="loadFromDB" type="primary">查询</el-button>
       <el-button @click="exportExcel" >💾 导出 Excel</el-button>
       <el-button @click="addRow">➕ 添加行</el-button>
       <el-button type="info" @click="saveChanges" :loading="saving">💾 保存编辑</el-button> 
@@ -65,7 +65,7 @@ import * as XLSX from "xlsx";
 import { ElMessage } from "element-plus";
 import useUserStore from '@/store/modules/user'
 
-import { importExcelData, getExcelData,getSettlementData,getCashSummaryList } from "@/api/system/index.js";
+import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList } from "@/api/system/index.js";
 
 // 注册 numeric 类型和日期选择器插件
 import { registerCellType, NumericCellType, AutocompleteCellType } from "handsontable/cellTypes";
@@ -209,6 +209,56 @@ const getHistorySummaries = async () => {
 
 /* ====== 初始化示例 ====== */
 onMounted(async () => {
+  // 获取公司、银行
+  const res = await getSettlementCompanyBank({
+    username: userStore.name,
+    data: {
+      // 不指定特定公司和银行，获取所有可用的摘要
+      summary: ""
+    }
+  });
+  // 将返回的数据转换为级联选择器所需的格式
+  const rawData = res.data || [];
+  const cascadingData = [];
+  const companyMap = new Map();
+  
+  // 处理数据，构建树形结构
+  if (rawData.length > 0) {
+    rawData.forEach(item => {
+      if (!companyMap.has(item.公司)) {
+        companyMap.set(item.公司, {
+          value: item.公司,
+          label: item.公司,
+          children: []
+        });
+        cascadingData.push(companyMap.get(item.公司));
+      }
+      
+      // 避免重复添加银行
+      const company = companyMap.get(item.公司);
+      if (!company.children.some(bank => bank.value === item.银行)) {
+        company.children.push({
+          value: item.银行,
+          label: item.银行
+        });
+      }
+    });
+  } else {
+    // 如果没有数据，设置默认数据
+    cascadingData.push({
+      value: "信泰众诚",
+      label: "信泰众诚",
+      children: [
+        {
+          value: "中信银行",
+          label: "中信银行"
+        }
+      ]
+    });
+  }
+  
+  companyBankOptions.value = cascadingData;
+
   // 先获取历史摘要
   await getHistorySummaries();
   
@@ -677,6 +727,8 @@ function exportExcel() {
   ElMessage.success("已导出 Excel");
 }
 
+
+
 /* ====== 增删行列 & 撤销重做 ====== */
 function addRow() {
   const newRow = {};
@@ -708,36 +760,25 @@ function undo() { hotTableRef.value?.hotInstance.undo(); }
 function redo() { hotTableRef.value?.hotInstance.redo(); }
 
 /* ====== 数据库交互 ====== */
-async function uploadToDB() {
-  if (!tableName.value) return ElMessage.warning("请先填写表名");
-  const rows = tableData.value; if (!rows.length) return ElMessage.warning("无数据上传");
-  uploading.value = true;
-  try {
-    const total = rows.length; const size = batchSize.value || 500;
-    for (let i = 0; i < total; i += size) {
-      const batch = rows.slice(i, i + size);
-      const res = await importExcelData({ tableName: tableName.value, data: batch });
-      if (res?.code !== 1) throw new Error(res?.msg || "导入失败");
-      ElMessage.success(`已上传 ${Math.min(i+size,total)}/${total}`);
-    }
-    ElMessage.success(`全部上传完成，共 ${total} 条`);
-  } catch (err) { ElMessage.error("上传异常：" + (err.message || err)); }
-  finally { uploading.value = false; }
-}
+
 async function saveChanges() {
   if (!tableName.value) return ElMessage.warning("请先填写表名");
   const rows = tableData.value; if (!rows.length) return ElMessage.warning("无数据保存");
   saving.value = true;
   try {
-    const res = await importExcelData({ tableName: tableName.value, data: rows });
+    const res = await upSettlementData({ tableName: tableName.value, data: rows });
     if (res?.code === 1) ElMessage.success("保存成功"); else throw new Error(res?.msg || "保存失败");
   } catch (err) { ElMessage.error("保存异常：" + (err.message || err)); }
   finally { saving.value = false; }
 }
+async function loadCompanyBank() {
+  console.log(selectedCompanyBank.value);
+}
+
 async function loadFromDB() {
   if (!tableName.value) return ElMessage.warning("请先填写表名");
   try {
-    const res = await getSettlementData({ tableName: tableName.value ,rolesId:userStore.name});
+    const res = await getSettlementData({ selectedCompanyBank: selectedCompanyBank.value });
     if (res?.code !== 1) return ElMessage.error("加载失败：" + res?.msg);
     const rows = res.data || [];
     if (!rows.length) return initTableFromObjects([]), ElMessage.info("表中没有数据");

@@ -322,6 +322,14 @@ export function getSettlementData(params) {
     data: params
   });
 }
+// 获取出纳表公司、银行
+export function getSettlementCompanyBank(params) {
+  return request({
+    url: "/system/getSettlementCompanyBank",
+    method: "post",
+    data: params
+  });
+}
 // ---------------------------------------------------------出纳结算----------------------------------------------------------------------
 // 导入 Excel 数据
 export function importExcelData(params) {

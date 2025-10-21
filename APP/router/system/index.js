@@ -1356,11 +1356,6 @@ keys = [...new Set(keys)];
   }
 });
 
-
-
-
-
-
 /**
  * 📤 获取数据库数据
  */
@@ -1372,11 +1367,29 @@ router.post("/getExcelData", async (req, res) => {
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
 });
+
 // 获取出纳结算数据
 router.post("/getSettlementData", async (req, res) => {
-  const { tableName } = req.body;
-  if (!tableName) return res.send(utils.returnData({ code: 400, msg: "缺少表名" }));
-  const sql = `SELECT  日期,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` ORDER BY id ASC `;
+  // 公司 银行 有则查询 无责查询全部
+  console.log(req.body);
+  // 从selectedCompanyBank数组中提取公司和银行
+  const selectedCompanyBank = req.body.selectedCompanyBank || [];
+  const company = selectedCompanyBank[0]; // 第一个元素是公司
+  const bank = selectedCompanyBank[1]; // 第二个元素是银行
+  const user = await utils.getUserRole(req, res);
+  const userId = user.user.id;
+  
+  const sql = `SELECT  日期,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
+  // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
+  const { result } = await pools({ sql, res });
+  res.send(utils.returnData({ data: result }));
+});
+
+// 获取出纳表公司、银行
+router.post("/getSettlementCompanyBank", async (req, res) => {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+  const sql = `SELECT DISTINCT 公司,银行 FROM \`pt-cw-zjmxb\` where user_id = ${userId} `;
   // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
@@ -1545,5 +1558,6 @@ keys = [...new Set(keys)];
     res.send(utils.returnData({ code: 500, msg: err.message }));
   }
 });
+
 
 export default router;
