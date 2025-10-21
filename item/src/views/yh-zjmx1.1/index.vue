@@ -3,22 +3,21 @@
 <template>
   <div class="p-4">
     <!-- <h2 class="text-xl font-bold mb-3">出纳资金明细登记表</h2> -->
-
     <div class="mb-3 flex gap-2 flex-wrap items-center">
-      <input ref="fileInput" type="file" @change="handleFileUpload" accept=".xlsx,.xls" style="display:none" />
+     
 
-      <el-button @click="exportExcel">💾 导出 Excel</el-button>
-
+         <el-cascader
+        v-model="selectedCompanyBank"
+        :options="companyBankOptions"
+        :props="{ checkStrictly: true, expandTrigger: 'hover', label: 'name', value: 'id', children: 'banks' }"
+        placeholder="选择公司和银行"
+        class="mr-2"
+        style="margin-right: 16px;"
+      />
+      <el-button @click="exportExcel" type="primary">查询</el-button>
+      <el-button @click="exportExcel" >💾 导出 Excel</el-button>
       <el-button @click="addRow">➕ 添加行</el-button>
-      <!-- <el-button @click="addColumn">➕ 添加列</el-button> -->
-      <!-- <el-button @click="undo">↩ 撤销</el-button> -->
-      <!-- <el-button @click="redo">↪ 重做</el-button> -->
-      <!-- <el-button type="success" @click="uploadToDB" :loading="uploading">⬆️ 同步到数据库</el-button> -->
-      <el-button type="info" @click="saveChanges" :loading="saving">💾 保存编辑</el-button>
-
-
-      <el-divider direction="vertical"></el-divider>
- 
+      <el-button type="info" @click="saveChanges" :loading="saving">💾 保存编辑</el-button> 
     </div>
 
     <HotTable
@@ -99,6 +98,27 @@ const pagedData = computed(() => {
   return tableData.value.slice(start, start + pageSize.value);
 });
 
+// 在script setup中添加以下响应式数据
+const selectedCompanyBank = ref([]);
+const companyBankOptions = ref([
+  // 示例数据结构，实际使用时需从API获取
+  {
+    id: 1,
+    name: '公司A',
+    banks: [
+      { id: 101, name: '银行A1' },
+      { id: 102, name: '银行A2' }
+    ]
+  },
+  {
+    id: 2,
+    name: '公司B',
+    banks: [
+      { id: 201, name: '银行B1' },
+      { id: 202, name: '银行B2' }
+    ]
+  }
+]);
 /* ====== Handsontable 设置 ====== */
 // Handsontable配置项 - 使用reactive包装使其具有响应式特性
 const hotSettings = reactive({
@@ -733,12 +753,13 @@ async function loadFromDB() {
   background: rgba(255,0,0,0.12) !important;
   border: 1px solid rgba(255,0,0,0.2) !important;
 }
-.p-4 { padding: 16px; }
+.p-4 { padding: 16px;}
 .excel-table{
   margin-top: 16px;
 }
 .mb-3 { display: flex;
 justify-content: flex-end;
 }
+
 </style>
 
