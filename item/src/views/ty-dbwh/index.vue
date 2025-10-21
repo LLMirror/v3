@@ -278,11 +278,37 @@ function initTableFromObjects(objArray) {
   
   // 识别日期列
   const dateColumns = new Set();
+  // 识别订单号等需要作为文本处理的列
+  const textColumns = new Set();
+  
   keys.forEach(key => {
     // 收集样本数据用于判断
     const sampleData = objArray.slice(0, 10).map(row => row[key]);
+    
+    // 识别日期列
     if (isDateColumn(key, sampleData)) {
       dateColumns.add(key);
+    }
+    
+    // 识别订单号列，强制作为文本处理
+    const lowerKey = key.toLowerCase();
+    if (lowerKey.includes('订单号') || lowerKey.includes('orderno') || 
+        lowerKey.includes('order_no') || lowerKey.includes('订单编号') ||
+        lowerKey.includes('Number') || lowerKey.includes('编号') ||
+        lowerKey.includes('单号') || lowerKey.includes('serial')) {
+      textColumns.add(key);
+    }
+    
+    // 检查是否包含长数字（可能是订单号）
+    for (const value of sampleData) {
+      if (typeof value === 'number') {
+        const numStr = value.toString();
+        // 如果数字长度超过15位，通常是需要作为文本处理的长订单号
+        if (numStr.length > 15) {
+          textColumns.add(key);
+          break;
+        }
+      }
     }
   });
   
@@ -316,9 +342,16 @@ function initTableFromObjects(objArray) {
     // 创建列配置
     const columnConfig = {
       data: k,
-      type: isNum ? "numeric" : (k === "摘要" ? "autocomplete" : "text"),
+      // 如果是订单号列，强制使用文本类型；否则根据数据类型决定
+      type: textColumns.has(k) ? "text" : (isNum ? "numeric" : (k === "摘要" ? "autocomplete" : "text")),
       allowInvalid: true,
     };
+    
+    // 对于订单号列，确保输入时也作为文本处理
+    if (textColumns.has(k)) {
+      columnConfig.editor = "text";
+      columnConfig.format = null;
+    }
     
     // 添加验证器
     if (isNum) {
@@ -548,9 +581,26 @@ async function handleFileUpload(e) {
     
     if (!jsonData?.length) return ElMessage.warning("导入为空");
     
+    // 处理可能的长订单号，确保它们作为字符串处理
+    const processedData = jsonData.map(row => {
+      const processedRow = { ...row };
+      Object.keys(processedRow).forEach(key => {
+        const value = processedRow[key];
+        // 检查是否为长数字（可能是订单号）
+        if (typeof value === 'number') {
+          const numStr = value.toString();
+          // 如果数字长度超过15位，将其转换为字符串以保留完整值
+          if (numStr.length > 15) {
+            processedRow[key] = numStr;
+          }
+        }
+      });
+      return processedRow;
+    });
+    
     // 初始化表格，会在initTableFromObjects中进行日期转换
-    initTableFromObjects(jsonData);
-    ElMessage.success("导入成功，已自动转换Excel日期格式");
+    initTableFromObjects(processedData);
+    ElMessage.success("导入成功，已自动转换Excel日期格式和长订单号");
   };
   reader.readAsArrayBuffer(file);
   e.target.value = "";
