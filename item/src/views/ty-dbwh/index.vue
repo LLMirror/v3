@@ -72,10 +72,9 @@ import { ElMessage } from "element-plus";
 import useUserStore from '@/store/modules/user'
 
 import { importExcelData, getExcelData } from "@/api/system/index.js";
-// 导入获取历史摘要列表的API
 import { getCashSummaryList } from "@/api/system/index.js";
 
-// 注册 numeric 类型
+// 注册 numeric 类型和日期选择器插件
 import { registerCellType, NumericCellType, AutocompleteCellType } from "handsontable/cellTypes";
 registerCellType("numeric", NumericCellType);
 registerCellType("autocomplete", AutocompleteCellType);
@@ -137,6 +136,8 @@ const hotSettings = reactive({
   height: 700,
   // 许可证密钥 - 非商业和评估使用
   licenseKey: "non-commercial-and-evaluation",
+  // 启用日期选择器插件***********************************************************
+  // plugins: [DatePicker],
   // 单元格验证失败时应用的CSS类名
   invalidCellClassName: "htInvalid",
   
@@ -342,10 +343,16 @@ function initTableFromObjects(objArray) {
     // 创建列配置
     const columnConfig = {
       data: k,
-      // 如果是订单号列，强制使用文本类型；否则根据数据类型决定
-      type: textColumns.has(k) ? "text" : (isNum ? "numeric" : (k === "摘要" ? "autocomplete" : "text")),
+      // 如果是日期列，使用date类型；如果是订单号列，强制使用文本类型；否则根据数据类型决定
+      type: dateColumns.has(k) ? "date" : (textColumns.has(k) ? "text" : (isNum ? "numeric" : (k === "摘要" ? "autocomplete" : "text"))),
       allowInvalid: true,
     };
+    
+    // 为日期列配置日期选择器
+    if (dateColumns.has(k)) {
+      columnConfig.dateFormat = 'YYYY-MM-DD';
+      columnConfig.correctFormat = true;
+    }
         // 如果是“摘要”列，设置列宽为300
     if (k === "摘要") {
       columnConfig.width = 600;
@@ -604,7 +611,8 @@ async function handleFileUpload(e) {
     });
     
     // 初始化表格，会在initTableFromObjects中进行日期转换
-    initTableFromObjects(processedData);
+    // initTableFromObjects(processedData);
+     initTableFromObjects(jsonData);
     ElMessage.success("导入成功，已自动转换Excel日期格式和长订单号");
   };
   reader.readAsArrayBuffer(file);
