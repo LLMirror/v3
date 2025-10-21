@@ -346,6 +346,11 @@ function initTableFromObjects(objArray) {
       type: textColumns.has(k) ? "text" : (isNum ? "numeric" : (k === "摘要" ? "autocomplete" : "text")),
       allowInvalid: true,
     };
+        // 如果是“摘要”列，设置列宽为300
+    if (k === "摘要") {
+      columnConfig.width = 600;
+    }
+
     
     // 对于订单号列，确保输入时也作为文本处理
     if (textColumns.has(k)) {
