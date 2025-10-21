@@ -1281,7 +1281,8 @@ router.post("/importExcelData", async (req, res) => {
 router.post("/getExcelData", async (req, res) => {
   const { tableName } = req.body;
   if (!tableName) return res.send(utils.returnData({ code: 400, msg: "缺少表名" }));
-  const sql = `SELECT  name AS 录入人 ,日期,摘要,收入,支出,余额,备注,发票 FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
+  // const sql = `SELECT  name AS 录入人 ,日期,摘要,收入,支出,余额,备注,发票 FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
+  const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
 });

@@ -204,6 +204,65 @@ onMounted(async () => {
   initTableFromObjects(initData);
 });
 
+/* ====== Excel日期转换工具函数 ====== */
+function excelNumberToDate(excelNum) {
+  // Excel日期起点是1899-12-30
+  const excelEpoch = new Date(1899, 11, 30);
+  // 计算天数和时间部分
+  const days = Math.floor(excelNum);
+  const time = excelNum - days;
+  // 创建日期对象
+  const date = new Date(excelEpoch);
+  date.setDate(date.getDate() + days);
+  // 添加时间部分
+  const hours = Math.floor(time * 24);
+  const minutes = Math.floor((time * 24 * 60) % 60);
+  const seconds = Math.floor((time * 24 * 60 * 60) % 60);
+  date.setHours(hours, minutes, seconds, 0);
+  
+  // 格式化日期时间为YYYY-MM-DD HH:MM:SS
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day} ${hh}:${mm}:${ss}`;
+}
+
+// 检查是否可能是Excel日期格式的数字
+function isPossibleExcelDate(value) {
+  // Excel日期范围通常在2000-2050年之间，对应数字范围约为36526-54789
+  // 允许一定的范围，也考虑小数（时间部分）
+  return typeof value === 'number' && value > 20000 && value < 60000;
+}
+
+// 检测列是否可能是日期列
+function isDateColumn(columnName, sampleData) {
+  // 基于列名判断
+  const dateRelatedNames = ['日期', 'date', '时间', 'time', 'datetime', '时间戳'];
+  const lowerColumnName = columnName.toLowerCase();
+  
+  // 如果列名包含日期相关词汇
+  for (const name of dateRelatedNames) {
+    if (lowerColumnName.includes(name)) {
+      return true;
+    }
+  }
+  
+  // 基于数据判断：如果样本数据中有多个可能的Excel日期格式数字
+  let excelDateCount = 0;
+  for (const value of sampleData) {
+    if (isPossibleExcelDate(value)) {
+      excelDateCount++;
+    }
+  }
+  
+  // 如果超过30%的数据是可能的Excel日期格式，则认为是日期列
+  return sampleData.length > 0 && (excelDateCount / sampleData.length) > 0.3;
+}
+
 /* ====== 初始化表格 ====== */
 function initTableFromObjects(objArray) {
   if (!Array.isArray(objArray) || objArray.length === 0) {
@@ -214,13 +273,35 @@ function initTableFromObjects(objArray) {
     return;
   }
 
-  // 复制数据并添加序号列
+  // 复制数据并添加序号列，同时转换Excel日期格式
+  const keys = Object.keys(objArray[0]);
+  
+  // 识别日期列
+  const dateColumns = new Set();
+  keys.forEach(key => {
+    // 收集样本数据用于判断
+    const sampleData = objArray.slice(0, 10).map(row => row[key]);
+    if (isDateColumn(key, sampleData)) {
+      dateColumns.add(key);
+    }
+  });
+  
+  // 复制数据并转换日期
   tableData.value = JSON.parse(JSON.stringify(objArray)).map((row, index) => {
-    return { ...row, '序号': index + 1 };
+    const processedRow = { ...row, '序号': index + 1 };
+    
+    // 转换日期列中的Excel数字格式
+    dateColumns.forEach(col => {
+      if (isPossibleExcelDate(processedRow[col])) {
+        processedRow[col] = excelNumberToDate(processedRow[col]);
+      }
+    });
+    
+    return processedRow;
   });
   
   // 确保序号列在最前面
-  const keys = Object.keys(objArray[0]);
+  // const keys = Object.keys(objArray[0]);
   colHeaders.value = ['序号', ...keys];
   
   columns.value = [
@@ -461,10 +542,15 @@ async function handleFileUpload(e) {
     const data = new Uint8Array(ev.target.result);
     const workbook = XLSX.read(data, { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    
+    // 使用原始方式读取，不自动转换，保留Excel的数字格式
+    const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: true });
+    
     if (!jsonData?.length) return ElMessage.warning("导入为空");
+    
+    // 初始化表格，会在initTableFromObjects中进行日期转换
     initTableFromObjects(jsonData);
-    ElMessage.success("导入成功");
+    ElMessage.success("导入成功，已自动转换Excel日期格式");
   };
   reader.readAsArrayBuffer(file);
   e.target.value = "";
