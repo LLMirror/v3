@@ -1253,7 +1253,7 @@ keys = [...new Set(keys)];
       // 使用数组存储tableName和对应字段的映射关系
       const tableFieldMappings = [
         // 财务类表映射
-        { tableNames: ['pt-cw-zjmxb', '财务', '收支'], fields: ['日期', '摘要', '收入', '支出','备注'] },
+        { tableNames: ['pt-cw-zjmxb', '财务', '收支'], fields: ['日期', '摘要', '收入', '支出','备注','余额'] },
         // 订单类表映射
         { tableNames: ['pt-cw-yqdz', '订单'], fields: ['订单号', '渠道打车订单号', '下单时间'] },
         // 库存类表映射

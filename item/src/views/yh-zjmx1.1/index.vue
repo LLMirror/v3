@@ -416,9 +416,28 @@ function initTableFromObjects(objArray) {
     if (dateColumns.has(k)) {
       columnConfig.dateFormat = 'YYYY-MM-DD';
       columnConfig.correctFormat = true;
+      // 添加类型设置确保日期只显示年月日
+      columnConfig.type = 'date';
+      // 确保日期格式化正确，不显示时分秒
+      columnConfig.renderer = (hotInstance, TD, row, col, prop, value, cellProperties) => {
+        if (value) {
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            TD.innerText = `${year}-${month}-${day}`;
+          } else {
+            TD.innerText = value;
+          }
+        } else {
+          TD.innerText = '';
+        }
+        return TD;
+      };
       // columnConfig.readOnly = true; // 禁止编辑日期列
       columnConfig.className = 'htCenter';
-      columnConfig.width = 80;
+      columnConfig.width = 100; // 稍微增加宽度以更好地显示日期
       columnConfig.language = 'zh-CN'; // 设置日期组件为中文显示
     }
     
@@ -444,9 +463,15 @@ function initTableFromObjects(objArray) {
       };
     }
     
-    // 余额列设置为只读
+    // 余额列设置为只读并保留两位小数
     if (k === "余额") {
       columnConfig.readOnly = true;
+      // 设置类型为数字并保留两位小数
+      columnConfig.type = 'numeric';
+      columnConfig.numericFormat = {
+        pattern: '0,0.00',
+        culture: 'zh-CN'
+      };
     }
         // 如果是“摘要”列，设置列宽为300
     if (k === "摘要") {
