@@ -303,6 +303,25 @@ export function getCashSummaryList(data) {
 		data
 	});
 }
+
+
+// 更新出纳结算数据
+export function upSettlementData(params) {
+  return request({
+    url: "/system/upSettlementData",
+    method: "post",
+    data: params
+  });
+}
+
+// 获取出纳数据
+export function getSettlementData(params) {
+  return request({
+    url: "/system/getSettlementData",
+    method: "post",
+    data: params
+  });
+}
 // ---------------------------------------------------------出纳结算----------------------------------------------------------------------
 // 导入 Excel 数据
 export function importExcelData(params) {
@@ -312,6 +331,7 @@ export function importExcelData(params) {
     data: params
   });
 }
+
 
 // 获取表格数据
 export function getExcelData(params) {

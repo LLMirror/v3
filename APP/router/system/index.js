@@ -1356,91 +1356,6 @@ keys = [...new Set(keys)];
   }
 });
 
-// ✅ 同步 Excel 数据到数据库
-// router.post("/syncExcelData", async (req, res) => {
- router.post("/syncExcelData", async (req, res) => {
-  console.log("📥 syncExcelData");
-
-  try {
-    const user = await utils.getUserRole(req, res);
-    const userId = user.user.id;
-    const userName = user.user.name; // 当前登录用户
-
-    const { tableName, data } = req.body;
-    if (!tableName || !Array.isArray(data) || data.length === 0) {
-      return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
-    }
-
-    // 处理字段，将“录入人”统一替换成 name
-    let keys = Object.keys(data[0]).map(k => k === "录入人" ? "name" : k);
-    keys = [...new Set(keys)]; // 去重
-
-    // 创建表字段 SQL
-    const createCols = keys.filter(k => k !== "name").map(k => `\`${k}\` TEXT`).join(",");
-
-    const createSQL = `
-      CREATE TABLE IF NOT EXISTS \`${tableName}\` (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
-        ${createCols},
-        name TEXT,
-        unique_key VARCHAR(255) UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-    await pools({ sql: createSQL, res, req });
-
-    // 构造插入数据
-    const values = data.map(row => {
-      const cleanRow = { ...row };
-
-      // 录入人映射
-      cleanRow.name = cleanRow["录入人"] || cleanRow.name || userName;
-
-      // 生成 unique_key，用于去重
-      const uniqueStr = keys.filter(k => k !== "name").map(k => cleanRow[k] ?? "").join("|") + "|" + cleanRow.name;
-      const uniqueKey = crypto.createHash("md5").update(uniqueStr).digest("hex");
-
-      // 按字段顺序构建 rowValues
-      const rowValues = [
-        userId,
-        ...keys.filter(k => k !== "name").map(k => cleanRow[k] ?? ""),
-        cleanRow.name,
-        uniqueKey
-      ];
-
-      return rowValues;
-    });
-
-    // 最终字段列表
-    const allFields = ["user_id", ...keys.filter(k => k !== "name"), "name", "unique_key"];
-
-    // 占位符
-    const rowPlaceholder = "(" + allFields.map(() => "?").join(",") + ")";
-
-    const sql = `
-      INSERT INTO \`${tableName}\` (${allFields.map(f => `\`${f}\``).join(",")})
-      VALUES ${values.map(() => rowPlaceholder).join(",")}
-      ON DUPLICATE KEY UPDATE 
-        ${keys.filter(k => k !== "name").map(k => `\`${k}\`=VALUES(\`${k}\`)`).join(",")},
-        name = VALUES(name),
-        created_at = VALUES(created_at)
-    `;
-
-    await pools({ sql, val: values.flat(), res, req });
-
-    res.send(utils.returnData({
-      code: 1,
-      msg: `✅ 成功导入 ${data.length} 条记录（重复将自动更新）`,
-      data: { count: data.length }
-    }));
-
-  } catch (err) {
-    console.error("❌ 导入 Excel 出错:", err);
-    res.send(utils.returnData({ code: 500, msg: err.message }));
-  }
-});
-
 
 
 
@@ -1461,10 +1376,174 @@ router.post("/getExcelData", async (req, res) => {
 router.post("/getSettlementData", async (req, res) => {
   const { tableName } = req.body;
   if (!tableName) return res.send(utils.returnData({ code: 400, msg: "缺少表名" }));
-  const sql = `SELECT  name AS 录入人 ,日期,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` ORDER BY id ASC LIMIT 5000`;
+  const sql = `SELECT  日期,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` ORDER BY id ASC `;
   // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
+});
+
+// 出纳表变更
+router.post("/upSettlementData", async (req, res) => {
+  console.log("📥 upSettlementData");
+
+  try {
+    // 获取登录用户信息
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    const userName = user.user.name; // 录入人
+
+    const { tableName, data } = req.body;
+    if (!tableName || !Array.isArray(data) || data.length === 0) {
+      return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
+    }
+
+    // 处理字段：将“录入人”统一替换成 name
+    const rawKeys = Object.keys(data[0]);
+    // 处理字段：将“录入人”统一替换成 name
+let keys = Object.keys(data[0]).map(k => (k === "录入人" ? "name" : k));
+// 去掉重复的 name
+keys = [...new Set(keys)];
+
+    // 创建字段 SQL
+    const createCols = keys.map(k => `\`${k}\` TEXT`).join(",");
+
+    // ✅ 创建表
+    const createSQL = `
+      CREATE TABLE IF NOT EXISTS \`${tableName}\` (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        ${createCols},
+   
+        unique_key VARCHAR(255) UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `;
+    await pools({ sql: createSQL, res, req });
+
+    // 判断是否已有 name 字段
+    // const hasNameField = keys.includes("name");
+
+    // ✅ 构造插入数据
+    const values = data.map(row => {
+      const cleanRow = { ...row };
+      // “录入人”映射成 name
+      // if ("录入人" in cleanRow) cleanRow.name = cleanRow["录入人"];
+      // 如果 Excel 没有录入人字段，自动填当前用户
+      // if (!hasNameField) cleanRow.name = userName;
+
+      // 辅助函数：截断过长字段值
+      function truncateField(value, maxLength = 50) {
+        if (typeof value !== 'string') {
+          value = String(value || '');
+        }
+        // 如果字段值超过最大长度，只保留前maxLength个字符
+        return value.length > maxLength ? value.substring(0, maxLength) : value;
+      }
+      
+      // 使用数组存储tableName和对应字段的映射关系
+      const tableFieldMappings = [
+        // 财务类表映射
+        { tableNames: ['finance_2025_10', '财务', '收支'], fields: ['日期', '摘要', '收入', '支出','备注'] },
+        // 订单类表映射
+        { tableNames: ['pt-cw-yqdz', '订单'], fields: ['订单号', '渠道打车订单号', '下单时间'] },
+        // 库存类表映射
+        { tableNames: ['stock', '库存', '物资'], fields: ['物料号', '物料名称', '批次', '数量'] },
+        // 人事类表映射
+        { tableNames: ['hr', '人事', '员工'], fields: ['工号', '姓名', '部门', '入职日期'] },
+        // 客户类表映射
+        { tableNames: ['customer', '客户'], fields: ['客户编号', '客户名称', '联系人', '电话'] },
+        // 产品类表映射
+        { tableNames: ['product', '产品', '商品'], fields: ['产品编号', '产品名称', '规格', '单价'] }
+      ];
+      
+      let uniqueStr = '';
+      let foundMapping = false;
+      
+      // 查找匹配的tableName映射
+      for (const mapping of tableFieldMappings) {
+        if (mapping.tableNames.some(keyword => tableName.includes(keyword))) {
+          // 获取可用的字段值并拼接，对过长字段进行截断
+          const fieldValues = [];
+          for (const field of mapping.fields) {
+            // 对于日期字段，尝试主字段和备用字段
+            if (field === '订单日期' && !cleanRow[field] && cleanRow['日期']) {
+              fieldValues.push(truncateField(cleanRow['日期']));
+            } else if (cleanRow[field]) {
+              // 对摘要字段使用更短的截断长度（例如20字符）
+              const maxLength = field === '摘要' ? 20 : 50;
+              fieldValues.push(truncateField(cleanRow[field], maxLength));
+            }
+          }
+          uniqueStr = fieldValues.join('|');
+          foundMapping = true;
+          break;
+        }
+      }
+      
+      // 如果没有找到匹配的映射，使用默认逻辑
+      if (!foundMapping) {
+        // 默认关键字段
+        const defaultKeyFields = ['日期', '摘要', 'ID', '编号', '名称', '金额', '数量'];
+        const availableFields = defaultKeyFields.filter(field => field in cleanRow && cleanRow[field]);
+        
+        if (availableFields.length > 0) {
+          // 使用可用的关键字段，对过长字段进行截断
+          uniqueStr = availableFields.map(field => {
+            // 对摘要字段使用更短的截断长度
+            const maxLength = field === '摘要' ? 20 : 50;
+            return truncateField(cleanRow[field], maxLength);
+          }).join('|');
+        } else {
+          // 如果没有关键字段，使用所有非空字段（限制数量和长度避免过长）
+          const allNonEmptyFields = Object.keys(cleanRow).filter(key => cleanRow[key]);
+          uniqueStr = allNonEmptyFields.slice(0, 5).map(field => {
+            // 根据字段名称调整截断长度
+            let maxLength = 50;
+            if (field === '摘要' || field.includes('描述') || field.includes('说明')) {
+              maxLength = 20;
+            }
+            return truncateField(cleanRow[field], maxLength);
+          }).join('|');
+        }
+      }
+      
+      // 如果生成的uniqueStr为空，使用时间戳作为备用
+      if (!uniqueStr.trim()) {
+        uniqueStr = Date.now().toString();
+      }
+      const uniqueKey = crypto.createHash("md5").update(uniqueStr).digest("hex");
+
+      // user_id + 所有字段值 + name + unique_key
+      const rowValues = [userId, ...keys.map(k => cleanRow[k] ?? ""),  uniqueKey];
+      return rowValues;
+    });
+
+    // ✅ 插入字段 - 确保包含name字段
+    const allFields = ["user_id", ...keys,"unique_key"].map(f => `\`${f}\``).join(",");
+    
+
+    // 每行占位符精确计算 - 增加name字段的占位符
+    const rowPlaceholder = "(" + Array(1 + keys.length  + 1).fill("?").join(",") + ")";
+
+    // 拼接 SQL
+    const sql = `
+      INSERT INTO \`${tableName}\` (${allFields})
+      VALUES ${values.map(() => rowPlaceholder).join(",")}
+      ON DUPLICATE KEY UPDATE created_at = VALUES(created_at)
+    `;
+
+    // 执行 SQL
+    await pools({ sql, val: values.flat(), res, req });
+
+    res.send(utils.returnData({
+      code: 1,
+      msg: `✅ 成功导入 ${data.length} 条记录（重复将自动忽略）`,
+      data: { count: data.length }
+    }));
+  } catch (err) {
+    console.error("❌ 导入 Excel 出错:", err);
+    res.send(utils.returnData({ code: 500, msg: err.message }));
+  }
 });
 
 export default router;
