@@ -39,7 +39,7 @@
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
         :total="tableData.length"
-        :page-sizes="[25, 50, 100, 200, 500]"
+        :page-sizes="[25, 50, 100, 200, 500,1000,3000,5000]"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
         layout="prev, pager, next, total, sizes"
