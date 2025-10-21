@@ -1237,10 +1237,19 @@ router.post("/importExcelData", async (req, res) => {
       // 如果 Excel 没有录入人字段，自动填当前用户
       if (!hasNameField) cleanRow.name = userName;
 
+      // 辅助函数：截断过长字段值
+      function truncateField(value, maxLength = 50) {
+        if (typeof value !== 'string') {
+          value = String(value || '');
+        }
+        // 如果字段值超过最大长度，只保留前maxLength个字符
+        return value.length > maxLength ? value.substring(0, maxLength) : value;
+      }
+      
       // 使用数组存储tableName和对应字段的映射关系
       const tableFieldMappings = [
         // 财务类表映射
-        { tableNames: ['finance_2025_10', '财务', '收支'], fields: ['日期', '摘要', '收入', '支出'] },
+        { tableNames: ['finance_2025_10', '财务', '收支'], fields: ['日期', '摘要', '收入', '支出','备注'] },
         // 订单类表映射
         { tableNames: ['pt-cw-yqdz', '订单'], fields: ['订单号', '渠道打车订单号', '下单时间'] },
         // 库存类表映射
@@ -1259,14 +1268,16 @@ router.post("/importExcelData", async (req, res) => {
       // 查找匹配的tableName映射
       for (const mapping of tableFieldMappings) {
         if (mapping.tableNames.some(keyword => tableName.includes(keyword))) {
-          // 获取可用的字段值并拼接
+          // 获取可用的字段值并拼接，对过长字段进行截断
           const fieldValues = [];
           for (const field of mapping.fields) {
             // 对于日期字段，尝试主字段和备用字段
             if (field === '订单日期' && !cleanRow[field] && cleanRow['日期']) {
-              fieldValues.push(cleanRow['日期'] || '');
+              fieldValues.push(truncateField(cleanRow['日期']));
             } else if (cleanRow[field]) {
-              fieldValues.push(cleanRow[field] || '');
+              // 对摘要字段使用更短的截断长度（例如20字符）
+              const maxLength = field === '摘要' ? 20 : 50;
+              fieldValues.push(truncateField(cleanRow[field], maxLength));
             }
           }
           uniqueStr = fieldValues.join('|');
@@ -1282,12 +1293,23 @@ router.post("/importExcelData", async (req, res) => {
         const availableFields = defaultKeyFields.filter(field => field in cleanRow && cleanRow[field]);
         
         if (availableFields.length > 0) {
-          // 使用可用的关键字段
-          uniqueStr = availableFields.map(field => cleanRow[field] || '').join('|');
+          // 使用可用的关键字段，对过长字段进行截断
+          uniqueStr = availableFields.map(field => {
+            // 对摘要字段使用更短的截断长度
+            const maxLength = field === '摘要' ? 20 : 50;
+            return truncateField(cleanRow[field], maxLength);
+          }).join('|');
         } else {
-          // 如果没有关键字段，使用所有非空字段（限制数量避免过长）
+          // 如果没有关键字段，使用所有非空字段（限制数量和长度避免过长）
           const allNonEmptyFields = Object.keys(cleanRow).filter(key => cleanRow[key]);
-          uniqueStr = allNonEmptyFields.slice(0, 5).map(field => cleanRow[field]).join('|');
+          uniqueStr = allNonEmptyFields.slice(0, 5).map(field => {
+            // 根据字段名称调整截断长度
+            let maxLength = 50;
+            if (field === '摘要' || field.includes('描述') || field.includes('说明')) {
+              maxLength = 20;
+            }
+            return truncateField(cleanRow[field], maxLength);
+          }).join('|');
         }
       }
       
