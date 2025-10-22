@@ -479,7 +479,7 @@ function initTableFromObjects(objArray) {
       columnConfig.width = 600;
     }
           // 如果是“摘要”列，设置列宽为300
-    if (k === "id" ) {
+    if (k === "unique_key" ) {
       columnConfig.width = 1;
     }
     if (k === "日期" ) {

@@ -1379,7 +1379,7 @@ router.post("/getSettlementData", async (req, res) => {
   const user = await utils.getUserRole(req, res);
   const userId = user.user.id;
   
-  const sql = `SELECT  id,日期,公司,银行,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
+  const sql = `SELECT  unique_key,日期,公司,银行,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
   // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
@@ -1406,6 +1406,9 @@ router.post("/upSettlementData", async (req, res) => {
     const userName = user.user.name; // 录入人
 
     const { tableName, data } = req.body;
+    // console.log(data);
+    // 打印最后10条
+    console.log(data.slice(-10));
     if (!tableName || !Array.isArray(data) || data.length === 0) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
     }
