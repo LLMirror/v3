@@ -85,7 +85,7 @@ const commonKeywords = ref([]);
 /* ====== refs & state ====== */
 const hotTableRef = ref(null);
 const fileInput = ref(null);
-const tableName = ref("finance_2025_10");
+const tableName = ref("pt-cw-zjmxb");
 const uploading = ref(false);
 const saving = ref(false);
 const batchSize = ref(1000);

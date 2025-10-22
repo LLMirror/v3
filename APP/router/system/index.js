@@ -1379,7 +1379,7 @@ router.post("/getSettlementData", async (req, res) => {
   const user = await utils.getUserRole(req, res);
   const userId = user.user.id;
   
-  const sql = `SELECT  日期,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
+  const sql = `SELECT  id,日期,公司,银行,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
   // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));

@@ -65,7 +65,7 @@ import * as XLSX from "xlsx";
 import { ElMessage } from "element-plus";
 import useUserStore from '@/store/modules/user'
 
-import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList } from "@/api/system/index.js";
+import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList,importExcelData } from "@/api/system/index.js";
 
 // 注册 numeric 类型和日期选择器插件
 import { registerCellType, NumericCellType, AutocompleteCellType } from "handsontable/cellTypes";
@@ -78,7 +78,7 @@ const commonKeywords = ref([]);
 /* ====== refs & state ====== */
 const hotTableRef = ref(null);
 const fileInput = ref(null);
-const tableName = ref("finance_2025_10");
+const tableName = ref("pt-cw-zjmxb");
 const uploading = ref(false);
 const saving = ref(false);
 const batchSize = ref(1000);
@@ -437,8 +437,9 @@ function initTableFromObjects(objArray) {
       };
       // columnConfig.readOnly = true; // 禁止编辑日期列
       columnConfig.className = 'htCenter';
-      columnConfig.width = 100; // 稍微增加宽度以更好地显示日期
+      columnConfig.width = 1020; // 稍微增加宽度以更好地显示日期
       columnConfig.language = 'zh-CN'; // 设置日期组件为中文显示
+      
     }
     
     // 为收入和支出列设置两位小数限制
@@ -476,6 +477,10 @@ function initTableFromObjects(objArray) {
         // 如果是“摘要”列，设置列宽为300
     if (k === "摘要") {
       columnConfig.width = 600;
+    }
+          // 如果是“摘要”列，设置列宽为300
+    if (k === "id" ) {
+      columnConfig.width = 1;
     }
     if (k === "日期" ) {
       
@@ -796,9 +801,8 @@ async function saveChanges() {
   } catch (err) { ElMessage.error("保存异常：" + (err.message || err)); }
   finally { saving.value = false; }
 }
-async function loadCompanyBank() {
-  console.log(selectedCompanyBank.value);
-}
+
+
 
 async function loadFromDB() {
   if (!tableName.value) return ElMessage.warning("请先填写表名");
