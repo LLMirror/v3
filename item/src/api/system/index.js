@@ -349,3 +349,30 @@ export function getExcelData(params) {
     data: params
   });
 }
+
+// 新增单条出纳结算数据
+export function addSettlementData(params) {
+  return request({
+    url: "/system/addSettlementData",
+    method: "post",
+    data: params
+  });
+}
+
+// 更新单条出纳结算数据
+export function updateSettlementData(params) {
+  return request({
+    url: "/system/updateSettlementData",
+    method: "post",
+    data: params
+  });
+}
+
+// 删除单条出纳结算数据
+export function deleteSettlementData(params) {
+  return request({
+    url: "/system/deleteSettlementData",
+    method: "post",
+    data: params
+  });
+}

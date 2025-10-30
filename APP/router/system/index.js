@@ -1395,10 +1395,8 @@ router.post("/getSettlementCompanyBank", async (req, res) => {
   res.send(utils.returnData({ data: result }));
 });
 
-// 出纳表变更
-router.post("/upSettlementData", async (req, res) => {
-  console.log("📥 upSettlementData");
-
+// 出纳表 - 新增单条记录
+router.post("/addSettlementData", async (req, res) => {
   try {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
@@ -1406,159 +1404,279 @@ router.post("/upSettlementData", async (req, res) => {
     const userName = user.user.name; // 录入人
 
     const { tableName, data } = req.body;
-    // console.log(data);
-    // 打印最后10条
-    console.log(data.slice(-10));
+    
+    if (!tableName || !data || !data.unique_key) {
+      return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
+    }
+    
+    // 检查是否已存在
+    const checkSQL = `SELECT id FROM \`${tableName}\` WHERE user_id = ? AND unique_key = ?`;
+    const checkResult = await pools({ 
+      sql: checkSQL, 
+      val: [userId, data.unique_key], 
+      isReturn: true 
+    });
+    
+    if (checkResult && checkResult.length > 0) {
+      return res.send(utils.returnData({ code: 400, msg: "❌ 记录已存在" }));
+    }
+    
+    // 执行新增
+    const insertSQL = `INSERT INTO \`${tableName}\` (user_id, unique_key, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号, 录入人) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    await pools({ 
+      sql: insertSQL, 
+      val: [
+        userId, 
+        data.unique_key,
+        data['日期'] || '',
+        data['公司'] || '',
+        data['银行'] || '',
+        data['摘要'] || '',
+        data['收入'] || 0,
+        data['支出'] || 0,
+        data['余额'] || 0,
+        data['备注'] || '',
+        data['发票'] || '',
+        data['序号'] || '',
+        userName
+      ], 
+      isReturn: true 
+    });
+    
+    res.send(utils.returnData({ code: 1, msg: "✅ 新增成功" }));
+  } catch (err) {
+    console.error("❌ 新增数据出错:", err);
+    res.send(utils.returnData({ code: 500, msg: err.message }));
+  }
+});
+
+// 出纳表 - 更新单条记录
+router.post("/updateSettlementData", async (req, res) => {
+  try {
+    // 获取登录用户信息
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+
+    const { tableName, data } = req.body;
+    
+    if (!tableName || !data || !data.unique_key) {
+      return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
+    }
+    
+    // 执行更新
+    const updateSQL = `UPDATE \`${tableName}\` SET 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ? WHERE user_id = ? AND unique_key = ?`;
+    await pools({ 
+      sql: updateSQL, 
+      val: [
+        data['日期'] || '',
+        data['公司'] || '',
+        data['银行'] || '',
+        data['摘要'] || '',
+        data['收入'] || 0,
+        data['支出'] || 0,
+        data['余额'] || 0,
+        data['备注'] || '',
+        data['发票'] || '',
+        data['序号'] || '',
+        userId,
+        data.unique_key
+      ], 
+      isReturn: true 
+    });
+    
+    res.send(utils.returnData({ code: 1, msg: "✅ 更新成功" }));
+  } catch (err) {
+    console.error("❌ 更新数据出错:", err);
+    res.send(utils.returnData({ code: 500, msg: err.message }));
+  }
+});
+
+// 出纳表 - 删除单条记录
+router.post("/deleteSettlementData", async (req, res) => {
+  try {
+    // 获取登录用户信息
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+
+    const { tableName, uniqueKey } = req.body;
+    
+    if (!tableName || !uniqueKey) {
+      return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
+    }
+    
+    // 执行删除
+    const deleteSQL = `DELETE FROM \`${tableName}\` WHERE user_id = ? AND unique_key = ?`;
+    await pools({ 
+      sql: deleteSQL, 
+      val: [userId, uniqueKey], 
+      isReturn: true 
+    });
+    
+    res.send(utils.returnData({ code: 1, msg: "✅ 删除成功" }));
+  } catch (err) {
+    console.error("❌ 删除数据出错:", err);
+    res.send(utils.returnData({ code: 500, msg: err.message }));
+  }
+});
+
+// 出纳表 - 批量同步数据（保留原功能）
+router.post("/upSettlementData", async (req, res) => {
+  try {
+    // 获取登录用户信息
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    
+    const { tableName, data } = req.body;
+    
     if (!tableName || !Array.isArray(data) || data.length === 0) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
     }
-
-    // 处理字段：将“录入人”统一替换成 name
-    const rawKeys = Object.keys(data[0]);
-    // 处理字段：将“录入人”统一替换成 name
-let keys = Object.keys(data[0]).map(k => (k === "录入人" ? "name" : k));
-// 去掉重复的 name
-keys = [...new Set(keys)];
-
-    // 创建字段 SQL
-    const createCols = keys.map(k => `\`${k}\` TEXT`).join(",");
-
-    // ✅ 创建表
-    const createSQL = `
-      CREATE TABLE IF NOT EXISTS \`${tableName}\` (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
-        ${createCols},
-   
-        unique_key VARCHAR(255) UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-    await pools({ sql: createSQL, res, req });
-
-    // 判断是否已有 name 字段
-    // const hasNameField = keys.includes("name");
-
-    // ✅ 构造插入数据
-    const values = data.map(row => {
-      const cleanRow = { ...row };
-      // “录入人”映射成 name
-      // if ("录入人" in cleanRow) cleanRow.name = cleanRow["录入人"];
-      // 如果 Excel 没有录入人字段，自动填当前用户
-      // if (!hasNameField) cleanRow.name = userName;
-
-      // 辅助函数：截断过长字段值
-      function truncateField(value, maxLength = 50) {
-        if (typeof value !== 'string') {
-          value = String(value || '');
-        }
-        // 如果字段值超过最大长度，只保留前maxLength个字符
-        return value.length > maxLength ? value.substring(0, maxLength) : value;
-      }
-      
-      // 使用数组存储tableName和对应字段的映射关系
-      const tableFieldMappings = [
-        // 财务类表映射
-        { tableNames: ['finance_2025_10', '财务', '收支'], fields: ['日期', '摘要', '收入', '支出','备注'] },
-        // 订单类表映射
-        { tableNames: ['pt-cw-yqdz', '订单'], fields: ['订单号', '渠道打车订单号', '下单时间'] },
-        // 库存类表映射
-        { tableNames: ['stock', '库存', '物资'], fields: ['物料号', '物料名称', '批次', '数量'] },
-        // 人事类表映射
-        { tableNames: ['hr', '人事', '员工'], fields: ['工号', '姓名', '部门', '入职日期'] },
-        // 客户类表映射
-        { tableNames: ['customer', '客户'], fields: ['客户编号', '客户名称', '联系人', '电话'] },
-        // 产品类表映射
-        { tableNames: ['product', '产品', '商品'], fields: ['产品编号', '产品名称', '规格', '单价'] }
-      ];
-      
-      let uniqueStr = '';
-      let foundMapping = false;
-      
-      // 查找匹配的tableName映射
-      for (const mapping of tableFieldMappings) {
-        if (mapping.tableNames.some(keyword => tableName.includes(keyword))) {
-          // 获取可用的字段值并拼接，对过长字段进行截断
-          const fieldValues = [];
-          for (const field of mapping.fields) {
-            // 对于日期字段，尝试主字段和备用字段
-            if (field === '订单日期' && !cleanRow[field] && cleanRow['日期']) {
-              fieldValues.push(truncateField(cleanRow['日期']));
-            } else if (cleanRow[field]) {
-              // 对摘要字段使用更短的截断长度（例如20字符）
-              const maxLength = field === '摘要' ? 20 : 50;
-              fieldValues.push(truncateField(cleanRow[field], maxLength));
-            }
-          }
-          uniqueStr = fieldValues.join('|');
-          foundMapping = true;
-          break;
-        }
-      }
-      
-      // 如果没有找到匹配的映射，使用默认逻辑
-      if (!foundMapping) {
-        // 默认关键字段
-        const defaultKeyFields = ['日期', '摘要', 'ID', '编号', '名称', '金额', '数量'];
-        const availableFields = defaultKeyFields.filter(field => field in cleanRow && cleanRow[field]);
-        
-        if (availableFields.length > 0) {
-          // 使用可用的关键字段，对过长字段进行截断
-          uniqueStr = availableFields.map(field => {
-            // 对摘要字段使用更短的截断长度
-            const maxLength = field === '摘要' ? 20 : 50;
-            return truncateField(cleanRow[field], maxLength);
-          }).join('|');
-        } else {
-          // 如果没有关键字段，使用所有非空字段（限制数量和长度避免过长）
-          const allNonEmptyFields = Object.keys(cleanRow).filter(key => cleanRow[key]);
-          uniqueStr = allNonEmptyFields.slice(0, 5).map(field => {
-            // 根据字段名称调整截断长度
-            let maxLength = 50;
-            if (field === '摘要' || field.includes('描述') || field.includes('说明')) {
-              maxLength = 20;
-            }
-            return truncateField(cleanRow[field], maxLength);
-          }).join('|');
-        }
-      }
-      
-      // 如果生成的uniqueStr为空，使用时间戳作为备用
-      if (!uniqueStr.trim()) {
-        uniqueStr = Date.now().toString();
-      }
-      const uniqueKey = crypto.createHash("md5").update(uniqueStr).digest("hex");
-
-      // user_id + 所有字段值 + name + unique_key
-      const rowValues = [userId, ...keys.map(k => cleanRow[k] ?? ""),  uniqueKey];
-      return rowValues;
-    });
-
-    // ✅ 插入字段 - 确保包含name字段
-    const allFields = ["user_id", ...keys,"unique_key"].map(f => `\`${f}\``).join(",");
     
-
-    // 每行占位符精确计算 - 增加name字段的占位符
-    const rowPlaceholder = "(" + Array(1 + keys.length  + 1).fill("?").join(",") + ")";
-
-    // 拼接 SQL
-    const sql = `
-      INSERT INTO \`${tableName}\` (${allFields})
-      VALUES ${values.map(() => rowPlaceholder).join(",")}
-      ON DUPLICATE KEY UPDATE created_at = VALUES(created_at)
-    `;
-
-    // 执行 SQL
-    await pools({ sql, val: values.flat(), res, req });
-
+    // 1. 获取所有唯一键
+    const importedUniqueKeys = data.map(item => item.unique_key);
+    
+    // 2. 批量查询现有数据
+    const existingDataQuery = `SELECT unique_key, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号 FROM \`${tableName}\` WHERE user_id = ? AND unique_key IN (?)`;
+    const queryResult = await pools({ 
+      sql: existingDataQuery, 
+      val: [userId, importedUniqueKeys], 
+      isReturn: true 
+    });
+    
+    // 确保existingData是数组类型
+    const existingData = queryResult && Array.isArray(queryResult) ? queryResult : 
+                       (queryResult && Array.isArray(queryResult.result) ? queryResult.result : []);
+    
+    // 3. 创建数据映射以便快速查找
+    const existingDataMap = new Map();
+    existingData.forEach(row => {
+      if (row && row.unique_key) {
+        existingDataMap.set(row.unique_key, row);
+      }
+    });
+    
+    // 4. 初始化计数器
+    let insertedCount = 0;
+    let updatedCount = 0;
+    
+    // 5. 处理每条记录
+    for (const rowData of data) {
+      const uniqueKey = rowData.unique_key;
+      const existingRow = existingDataMap.get(uniqueKey);
+      
+      // 准备更新字段
+      const updateFields = {
+        '日期': rowData['日期'],
+        '公司': rowData['公司'],
+        '银行': rowData['银行'],
+        '摘要': rowData['摘要'],
+        '收入': rowData['收入'],
+        '支出': rowData['支出'],
+        '余额': rowData['余额'],
+        '备注': rowData['备注'],
+        '发票': rowData['发票'],
+        '序号': rowData['序号']
+      };
+      
+      if (!existingRow) {
+        // 不存在则新增
+        const insertSQL = `INSERT INTO \`${tableName}\` (user_id, unique_key, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        await pools({ 
+          sql: insertSQL, 
+          val: [
+            userId, 
+            uniqueKey, 
+            rowData['日期'],
+            rowData['公司'],
+            rowData['银行'],
+            rowData['摘要'],
+            rowData['收入'],
+            rowData['支出'],
+            rowData['余额'],
+            rowData['备注'],
+            rowData['发票'],
+            rowData['序号']
+          ], 
+          isReturn: true 
+        });
+        insertedCount++;
+      } else {
+        // 存在则比较数据是否一致
+        let hasChanges = false;
+        for (const [field, value] of Object.entries(updateFields)) {
+          if (existingRow[field] !== value) {
+            hasChanges = true;
+            break;
+          }
+        }
+        
+        if (hasChanges) {
+          // 数据有变动才更新
+          const updateSQL = `UPDATE \`${tableName}\` SET 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ? WHERE user_id = ? AND unique_key = ?`;
+          await pools({ 
+            sql: updateSQL, 
+            val: [
+              rowData['日期'],
+              rowData['公司'],
+              rowData['银行'],
+              rowData['摘要'],
+              rowData['收入'],
+              rowData['支出'],
+              rowData['余额'],
+              rowData['备注'],
+              rowData['发票'],
+              rowData['序号'],
+              userId,
+              uniqueKey
+            ], 
+            isReturn: true 
+          });
+          updatedCount++;
+        }
+      }
+    }
+    
+    // 6. 执行删除操作：删除数据库中存在但不在导入数据中的记录
+    let deletedCount = 0;
+    if (importedUniqueKeys.length > 0) {
+      const countDeletedSQL = `SELECT COUNT(*) as count FROM \`${tableName}\` WHERE user_id = ? AND unique_key NOT IN (?)`;
+      const deletedCountQueryResult = await pools({ 
+        sql: countDeletedSQL, 
+        val: [userId, importedUniqueKeys], 
+        isReturn: true 
+      });
+      // 确保正确获取删除记录数
+      const deletedCountResult = deletedCountQueryResult && Array.isArray(deletedCountQueryResult) ? deletedCountQueryResult : 
+                                (deletedCountQueryResult && Array.isArray(deletedCountQueryResult.result) ? deletedCountQueryResult.result : []);
+      deletedCount = deletedCountResult[0]?.count || 0;
+      
+      const deleteSQL = `DELETE FROM \`${tableName}\` WHERE user_id = ? AND unique_key NOT IN (?)`;
+      await pools({ 
+        sql: deleteSQL, 
+        val: [userId, importedUniqueKeys], 
+        isReturn: true 
+      });
+    }
+    
+    // 7. 返回结果
     res.send(utils.returnData({
       code: 1,
-      msg: `✅ 成功导入 ${data.length} 条记录（重复将自动忽略）`,
-      data: { count: data.length }
+      msg: `✅ 数据同步完成：新增 ${insertedCount} 条，更新 ${updatedCount} 条，删除 ${deletedCount} 条`,
+      data: { 
+        inserted: insertedCount, 
+        updated: updatedCount, 
+        deleted: deletedCount,
+        total: data.length 
+      }
     }));
   } catch (err) {
-    console.error("❌ 导入 Excel 出错:", err);
-    res.send(utils.returnData({ code: 500, msg: err.message }));
+    console.error("❌ 同步数据出错:", err);
+    if (!res.headersSent) {
+      res.send(utils.returnData({ 
+        code: 500, 
+        msg: `❌ 数据同步失败: ${err.message || '未知错误'}` 
+      }));
+    }
   }
 });
 
