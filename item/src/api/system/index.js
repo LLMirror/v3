@@ -384,3 +384,30 @@ export function getMaxId(params) {
     data: params
   });
 }
+
+// 获取百度 AI 访问令牌
+export function getAccessToken(params) {
+  return request({
+    url: "/components/getAccessToken",
+    method: "post",
+    data: params
+  });
+}
+
+// 调用 OCR 通用文字识别接口
+export function ocr(params) {
+  return request({
+    url: "/components/ocr",
+    method: "post",
+    data: params
+  });
+}
+
+// 调用 OCR 身份证识别接口
+export function idcard(params) {
+  return request({
+    url: "/components/idcard",
+    method: "post",
+    data: params
+  });
+}

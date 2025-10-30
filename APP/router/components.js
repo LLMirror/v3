@@ -10,6 +10,8 @@ import qs from 'qs'
 import cors from 'cors'
 
 const router = express.Router();
+const AK = "ssIAcvYDacI6eUoRAeo1KYwS";
+const SK = "OtGNRdGEqVoszlBGOLziSUkzOwJ7WH5L";
 
 //添加文件
 router.post("/addFile", async (req, res) => {
@@ -183,21 +185,25 @@ router.post("/delFileBox", async (req, res) => {
     }
     await pools({sql,val:[obj.id],run:false,res,req});
 });
-// 获取access_token百度
-const AK = "ssIAcvYDacI6eUoRAeo1KYwS"
-const SK = "OtGNRdGEqVoszlBGOLziSUkzOwJ7WH5L"
+// // 获取access_token百度
+// router.post("/getAccessToken", async (req, res) => {
+//     const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${AK}&client_secret=${SK}`
+//      res = await axios.post(url)
+//     return res.data.access_token
+// });
+const getAccessToken = async () => {
+    const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${AK}&client_secret=${SK}`;
+    const response = await axios.post(url);  // 用 response 替代 res，避免冲突
+    return response.data.access_token;
+};
 
-router.post("/getAccessToken", async (req, res) => {
-    const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${AK}&client_secret=${SK}`
-    const res = await axios.post(url)
-    return res.data.access_token
-});
 
-// === OCR 通用文字识别接口 ===
+// // === OCR 通用文字识别接口 ===
 router.post('/ocr', async (req, res) => {
+    console.log(res)
   try {
     const { imageBase64 } = req.body
-    if (!imageBase64) return res.status(400).json(returnData({ code: 400, msg: "缺少 imageBase64" }))
+    if (!imageBase64) return res.send(utils.returnData({ code: 400, msg: "缺少 imageBase64" }));
 
     const token = await getAccessToken()
     const ocrUrl = `https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=${token}`
@@ -212,17 +218,17 @@ router.post('/ocr', async (req, res) => {
       ? ocrRes.data.words_result.map(item => item.words).join('\n')
       : ''
 
-    res.json(returnData({ code: 1, msg: "OCR 识别成功", data: text }))
+    res.send(utils.returnData({ data: text ,code: 1, msg: "OCR 识别成功"}));
   } catch (err) {
     console.error(err.response?.data || err.message)
-    res.status(500).json(returnData({ code: 500, msg: err.message }))
+    res.send(utils.returnData({ code: 500, msg: err.message }));
   }
 })
-// === OCR 身份证识别接口 ===
+// // === OCR 身份证识别接口 ===
 router.post('/idcard', async (req, res) => {
   try {
     const { imageBase64, side = 'front' } = req.body
-    if (!imageBase64) return res.status(400).json(returnData({ code: 400, msg: "缺少 imageBase64" }))
+    if (!imageBase64) return res.send(utils.returnData({ code: 400, msg: "缺少 imageBase64" }));
 
     const token = await getAccessToken()
     const url = `https://aip.baidubce.com/rest/2.0/ocr/v1/idcard?access_token=${token}`
@@ -240,10 +246,10 @@ router.post('/idcard', async (req, res) => {
     )
 
     // 返回标准格式
-    res.json(returnData({ code: 1, msg: "身份证识别成功", data: response.data.words_result || {} }))
+    res.send(utils.returnData({ data: response.data.words_result || {} ,code: 1, msg: "身份证识别成功"}));
   } catch (error) {
     console.error(error.response?.data || error.message)
-    res.status(500).json(returnData({ code: 500, msg: error.message }))
+    res.send(utils.returnData({ code: 500, msg: error.message }));
   }
 })
 
