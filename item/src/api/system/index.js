@@ -376,3 +376,11 @@ export function deleteSettlementData(params) {
     data: params
   });
 }
+// 删除单条出纳结算数据
+export function getMaxId(params) {
+  return request({
+    url: "/system/getMaxId",
+    method: "post",
+    data: params
+  });
+}

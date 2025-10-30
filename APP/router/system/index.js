@@ -1379,7 +1379,7 @@ router.post("/getSettlementData", async (req, res) => {
   const user = await utils.getUserRole(req, res);
   const userId = user.user.id;
   
-  const sql = `SELECT  unique_key,日期,公司,银行,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
+  const sql = `SELECT  id,unique_key,日期,公司,银行,摘要,收入,支出,余额,备注,发票 FROM \`pt-cw-zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
   // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
@@ -1450,8 +1450,20 @@ router.post("/addSettlementData", async (req, res) => {
   }
 });
 
+  router.post("/getMaxId", async (req, res) => {
+    try {
+      const tableName = req.body.tableName || 'pt-cw-zjmxb';
+      const sql = `SELECT MAX(id) AS maxId FROM \`${tableName}\``;
+      const data = await pools({ sql, isReturn: true });
+      res.send(utils.returnData({ code: 1, msg: "✅ 获取成功", data: data.result[0].maxId+1 || 0 }));
+    } catch (err) {
+      res.send(utils.returnData({ code: 500, msg: `❌ 获取失败: ${err.message || '未知错误'}` }));
+    }
+  });
+
 // 出纳表 - 更新单条记录
 router.post("/updateSettlementData", async (req, res) => {
+    console.log(req.body);
   try {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
@@ -1459,12 +1471,12 @@ router.post("/updateSettlementData", async (req, res) => {
 
     const { tableName, data } = req.body;
     
-    if (!tableName || !data || !data.unique_key) {
+    if (!tableName || !data || !data.id) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
     }
     
     // 执行更新
-    const updateSQL = `UPDATE \`${tableName}\` SET 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ? WHERE user_id = ? AND unique_key = ?`;
+    const updateSQL = `UPDATE \`${tableName}\` SET 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ?,unique_key = ? WHERE user_id = ? AND id = ?`;
     await pools({ 
       sql: updateSQL, 
       val: [
@@ -1478,8 +1490,10 @@ router.post("/updateSettlementData", async (req, res) => {
         data['备注'] || '',
         data['发票'] || '',
         data['序号'] || '',
+        data.unique_key || '',
         userId,
-        data.unique_key
+        data.id || ''
+
       ], 
       isReturn: true 
     });
@@ -1679,6 +1693,7 @@ router.post("/upSettlementData", async (req, res) => {
     }
   }
 });
+
 
 
 export default router;

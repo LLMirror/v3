@@ -44,6 +44,7 @@
 
 <script setup>
 import { ref, reactive, nextTick, computed, onMounted } from "vue";
+import md5 from 'js-md5';
 
 // 防抖函数
 function debounce(func, wait) {
@@ -57,6 +58,8 @@ function debounce(func, wait) {
     timeout = setTimeout(later, wait);
   };
 }
+
+
 import { HotTable } from "@handsontable/vue3";
 import Handsontable from "handsontable";
 import "handsontable/dist/handsontable.full.min.css";
@@ -65,7 +68,7 @@ import * as XLSX from "xlsx";
 import { ElMessage } from "element-plus";
 import useUserStore from '@/store/modules/user'
 
-import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList,importExcelData } from "@/api/system/index.js";
+import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList,addSettlementData,updateSettlementData,deleteSettlementData } from "@/api/system/index.js";
 
 // 注册 numeric 类型和日期选择器插件
 import { registerCellType, NumericCellType, AutocompleteCellType } from "handsontable/cellTypes";
@@ -119,6 +122,7 @@ const companyBankOptions = ref([
     ]
   }
 ]);
+ let index =ref(0)
 /* ====== Handsontable 设置 ====== */
 // Handsontable配置项 - 使用reactive包装使其具有响应式特性
 const hotSettings = reactive({
@@ -156,7 +160,7 @@ const hotSettings = reactive({
   invalidCellClassName: "htInvalid",
   
   // 单元格数据变化后的回调函数
-  afterChange(changes, source) {
+  afterChange: async (changes, source) => {
     // 如果没有变化或变化来源于加载数据，则直接返回
     if (!changes || source === "loadData") return;
 
@@ -175,10 +179,205 @@ const hotSettings = reactive({
     // 如果需要，重新计算余额
     if (needRecalc) calculateBalance();
     
-    // 显示修改提示信息
-    ElMessage.info("单元格已修改（尚未保存）");
+    // 获取修改的行索引
+    const index = changes[0][0];
+    console.log('📝 修改事件触发:', index, decryptMD5(tableData.value[index]?.unique_key || '无unique_key'));
+      
+    // 确保行数据存在
+    if (!tableData.value[index]) {
+      console.error('❌ 尝试更新不存在的行:', index);
+      return;
+    }
+    
+    // 修改当前单元格的unique_key
+    try {
+      tableData.value[index].unique_key = await generateUniqueKey(tableData.value[index]);
+      console.log(`更新行 ${index} 的unique_key:`, tableData.value[index].unique_key);
+      
+      // 更新数据到服务器
+      await update_SettlementData(tableData.value[index]);
+      
+      // 重新渲染表格
+      const hot = hotTableRef.value?.hotInstance;
+      if (hot) {
+        hot.render();
+      }
+    } catch (error) {
+      console.error('❌ 更新过程出错:', error);
+      ElMessage.error(`更新失败: ${error.message || '未知错误'}`);
+    }
+  },
+
+  // 粘贴操作后触发的回调函数
+  afterPaste: async function(changes, coords) {
+    console.log('📋 粘贴操作完成:', { changes, coords });
+    
+    // 处理粘贴后的数据同步和唯一键生成
+    if (changes && changes.length > 0) {
+      // 获取所有被粘贴的唯一行索引
+      const pastedRows = new Set();
+      changes.forEach((change) => {
+        const [row] = change;
+        if (row !== undefined) {
+          pastedRows.add(row);
+        }
+      });
+      
+      // 为每个被粘贴的行生成唯一键
+      for (const rowIndex of pastedRows) {
+        if (tableData.value[rowIndex]) {
+          try {
+            tableData.value[rowIndex].unique_key = await generateUniqueKey(tableData.value[rowIndex]);
+            console.log(`更新粘贴行 ${rowIndex} 的unique_key:`, tableData.value[rowIndex].unique_key);
+            
+            // 为粘贴的每一行也调用更新接口
+            await update_SettlementData(tableData.value[rowIndex]);
+          } catch (error) {
+            console.error(`❌ 更新粘贴行 ${rowIndex} 失败:`, error);
+          }
+        }
+      }
+      
+      // 重新渲染表格
+      const hot = hotTableRef.value?.hotInstance;
+      if (hot) {
+        hot.render();
+      }
+    }
+    
+    // 触发提示
+    ElMessage.success('数据粘贴完成，已自动生成唯一标识并同步到服务器');
+  },
+
+    // === 1️⃣ 修改数据时触发 ===
+  // afterChange: async (changes, source) => {
+   
+  // },
+
+  
+
+  // === 2️⃣ 新增行时触发 ===
+  afterCreateRow: async (index, amount, source) => {
+    console.log('➕ 新增行事件触发:', { index, amount, source })
+
+    
+  },
+
+  // === 3️⃣ 删除行时触发 ===
+  afterRemoveRow: async (index, amount, physicalRows, source) => {
+    console.log('🗑 删除行事件触发:', { index, amount, physicalRows, source })
+
+  
   }
 });
+// 更新修改单元格 数据
+async function update_SettlementData(rowData) {
+  // 参数验证
+  if (!tableName.value) return ElMessage.warning("请先填写表名");
+  if (!rowData) return ElMessage.warning("无数据可更新");
+  if (!rowData.unique_key) return ElMessage.warning("缺少唯一标识(unique_key)，无法更新");
+  
+  saving.value = true;
+  try {
+    console.log('📤 正在发送更新请求:', { tableName: tableName.value, unique_key: rowData.unique_key });
+    
+    // 调用API更新数据
+    const res = await updateSettlementData({ 
+      tableName: tableName.value, 
+      data: {
+        // 确保包含后端需要的所有字段
+        unique_key: rowData.unique_key,
+        '日期': rowData['日期'] || '',
+        '公司': rowData['公司'] || '',
+        '银行': rowData['银行'] || '',
+        '摘要': rowData['摘要'] || '',
+        '收入': rowData['收入'] || 0,
+        '支出': rowData['支出'] || 0,
+        '余额': rowData['余额'] || 0,
+        '备注': rowData['备注'] || '',
+        '发票': rowData['发票'] || '',
+        '序号': rowData['序号'] || ''
+      }
+    });
+    
+    // 处理响应
+    if (res?.code === 1) {
+      console.log('✅ 更新成功:', res.msg);
+      ElMessage.success("修改成功");
+    } else {
+      const errorMsg = res?.msg || "修改失败";
+      console.error('❌ 更新失败:', errorMsg);
+      throw new Error(errorMsg);
+    }
+  } catch (err) {
+    console.error('❌ 更新异常:', err);
+    ElMessage.error("修改异常：" + (err.message || err));
+  } finally {
+    saving.value = false;
+  }
+}
+// 生成唯一键的通用函数（改为异步以支持await调用）
+async function generateUniqueKey(rowData) {
+  const fieldValues = [];
+  const fields = ['日期', '摘要', '收入', '支出', '备注', '余额'];
+  
+  fields.forEach(field => {
+    if (rowData[field]) {
+      // 对摘要字段使用更短的截断长度
+      const maxLength = field === '摘要' ? 20 : 50;
+      const value = String(rowData[field]);
+      // 截断过长字段
+      const truncated = value.length > maxLength ? value.substring(0, maxLength) + '...' : value;
+      fieldValues.push(truncated);
+    } else {
+      fieldValues.push(''); // 添加空字符串保持位置一致
+    }
+  });
+  
+  // 使用竖线分隔符拼接
+  const uniqueStr = fieldValues.join('|');
+  const hash = md5(uniqueStr);
+  
+  // 存储原始值以便"解密"使用
+  if (hash) {
+    // 如果rowData有id或其他唯一标识，使用它作为键
+    const rowId = rowData.id || rowData.rowId || uniqueStr;
+    md5Mapping[hash] = uniqueStr;
+    // 限制映射表大小，避免内存溢出
+    if (Object.keys(md5Mapping).length > 1000) {
+      const oldestKey = Object.keys(md5Mapping)[0];
+      delete md5Mapping[oldestKey];
+    }
+  }
+  
+  return hash;
+}
+
+// 存储MD5值到原始字符串的映射
+const md5Mapping = {};
+
+// MD5相关函数 - 模拟解密功能
+function decryptMD5(encrypted) {
+  // 注意：MD5是单向哈希函数，无法真正解密
+  // 这里通过映射表模拟解密功能
+  
+  if (typeof encrypted === 'string' && encrypted.length === 32) {
+    // 如果在映射表中找到对应的值，返回原始字符串
+    if (md5Mapping[encrypted]) {
+      console.log('🔓 找到解密映射:', encrypted, '->', md5Mapping[encrypted]);
+      return md5Mapping[encrypted];
+    }
+    
+    // 如果没有找到映射，尝试解析加密方式（基于后端实现）
+    console.warn('⚠️  无法完全解密MD5值，返回原始哈希:', encrypted);
+    
+    // 提供格式说明
+    return `${encrypted} (MD5哈希值，格式：日期|摘要|收入|支出|备注|余额)`;
+  }
+  
+  // 不是MD5哈希格式，直接返回原值
+  return encrypted;
+}
 
 // 获取历史摘要列表
 const getHistorySummaries = async () => {
@@ -480,7 +679,7 @@ function initTableFromObjects(objArray) {
     }
           // 如果是“摘要”列，设置列宽为300
     if (k === "unique_key" ) {
-      columnConfig.width = 1;
+      // columnConfig.width = 1;
     }
     if (k === "日期" ) {
       
@@ -708,6 +907,12 @@ function calculateBalance() {
   }
 }
 
+// unique_key 处理
+function getUniqueKey(rowData ) {
+// let uniqueKey = null;
+// tableData.value[index].unique_key = uniqueKey;
+console.log("更新后的行数据:", tableData.value[index].unique_key);
+}
 /* ====== 文件导入/导出 ====== */
 async function handleFileUpload(e) {
   const file = e.target.files?.[0]; if (!file) return;
