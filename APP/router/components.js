@@ -5,6 +5,9 @@ import pools from '../utils/pools.js';
 import fs from 'fs';
 import path from 'path';
 import {fileAdmins} from '../utils/menuString.js';
+import axios from 'axios'
+import qs from 'qs'
+import cors from 'cors'
 
 const router = express.Router();
 
@@ -180,8 +183,69 @@ router.post("/delFileBox", async (req, res) => {
     }
     await pools({sql,val:[obj.id],run:false,res,req});
 });
+// 获取access_token百度
+const AK = "ssIAcvYDacI6eUoRAeo1KYwS"
+const SK = "OtGNRdGEqVoszlBGOLziSUkzOwJ7WH5L"
 
+router.post("/getAccessToken", async (req, res) => {
+    const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${AK}&client_secret=${SK}`
+    const res = await axios.post(url)
+    return res.data.access_token
+});
 
+// === OCR 通用文字识别接口 ===
+router.post('/ocr', async (req, res) => {
+  try {
+    const { imageBase64 } = req.body
+    if (!imageBase64) return res.status(400).json(returnData({ code: 400, msg: "缺少 imageBase64" }))
+
+    const token = await getAccessToken()
+    const ocrUrl = `https://aip.baidubce.com/rest/2.0/ocr/v1/accurate_basic?access_token=${token}`
+
+    const ocrRes = await axios.post(
+      ocrUrl,
+      qs.stringify({ image: imageBase64, detect_direction: 'false' }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    )
+
+    const text = ocrRes.data.words_result
+      ? ocrRes.data.words_result.map(item => item.words).join('\n')
+      : ''
+
+    res.json(returnData({ code: 1, msg: "OCR 识别成功", data: text }))
+  } catch (err) {
+    console.error(err.response?.data || err.message)
+    res.status(500).json(returnData({ code: 500, msg: err.message }))
+  }
+})
+// === OCR 身份证识别接口 ===
+router.post('/idcard', async (req, res) => {
+  try {
+    const { imageBase64, side = 'front' } = req.body
+    if (!imageBase64) return res.status(400).json(returnData({ code: 400, msg: "缺少 imageBase64" }))
+
+    const token = await getAccessToken()
+    const url = `https://aip.baidubce.com/rest/2.0/ocr/v1/idcard?access_token=${token}`
+
+    const response = await axios.post(
+      url,
+      qs.stringify({
+        image: imageBase64,
+        id_card_side: side, // front / back
+        detect_risk: 'false',
+        detect_quality: 'false',
+        detect_photo: 'false'
+      }),
+      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+    )
+
+    // 返回标准格式
+    res.json(returnData({ code: 1, msg: "身份证识别成功", data: response.data.words_result || {} }))
+  } catch (error) {
+    console.error(error.response?.data || error.message)
+    res.status(500).json(returnData({ code: 500, msg: error.message }))
+  }
+})
 
 
 export default router;
