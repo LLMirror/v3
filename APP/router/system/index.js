@@ -1192,7 +1192,6 @@ router.post('/ty-dbwh/data/changeStatus', async (req, res) => {
 /**
  * 📥 导入 Excel 数据写入数据库
  */
-
 router.post("/importExcelData", async (req, res) => {
   console.log("📥 importExcelData");
 
@@ -1203,6 +1202,7 @@ router.post("/importExcelData", async (req, res) => {
     const userName = user.user.name; // 录入人
 
     const { tableName, data } = req.body;
+    console.log(tableName, data);
     if (!tableName || !Array.isArray(data) || data.length === 0) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
     }

@@ -85,7 +85,7 @@ const commonKeywords = ref([]);
 /* ====== refs & state ====== */
 const hotTableRef = ref(null);
 const fileInput = ref(null);
-const tableName = ref("pt-cw-zjmxb");
+const tableName = ref("pt_cw_zjmxb");
 const uploading = ref(false);
 const saving = ref(false);
 const batchSize = ref(1000);
@@ -611,8 +611,17 @@ async function handleFileUpload(e) {
     });
     
     // 初始化表格，会在initTableFromObjects中进行日期转换
-    // initTableFromObjects(processedData);
-     initTableFromObjects(jsonData);
+    // 首先去除字段名中的空格
+    const dataWithCleanHeaders = processedData.map(row => {
+      const cleanRow = {};
+      Object.keys(row).forEach(key => {
+        // 去除字段名的前后空格
+        const cleanKey = key.trim();
+        cleanRow[cleanKey] = row[key];
+      });
+      return cleanRow;
+    });
+    initTableFromObjects(dataWithCleanHeaders);
     ElMessage.success("导入成功，已自动转换Excel日期格式和长订单号");
   };
   reader.readAsArrayBuffer(file);
