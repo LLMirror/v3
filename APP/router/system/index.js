@@ -574,14 +574,14 @@ router.post('/addCashRecord', async (req, res) => {
                 
                 // 获取当前最大 seq
                 const maxSeqResult = await pools({
-                    sql: `SELECT MAX(seq) AS maxSeq FROM cash_records WHERE company=? AND bank=?`,
+                    sql: `SELECT MAX(seq) AS maxSeq FROM pt_cw_zjmxb WHERE company=? AND bank=?`,
                     val: [company, bank],
                     res, req
                 });
                 let currentSeq = (maxSeqResult.result[0]?.maxSeq || 0);
                 
                 // 批量插入SQL
-                let insertSql = `INSERT INTO cash_records
+                let insertSql = `INSERT INTO pt_cw_zjmxb
                       (id, seq, date, company, bank, summary, income, expense, balance, remark, invoice, created_by)
                       VALUES `;
                 const values = [];
@@ -625,7 +625,7 @@ router.post('/addCashRecord', async (req, res) => {
 
             // 获取当前最大 seq
             const maxSeqResult = await pools({
-                sql: `SELECT MAX(seq) AS maxSeq FROM cash_records WHERE company=? AND bank=?`,
+                sql: `SELECT MAX(seq) AS maxSeq FROM pt_cw_zjmxb WHERE company=? AND bank=?`,
                 val: [obj.data.company, obj.data.bank],
                 res, req
             });
@@ -633,7 +633,7 @@ router.post('/addCashRecord', async (req, res) => {
 
             // 插入新纪录（余额暂时置 0，后面统一更新）
             await pools({
-                sql: `INSERT INTO cash_records
+                sql: `INSERT INTO pt_cw_zjmxb
                       (id, seq, date, company, bank, summary, income, expense, balance, remark, invoice, created_by)
                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
                 val: [
@@ -665,7 +665,7 @@ router.post('/deleteCashRecord', async (req, res) => {
     const obj = req.body;
 
     const recordRes = await pools({
-        sql: `SELECT company, bank FROM cash_records WHERE id=?`,
+        sql: `SELECT company, bank FROM pt_cw_zjmxb WHERE id=?`,
         val: [obj.data.id],
         res, req
     });
@@ -675,13 +675,13 @@ router.post('/deleteCashRecord', async (req, res) => {
     const { company, bank } = recordRes.result[0];
 
     // 删除记录
-    await pools({ sql: `DELETE FROM cash_records WHERE id=?`, val: [obj.data.id], res, req });
+    await pools({ sql: `DELETE FROM pt_cw_zjmxb WHERE id=?`, val: [obj.data.id], res, req });
 
     await pools({
-        sql: `UPDATE cash_records c
+        sql: `UPDATE pt_cw_zjmxb c
           JOIN (
               SELECT id, @rownum := @rownum + 1 AS new_seq
-              FROM cash_records, (SELECT @rownum := 0) r
+              FROM pt_cw_zjmxb, (SELECT @rownum := 0) r
               WHERE company=? AND bank=?
               ORDER BY date ASC, id ASC
           ) t ON c.id = t.id
@@ -704,8 +704,8 @@ router.post('/updateCashRecord', async (req, res) => {
 
     // 更新记录
     await pools({
-        sql: `UPDATE cash_records 
-              SET date=?, company=?, bank=?, summary=?, income=?, expense=?, remark=?, invoice=? 
+        sql: `UPDATE pt_cw_zjmxb 
+              SET 日期=?, 公司=?, 银行=?, 摘要=?, 收入=?, 支出=?, 备注=?, 发票=? 
               WHERE id=?`,
         val: [
             dateTimeStr, obj.data.company, obj.data.bank, obj.data.summary,
@@ -723,18 +723,19 @@ router.post('/updateCashRecord', async (req, res) => {
 
 /** 查询现金记录 */
 router.post('/getCashRecords', async (req, res) => {
+    console.log("getCashRecords",req.body)  
     const obj = req.body;
 
-    let sql = `SELECT id, seq, LEFT(date, 10) AS date, company, bank, summary, income, expense, balance, remark, invoice, created_by AS createdBy, created_at AS createdAt
-               FROM cash_records WHERE 1=1`;
-    sql = utils.setLike(sql, 'company', obj.data.company);
-    sql = utils.setLike(sql, 'bank', obj.data.bank);
-    sql = utils.setLike(sql, 'summary', obj.data.summary);
-    if (obj.data.dateFrom) sql += ` AND date >= '${dayjs(obj.data.dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
-    if (obj.data.dateTo) sql += ` AND date <= '${dayjs(obj.data.dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
+    let sql = `SELECT id, 序号 AS seq,LEFT(日期, 10) AS date, 公司 AS company, 银行 AS bank, 摘要 AS summary, 收入 AS income, 支出 AS expense, 余额 AS balance, 备注 AS remark, 发票 AS invoice, user_id AS createdBy, created_at AS createdAt
+               FROM pt_cw_zjmxb `;
+    sql = utils.setLike(sql, '公司', obj.data.company);
+    sql = utils.setLike(sql, '银行', obj.data.bank);
+    sql = utils.setLike(sql, '摘要', obj.data.summary);
+    if (obj.data.dateFrom) sql += ` AND 日期 >= '${dayjs(obj.data.dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
+    if (obj.data.dateTo) sql += ` AND 日期 <= '${dayjs(obj.data.dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
 
-    let { total } = await utils.getSum({ sql, name: 'cash_records', res, req });
-    sql += ' ORDER BY seq DESC';
+    let { total } = await utils.getSum({ sql, name: 'pt_cw_zjmxb', res, req });
+    // sql += ' ORDER BY 序号 DESC';
     sql = utils.pageSize(sql, obj.data.page, obj.data.size);
 
     const { result } = await pools({ sql, res, req });
@@ -746,8 +747,8 @@ async function recalcBalances(company, bank, res, req) {
     try {
         // 1. 首先获取所有记录
         const recordsRes = await pools({
-            sql: `SELECT id, income, expense FROM cash_records 
-                  WHERE company=? AND bank=? ORDER BY seq ASC`,
+            sql: `SELECT id, 收入 AS income, 支出 AS expense FROM pt_cw_zjmxb 
+                  WHERE 公司=? AND 银行=? ORDER BY 序号 ASC`,
             val: [company, bank],
             res, req
         });
@@ -767,7 +768,7 @@ async function recalcBalances(company, bank, res, req) {
 
         // 3. 使用批量更新而不是单条更新，减少数据库连接使用
         // MySQL批量更新语法
-        let sql = "INSERT INTO cash_records (balance, id) VALUES";
+        let sql = "INSERT INTO pt_cw_zjmxb (余额, id) VALUES";
         const placeholders = [];
         const values = [];
         
@@ -777,7 +778,7 @@ async function recalcBalances(company, bank, res, req) {
             values.push(bal, id);
         });
         
-        sql += " ON DUPLICATE KEY UPDATE balance = VALUES(balance)";
+        sql += " ON DUPLICATE KEY UPDATE 余额 = VALUES(余额)";
         
         await pools({
             sql: sql,
@@ -800,12 +801,12 @@ router.post('/getCashSummary', async (req, res) => {
     const obj = req.body;
 
     // 先查询每条明细
-    let sql = `SELECT seq, date, company, bank, income, expense FROM cash_records WHERE 1=1`;
-    sql = utils.setLike(sql, 'company', obj.data.company);
-    sql = utils.setLike(sql, 'bank', obj.data.bank);
-    if (obj.data.dateFrom) sql += ` AND date >= '${dayjs(obj.data.dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
-    if (obj.data.dateTo) sql += ` AND date <= '${dayjs(obj.data.dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
-    sql += ` ORDER BY company, bank, seq ASC`;
+    let sql = `SELECT 序号 AS seq,LEFT(日期, 10) AS date, 公司 AS company, 银行 AS bank, 收入 AS income, 支出 AS expense FROM pt_cw_zjmxb WHERE 1=1`;
+    sql = utils.setLike(sql, '公司', obj.data.company);
+    sql = utils.setLike(sql, '银行', obj.data.bank);
+    if (obj.data.dateFrom) sql += ` AND 日期 >= '${dayjs(obj.data.dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
+    if (obj.data.dateTo) sql += ` AND 日期 <= '${dayjs(obj.data.dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
+    sql += ` ORDER BY 公司, 银行, 序号 ASC`;
 
     const { result } = await pools({ sql, res, req });
 
@@ -832,12 +833,12 @@ router.post('/getCashSummary', async (req, res) => {
     res.send(utils.returnData({ data: summary }));
 });
 
-
+// pt_cw_zjmxb
 
 
 /** 获取公司列表 */
 router.post('/getCompanyList', async (req, res) => {
-    const sql = `SELECT DISTINCT company FROM cash_records ORDER BY company`;
+    const sql = `SELECT DISTINCT 公司 AS company FROM pt_cw_zjmxb ORDER BY 公司`;
     const { result } = await pools({ sql, res, req });
     const data = result.map(r => r.company);
     res.send(utils.returnData({ data }));
@@ -845,7 +846,7 @@ router.post('/getCompanyList', async (req, res) => {
 
 /** 获取银行列表 */
 router.post('/getBankList', async (req, res) => {
-    const sql = `SELECT DISTINCT bank FROM cash_records ORDER BY bank`;
+    const sql = `SELECT DISTINCT 银行 AS bank FROM pt_cw_zjmxb ORDER BY 银行`;
     const { result } = await pools({ sql, res, req });
     const data = result.map(r => r.bank);
     res.send(utils.returnData({ data }));
@@ -861,23 +862,23 @@ router.post('/getCashSummaryList', async (req, res) => {
     bank = bank ? String(bank).trim() : '';
     summary = summary ? String(summary).trim() : '';
 
-    let sql = `SELECT DISTINCT summary 
-               FROM cash_records 
-               WHERE summary IS NOT NULL AND summary <> ''`;
+    let sql = `SELECT DISTINCT 摘要 AS summary 
+               FROM pt_cw_zjmxb 
+               WHERE 摘要 IS NOT NULL AND 摘要 <> ''`;
     const params = [];
 
     if (company) {
-      sql += ` AND company = ?`;
+      sql += ` AND 公司 = ?`;
       params.push(company);
     }
 
     if (bank) {
-      sql += ` AND bank = ?`;
+      sql += ` AND 银行 = ?`;
       params.push(bank);
     }
 
     if (summary) {
-      sql += ` AND summary LIKE ?`;
+      sql += ` AND 摘要 LIKE ?`;
       params.push(`%${summary}%`);
     }
 
@@ -1202,7 +1203,6 @@ router.post("/importExcelData", async (req, res) => {
     const userName = user.user.name; // 录入人
 
     const { tableName, data } = req.body;
-    console.log(tableName, data);
     if (!tableName || !Array.isArray(data) || data.length === 0) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
     }
@@ -1253,7 +1253,7 @@ keys = [...new Set(keys)];
       // 使用数组存储tableName和对应字段的映射关系
       const tableFieldMappings = [
         // 财务类表映射
-        { tableNames: ['pt-cw-zjmxb', '财务', '收支'], fields: ['日期', '摘要', '收入', '支出','备注','余额'] },
+        { tableNames: ['pt_cw_zjmxb', '财务', '收支'], fields: ['日期', '摘要', '收入', '支出','备注','余额'] },
         // 订单类表映射
         { tableNames: ['pt-cw-yqdz', '订单'], fields: ['订单号', '渠道打车订单号', '下单时间'] },
         // 库存类表映射
