@@ -840,12 +840,16 @@ router.post('/dashboard/cashOverview', async (req, res) => {
 
     const dateFrom = payload.dateFrom ? dayjs(payload.dateFrom).format('YYYY-MM-DD HH:mm:ss') : null;
     const dateTo = payload.dateTo ? dayjs(payload.dateTo).format('YYYY-MM-DD HH:mm:ss') : null;
+    const company = payload.company ? String(payload.company).trim() : '';
+    const bank = payload.bank ? String(payload.bank).trim() : '';
     const today = dayjs().format('YYYY-MM-DD');
 
     // 公共Where子句（全量，不按用户过滤）
     let whereBase = ` WHERE 1=1 `;
     if (dateFrom) whereBase += ` AND 日期 >= '${dateFrom}'`;
     if (dateTo) whereBase += ` AND 日期 <= '${dateTo}'`;
+    if (company) whereBase += ` AND 公司 LIKE '%${company}%'`;
+    if (bank) whereBase += ` AND 银行 LIKE '%${bank}%'`;
 
     // 1) 每个公司可用资金（收入-支出）
     let sqlCompany = `SELECT 公司 AS company, ROUND(SUM(收入),2) AS totalIncome, ROUND(SUM(支出),2) AS totalExpense, ROUND(SUM(收入) - SUM(支出),2) AS balance
@@ -869,15 +873,26 @@ router.post('/dashboard/cashOverview', async (req, res) => {
     const dailyRes = await pools({ sql: sqlDaily, res, req });
 
     // 4) 当日收付情况（汇总）
+    let todayWhere = ` WHERE LEFT(日期,10) = '${today}'`;
+    if (company) todayWhere += ` AND 公司 LIKE '%${company}%'`;
+    if (bank) todayWhere += ` AND 银行 LIKE '%${bank}%'`;
     let sqlTodaySum = `SELECT ROUND(SUM(收入),2) AS income, ROUND(SUM(支出),2) AS expense, ROUND(SUM(收入) - SUM(支出),2) AS net
-                       FROM pt_cw_zjmxb WHERE LEFT(日期,10) = '${today}'`;
+                       FROM pt_cw_zjmxb ${todayWhere}`;
     const todaySumRes = await pools({ sql: sqlTodaySum, res, req });
 
     // 5) 当日收付明细
     let sqlTodayDetails = `SELECT id, LEFT(日期, 19) AS date, 公司 AS company, 银行 AS bank, 摘要 AS summary, 收入 AS income, 支出 AS expense, 余额 AS balance, 备注 AS remark, 发票 AS invoice
-                           FROM pt_cw_zjmxb WHERE LEFT(日期,10) = '${today}'
+                           FROM pt_cw_zjmxb ${todayWhere}
                            ORDER BY 日期 ASC, id ASC LIMIT 500`;
     const todayDetailsRes = await pools({ sql: sqlTodayDetails, res, req });
+
+    // 6) Top摘要频次（额外分析）
+    let sqlTopSummary = `SELECT 摘要 AS summary, COUNT(*) AS count, ROUND(SUM(收入),2) AS totalIncome, ROUND(SUM(支出),2) AS totalExpense, ROUND(SUM(收入) - SUM(支出),2) AS net
+                         FROM pt_cw_zjmxb ${whereBase}
+                         GROUP BY 摘要
+                         ORDER BY count DESC
+                         LIMIT 10`;
+    const topSummaryRes = await pools({ sql: sqlTopSummary, res, req });
 
     res.send(utils.returnData({
       data: {
@@ -885,7 +900,8 @@ router.post('/dashboard/cashOverview', async (req, res) => {
         bankBalances: bankRes.result || [],
         dailyTrend: dailyRes.result || [],
         todaySummary: (todaySumRes.result && todaySumRes.result[0]) ? todaySumRes.result[0] : { income: 0, expense: 0, net: 0 },
-        todayDetails: todayDetailsRes.result || []
+        todayDetails: todayDetailsRes.result || [],
+        topSummaries: topSummaryRes.result || []
       }
     }));
   } catch (error) {

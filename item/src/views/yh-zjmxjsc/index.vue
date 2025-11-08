@@ -3,6 +3,15 @@
     <div class="cockpit-header">
       <h2>资金明细驾驶舱</h2>
       <div class="filters">
+        <el-select
+          v-model="selectedCompany"
+          placeholder="选择公司"
+          clearable
+          filterable
+          style="width: 220px; margin-right: 12px;"
+        >
+          <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
+        </el-select>
         <el-date-picker
           v-model="dateRange"
           type="daterange"
@@ -70,6 +79,30 @@
       </el-col>
     </el-row>
 
+    <!-- 占比与洞察 -->
+    <el-row :gutter="16" class="charts-row">
+      <el-col :span="12">
+        <div class="chart-card">
+          <div class="chart-title">公司净额占比（Top）</div>
+          <div ref="companyPieChartRef" class="chart"></div>
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="chart-card">
+          <div class="chart-title">银行净额占比（Top）</div>
+          <div ref="bankPieChartRef" class="chart"></div>
+        </div>
+      </el-col>
+    </el-row>
+    <el-row :gutter="16" class="charts-row">
+      <el-col :span="24">
+        <div class="chart-card">
+          <div class="chart-title">Top摘要频次</div>
+          <div ref="topSummaryChartRef" class="chart"></div>
+        </div>
+      </el-col>
+    </el-row>
+
     <!-- 当日收付情况 -->
     <el-row :gutter="16" class="today-row">
       <el-col :span="8">
@@ -114,16 +147,24 @@
 import { ref, onMounted, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { ElMessage } from 'element-plus';
-import { getCashOverview } from '@/api/system';
+import { getCashOverview, getCompanyList } from '@/api/system';
 
 const dateRange = ref([]);
+const selectedCompany = ref('');
+const companyOptions = ref([]);
 const companyChartRef = ref(null);
 const bankChartRef = ref(null);
 const dailyChartRef = ref(null);
+const companyPieChartRef = ref(null);
+const bankPieChartRef = ref(null);
+const topSummaryChartRef = ref(null);
 // 缓存图表实例，避免重复初始化
 const companyChart = ref(null);
 const bankChart = ref(null);
 const dailyChart = ref(null);
+const companyPieChart = ref(null);
+const bankPieChart = ref(null);
+const topSummaryChart = ref(null);
 let resizeHandler = null;
 
 const companyFunds = ref([]);
@@ -131,6 +172,7 @@ const bankBalances = ref([]);
 const dailyTrend = ref([]);
 const todaySummary = ref({ income: 0, expense: 0, net: 0 });
 const todayDetails = ref([]);
+const topSummaries = ref([]);
 
 const totalIncome = ref(0);
 const totalExpense = ref(0);
@@ -144,15 +186,15 @@ function formatMoney(n) {
 async function loadOverview() {
   try {
     const [dateFrom, dateTo] = dateRange.value || [];
-    const res = await getCashOverview({ data: { dateFrom, dateTo } });
+    const res = await getCashOverview({ data: { dateFrom, dateTo, company: selectedCompany.value } });
 
-    console.log( )
     const data = res?.data || {};
     companyFunds.value = data.companyFunds || [];
     bankBalances.value = data.bankBalances || [];
     dailyTrend.value = data.dailyTrend || [];
     todaySummary.value = data.todaySummary || { income: 0, expense: 0, net: 0 };
     todayDetails.value = data.todayDetails || [];
+    topSummaries.value = data.topSummaries || [];
 
     // 汇总顶部指标
     totalIncome.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalIncome || 0), 0);
@@ -163,6 +205,9 @@ async function loadOverview() {
     initCompanyChart();
     initBankChart();
     initDailyChart();
+    initCompanyPieChart();
+    initBankPieChart();
+    initTopSummaryChart();
   } catch (err) {
     console.error(err);
     ElMessage.error('加载驾驶舱数据失败');
@@ -214,27 +259,94 @@ function initDailyChart() {
   const dates = dailyTrend.value.map(i => i.date);
   const incomes = dailyTrend.value.map(i => Number(i.income || 0));
   const expenses = dailyTrend.value.map(i => Number(i.expense || 0));
+  // 累计净额
+  const nets = dailyTrend.value.map(i => Number(i.net || 0));
+  const cumulative = [];
+  nets.reduce((acc, cur, idx) => {
+    const val = acc + cur;
+    cumulative[idx] = Number(val.toFixed(2));
+    return val;
+  }, 0);
   chart.clear();
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { data: ['收入', '支出'] },
+    legend: { data: ['收入', '支出', '累计净额'] },
     xAxis: { type: 'category', data: dates },
     yAxis: { type: 'value' },
     series: [
       { name: '收入', type: 'line', smooth: true, data: incomes, itemStyle: { color: '#3ba272' } },
-      { name: '支出', type: 'line', smooth: true, data: expenses, itemStyle: { color: '#ee6666' } }
+      { name: '支出', type: 'line', smooth: true, data: expenses, itemStyle: { color: '#ee6666' } },
+      { name: '累计净额', type: 'line', smooth: true, data: cumulative, itemStyle: { color: '#5470c6' } }
     ]
   });
 }
 
+function initCompanyPieChart() {
+  const el = companyPieChartRef.value;
+  if (!el) return;
+  const chart = getOrInitChart(el);
+  companyPieChart.value = chart;
+  const data = companyFunds.value
+    .map(i => ({ name: i.company, value: Number(i.balance || 0) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10);
+  chart.clear();
+  chart.setOption({
+    tooltip: { trigger: 'item' },
+    legend: { type: 'scroll', orient: 'vertical', right: 10, top: 20, bottom: 20 },
+    series: [{ type: 'pie', radius: '60%', data }]
+  });
+}
+
+function initBankPieChart() {
+  const el = bankPieChartRef.value;
+  if (!el) return;
+  const chart = getOrInitChart(el);
+  bankPieChart.value = chart;
+  const data = bankBalances.value
+    .map(i => ({ name: i.bank, value: Number(i.balance || 0) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10);
+  chart.clear();
+  chart.setOption({
+    tooltip: { trigger: 'item' },
+    legend: { type: 'scroll', orient: 'vertical', right: 10, top: 20, bottom: 20 },
+    series: [{ type: 'pie', radius: '60%', data }]
+  });
+}
+
+function initTopSummaryChart() {
+  const el = topSummaryChartRef.value;
+  if (!el) return;
+  const chart = getOrInitChart(el);
+  topSummaryChart.value = chart;
+  const names = topSummaries.value.map(i => i.summary);
+  const counts = topSummaries.value.map(i => Number(i.count || 0));
+  chart.clear();
+  chart.setOption({
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: names },
+    yAxis: { type: 'value' },
+    series: [{ type: 'bar', data: counts, itemStyle: { color: '#fac858' } }]
+  });
+}
+
 onMounted(() => {
-  loadOverview();
+  // 加载公司选项
+  getCompanyList({}).then(res => {
+    companyOptions.value = res?.data || [];
+  }).finally(() => {
+    loadOverview();
+  });
   // 统一绑定一次 resize 事件
   if (!resizeHandler) {
     resizeHandler = () => {
       companyChart.value && companyChart.value.resize();
       bankChart.value && bankChart.value.resize();
       dailyChart.value && dailyChart.value.resize();
+      companyPieChart.value && companyPieChart.value.resize();
+      bankPieChart.value && bankPieChart.value.resize();
+      topSummaryChart.value && topSummaryChart.value.resize();
     };
     window.addEventListener('resize', resizeHandler);
   }
@@ -268,6 +380,8 @@ onMounted(() => {
 .chart-title { font-weight: 600; margin-bottom: 8px; }
 .chart { width: 100%; height: 320px; }
 .chart.large { height: 380px; }
+
+.charts-row + .charts-row { margin-top: 12px; }
 
 .table-card { background: #fff; border-radius: 10px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-top: 12px; }
 </style>
