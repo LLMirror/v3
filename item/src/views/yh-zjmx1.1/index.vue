@@ -296,7 +296,8 @@ async function update_SettlementData(rowData) {
         '余额': rowData['余额'] || 0,
         '备注': rowData['备注'] || '',
         '发票': rowData['发票'] || '',
-        '序号': rowData['序号'] || ''
+        '序号': rowData['序号'] || '',
+        'id': rowData['id'] || 0
       }
     });
     
@@ -598,10 +599,10 @@ function initTableFromObjects(objArray) {
     { data: '序号', type: 'text', readOnly: true, width: 60, className: 'htCenter' },
   ];
   
-  // 添加其他列配置
-  keys.forEach(k => {
-    const v = objArray[0][k];
-    const isNum = v !== null && v !== "" && !isNaN(Number(v));
+    // 添加其他列配置
+    keys.forEach(k => {
+      const v = objArray[0][k];
+      const isNum = v !== null && v !== "" && !isNaN(Number(v));
     
     // 创建列配置
     const columnConfig = {
@@ -663,16 +664,22 @@ function initTableFromObjects(objArray) {
       };
     }
     
-    // 余额列设置为只读并保留两位小数
-    if (k === "余额") {
-      columnConfig.readOnly = true;
-      // 设置类型为数字并保留两位小数
-      columnConfig.type = 'numeric';
-      columnConfig.numericFormat = {
-        pattern: '0,0.00',
-        culture: 'zh-CN'
-      };
-    }
+      // 余额列设置为只读并保留两位小数
+      if (k === "余额") {
+        columnConfig.readOnly = true;
+        // 设置类型为数字并保留两位小数
+        columnConfig.type = 'numeric';
+        columnConfig.numericFormat = {
+          pattern: '0,0.00',
+          culture: 'zh-CN'
+        };
+      }
+      // id 列设置为只读并淡化显示，避免被编辑
+      if (k.toLowerCase() === 'id') {
+        columnConfig.readOnly = true;
+        columnConfig.className = (columnConfig.className ? `${columnConfig.className} htDimmed` : 'htDimmed');
+        columnConfig.width = columnConfig.width || 100;
+      }
         // 如果是“摘要”列，设置列宽为300
     if (k === "摘要") {
       columnConfig.width = 600;
