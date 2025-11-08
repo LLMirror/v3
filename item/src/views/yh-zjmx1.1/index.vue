@@ -66,7 +66,7 @@ import * as XLSX from "xlsx";
 import { ElMessage } from "element-plus";
 import useUserStore from '@/store/modules/user'
 
-import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList,addSettlementData,updateSettlementData,deleteSettlementData } from "@/api/system/index.js";
+import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList,addSettlementData,updateSettlementData,deleteSettlementData,getMaxId } from "@/api/system/index.js";
 
 // 注册 numeric 类型和日期选择器插件
 import { registerCellType, NumericCellType, AutocompleteCellType } from "handsontable/cellTypes";
@@ -266,8 +266,62 @@ const hotSettings = reactive({
   // === 3️⃣ 删除行时触发 ===
   afterRemoveRow: async (index, amount, physicalRows, source) => {
     console.log('🗑 删除行事件触发:', { index, amount, physicalRows, source })
+    if (!tableName.value) {
+      ElMessage.warning('请先填写表名');
+      return;
+    }
 
-  
+    try {
+      const start = (currentPage.value - 1) * pageSize.value;
+      // 先收集待删除的全局索引与行数据，避免删除过程中索引变化
+      const absIndices = Array.from({ length: amount }, (_, k) => start + index + k);
+      const rowsToDelete = absIndices
+        .map(i => ({ i, row: tableData.value[i] }))
+        .filter(item => !!item.row);
+
+      // 先调用后端删除（仅对已有 unique_key 的行），未保存的新行只做本地删除
+      for (const { i, row } of rowsToDelete) {
+        if (row.unique_key) {
+          try {
+            const res = await deleteSettlementData({
+              tableName: tableName.value,
+              uniqueKey: row.unique_key 
+            });
+            if (res?.code !== 1) {
+              console.error('❌ 后端删除失败:', res?.msg);
+              ElMessage.error(`删除失败：${res?.msg || '服务器错误'}`);
+              // 服务器删除失败则跳过本地删除，保持数据一致
+              continue;
+            }
+            console.log('✅ 后端删除成功:', row.unique_key);
+          } catch (err) {
+            console.error('❌ 调用删除接口异常:', err);
+            ElMessage.error(`删除异常：${err.message || err}`);
+            // 接口异常则跳过本地删除
+            continue;
+          }
+        } else {
+          console.log('ℹ️ 本地未保存行（无 unique_key），仅本地删除');
+        }
+      }
+
+      // 后端删除完成后，按索引倒序移除本地数据，避免索引错位
+      absIndices
+        .sort((a, b) => b - a)
+        .forEach(i => {
+          if (i >= 0 && i < tableData.value.length) {
+            tableData.value.splice(i, 1);
+          }
+        });
+
+      // 更新序号并刷新当前页
+      updateRowNumbers();
+      loadCurrentPage();
+      ElMessage.success(`删除成功（${rowsToDelete.length} 行）`);
+    } catch (err) {
+      console.error('❌ 删除流程异常:', err);
+      ElMessage.error(`删除流程异常：${err.message || err}`);
+    }
   }
 });
 // 更新修改单元格 数据
@@ -678,7 +732,7 @@ function initTableFromObjects(objArray) {
       if (k.toLowerCase() === 'id') {
         columnConfig.readOnly = true;
         columnConfig.className = (columnConfig.className ? `${columnConfig.className} htDimmed` : 'htDimmed');
-        columnConfig.width =  1;
+        // columnConfig.width =  1;
       }
 
        // id 列设置为只读并淡化显示，避免被编辑
@@ -979,7 +1033,7 @@ function exportExcel() {
 
 
 /* ====== 增删行列 & 撤销重做 ====== */
-function addRow() {
+async function addRow() {
   const newRow = {};
   // 为新行设置各列的默认值，但不设置序号
   colHeaders.value.forEach(h => {
@@ -987,9 +1041,40 @@ function addRow() {
       newRow[h] = "";
     }
   });
+
+  // 获取下一个可用的 id（优先后端，失败则本地递增）
+  let nextId = null;
+  try {
+    const res = await getMaxId({ tableName: tableName.value });
+    if (res?.code === 1) {
+      const d = res?.data;
+      if (typeof d === 'number') {
+        nextId = d + 1;
+      } else if (d && typeof d.nextId === 'number') {
+        nextId = d.nextId;
+      } else if (d && typeof d.maxId === 'number') {
+        nextId = d.maxId + 1;
+      }
+    }
+  } catch (err) {
+    // 忽略错误，使用本地回退策略
+    console.warn('获取最大id失败，使用本地递增回退', err);
+  }
+
+  if (!nextId) {
+    const localMax = tableData.value.reduce((max, row) => {
+      const v = Number(row?.id);
+      return Number.isFinite(v) ? Math.max(max, v) : max;
+    }, 0);
+    nextId = localMax + 1;
+  }
+
+  newRow['id'] = nextId;
+
   tableData.value.push(newRow);
   updateRowNumbers(); // 更新序号
   loadCurrentPage();
+  ElMessage.success(`已新增一行，id=${nextId}`);
 }
 
 // 更新所有行的序号

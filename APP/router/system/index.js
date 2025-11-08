@@ -1507,6 +1507,7 @@ router.post("/updateSettlementData", async (req, res) => {
 
 // 出纳表 - 删除单条记录
 router.post("/deleteSettlementData", async (req, res) => {
+  console.log(req.body);
   try {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
