@@ -678,7 +678,14 @@ function initTableFromObjects(objArray) {
       if (k.toLowerCase() === 'id') {
         columnConfig.readOnly = true;
         columnConfig.className = (columnConfig.className ? `${columnConfig.className} htDimmed` : 'htDimmed');
-        columnConfig.width = columnConfig.width || 100;
+        columnConfig.width =  1;
+      }
+
+       // id 列设置为只读并淡化显示，避免被编辑
+      if (k.toLowerCase() === 'unique_key') {
+        columnConfig.readOnly = true;
+        columnConfig.className = (columnConfig.className ? `${columnConfig.className} htDimmed` : 'htDimmed');
+        columnConfig.width =  1;
       }
         // 如果是“摘要”列，设置列宽为300
     if (k === "摘要") {
