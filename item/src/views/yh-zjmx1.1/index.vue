@@ -12,6 +12,7 @@
         class="mr-2"
         style="width: 600px; margin-right: 16px;"
       />
+      <el-button type="warning" plain  @click="clearCompanyBankFilter">清空筛选</el-button>
       <el-button @click="exportExcel" >💾 导出 Excel</el-button>
       <el-button @click="addRow">➕ 添加行</el-button>
       <el-button @click="loadFromDB" type="primary">查询</el-button>
@@ -1263,6 +1264,12 @@ async function loadFromDB() {
     ElMessage.success(`已加载 ${rows.length} 条`);
   } catch (err) { ElMessage.error("加载异常：" + (err.message || err)); }
 }
+
+// 清空公司/银行筛选按钮事件
+function clearCompanyBankFilter() {
+  selectedCompanyBank.value = [];
+  ElMessage.success('已清空筛选');
+}
 </script>
 
 <style scoped>
@@ -1293,4 +1300,5 @@ justify-content: flex-end;
 }
 
 </style>
+
 
