@@ -833,6 +833,67 @@ router.post('/getCashSummary', async (req, res) => {
     res.send(utils.returnData({ data: summary }));
 });
 
+/** 资金驾驶舱总览 */
+router.post('/dashboard/cashOverview', async (req, res) => {
+  try {
+    const payload = (req.body && req.body.data) ? req.body.data : req.body || {};
+
+    const dateFrom = payload.dateFrom ? dayjs(payload.dateFrom).format('YYYY-MM-DD HH:mm:ss') : null;
+    const dateTo = payload.dateTo ? dayjs(payload.dateTo).format('YYYY-MM-DD HH:mm:ss') : null;
+    const today = dayjs().format('YYYY-MM-DD');
+
+    // 公共Where子句（全量，不按用户过滤）
+    let whereBase = ` WHERE 1=1 `;
+    if (dateFrom) whereBase += ` AND 日期 >= '${dateFrom}'`;
+    if (dateTo) whereBase += ` AND 日期 <= '${dateTo}'`;
+
+    // 1) 每个公司可用资金（收入-支出）
+    let sqlCompany = `SELECT 公司 AS company, ROUND(SUM(收入),2) AS totalIncome, ROUND(SUM(支出),2) AS totalExpense, ROUND(SUM(收入) - SUM(支出),2) AS balance
+                      FROM pt_cw_zjmxb ${whereBase}
+                      GROUP BY 公司
+                      ORDER BY balance DESC`;
+    const companyRes = await pools({ sql: sqlCompany, res, req });
+
+    // 2) 每家银行资金余额（收入-支出）
+    let sqlBank = `SELECT 银行 AS bank, ROUND(SUM(收入),2) AS totalIncome, ROUND(SUM(支出),2) AS totalExpense, ROUND(SUM(收入) - SUM(支出),2) AS balance
+                   FROM pt_cw_zjmxb ${whereBase}
+                   GROUP BY 银行
+                   ORDER BY balance DESC`;
+    const bankRes = await pools({ sql: sqlBank, res, req });
+
+    // 3) 每天收入支出（按天聚合）
+    let sqlDaily = `SELECT LEFT(日期,10) AS date, ROUND(SUM(收入),2) AS income, ROUND(SUM(支出),2) AS expense, ROUND(SUM(收入) - SUM(支出),2) AS net
+                    FROM pt_cw_zjmxb ${whereBase}
+                    GROUP BY LEFT(日期,10)
+                    ORDER BY date ASC`;
+    const dailyRes = await pools({ sql: sqlDaily, res, req });
+
+    // 4) 当日收付情况（汇总）
+    let sqlTodaySum = `SELECT ROUND(SUM(收入),2) AS income, ROUND(SUM(支出),2) AS expense, ROUND(SUM(收入) - SUM(支出),2) AS net
+                       FROM pt_cw_zjmxb WHERE LEFT(日期,10) = '${today}'`;
+    const todaySumRes = await pools({ sql: sqlTodaySum, res, req });
+
+    // 5) 当日收付明细
+    let sqlTodayDetails = `SELECT id, LEFT(日期, 19) AS date, 公司 AS company, 银行 AS bank, 摘要 AS summary, 收入 AS income, 支出 AS expense, 余额 AS balance, 备注 AS remark, 发票 AS invoice
+                           FROM pt_cw_zjmxb WHERE LEFT(日期,10) = '${today}'
+                           ORDER BY 日期 ASC, id ASC LIMIT 500`;
+    const todayDetailsRes = await pools({ sql: sqlTodayDetails, res, req });
+
+    res.send(utils.returnData({
+      data: {
+        companyFunds: companyRes.result || [],
+        bankBalances: bankRes.result || [],
+        dailyTrend: dailyRes.result || [],
+        todaySummary: (todaySumRes.result && todaySumRes.result[0]) ? todaySumRes.result[0] : { income: 0, expense: 0, net: 0 },
+        todayDetails: todayDetailsRes.result || []
+      }
+    }));
+  } catch (error) {
+    console.error('dashboard/cashOverview error:', error);
+    res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
+  }
+});
+
 // pt_cw_zjmxb
 
 

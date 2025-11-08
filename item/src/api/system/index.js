@@ -298,10 +298,10 @@ export function getBankList(data) {
 	});
 }
 export function getCashSummaryList(data) {
-	return request({
-		url: "/system/getCashSummaryList",
-		data
-	});
+  return request({
+    url: "/system/getCashSummaryList",
+    data
+  });
 }
 
 
@@ -326,6 +326,15 @@ export function getSettlementData(params) {
 export function getSettlementCompanyBank(params) {
   return request({
     url: "/system/getSettlementCompanyBank",
+    method: "post",
+    data: params
+  });
+}
+
+// 资金驾驶舱总览
+export function getCashOverview(params) {
+  return request({
+    url: "/system/dashboard/cashOverview",
     method: "post",
     data: params
   });

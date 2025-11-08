@@ -64,6 +64,18 @@ export const constantRoutes = [
         meta: { title: '首页', icon: 'dashboard', affix: true }
       }
     ]
+  },
+  {
+    path: '/yh-zjmxjsc',
+    component: Layout,
+    children: [
+      {
+        path: '/yh-zjmxjsc',
+        component: () => import('@/views/yh-zjmxjsc/index.vue'),
+        name: 'YhZjmxJsc',
+        meta: { title: '资金驾驶舱', icon: 'data-line' }
+      }
+    ]
   }
 ]
 
