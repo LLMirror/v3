@@ -253,5 +253,45 @@ router.post('/idcard', async (req, res) => {
   }
 })
 
+// === 保存身份证识别信息到数据库（不存在则建表） ===
+router.post('/idcard/save', async (req, res) => {
+  try {
+    const user = await utils.getUserInfo({ req, res });
+    if (!user || !user.id) return; // getUserInfo 失败时已响应
+
+    const { name, idNumber, issuingAuthority, validFrom, validTo } = req.body || {};
+    if (!idNumber || !name) {
+      return res.send(utils.returnData({ code: -1, msg: '缺少必要参数：name 或 idNumber', req }));
+    }
+
+    const tableName = 'idcard_info';
+    // 1. 检查表是否存在
+    const { result: exists } = await pools({ sql: 'SHOW TABLES LIKE ?', val: [tableName], res, req });
+    if (!exists || !exists.length) {
+      const createSql = `CREATE TABLE \`${tableName}\` (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT,
+        name VARCHAR(255),
+        id_number VARCHAR(255),
+        issuing_authority VARCHAR(255),
+        valid_from VARCHAR(64),
+        valid_to VARCHAR(64),
+        create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+      await pools({ sql: createSql, res, req });
+    }
+
+    // 2. 插入数据
+    const insertSql = `INSERT INTO \`${tableName}\`(user_id, name, id_number, issuing_authority, valid_from, valid_to) VALUES(?, ?, ?, ?, ?, ?)`;
+    await pools({ sql: insertSql, val: [user.id, name, idNumber, issuingAuthority || '', validFrom || '', validTo || ''], res, req, run: false });
+
+    return res.send(utils.returnData({ msg: '身份证信息已保存' }));
+  } catch (error) {
+    console.error('保存身份证信息失败:', error);
+    return res.send(utils.returnData({ code: -1, msg: '保存失败', err: error, req }));
+  }
+})
+
 
 export default router;

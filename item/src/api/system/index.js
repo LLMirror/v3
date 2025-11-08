@@ -411,3 +411,12 @@ export function idcard(params) {
     data: params
   });
 }
+
+// 保存身份证信息到数据库
+export function saveIdcardInfo(params) {
+  return request({
+    url: "/components/idcard/save",
+    method: "post",
+    data: params
+  });
+}

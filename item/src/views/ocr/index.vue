@@ -42,6 +42,14 @@
     >
       开始识别
     </el-button>
+    <el-button
+      type="success"
+      style="margin-top: 20px; margin-left: 10px"
+      :disabled="mode !== 'idcard' || !Object.keys(idCardResult).length"
+      @click="saveIdCard"
+    >
+      保存
+    </el-button>
 
     <!-- 识别结果展示 -->
     <div v-if="ocrResults.length || Object.keys(idCardResult).length" style="margin-top: 20px;">
@@ -69,7 +77,7 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ocr, idcard } from "@/api/system/index.js";
+import { ocr, idcard, saveIdcardInfo } from "@/api/system/index.js";
 
 // === 响应式变量 ===
 const mode = ref('ocr')
@@ -153,6 +161,42 @@ const submitOCR = async () => {
   } catch (err) {
     console.error(err)
     ElMessage.error('识别失败')
+  }
+}
+
+// 手动保存身份证识别信息到数据库
+const saveIdCard = async () => {
+  if (mode.value !== 'idcard') {
+    ElMessage.warning('当前仅支持保存身份证识别结果')
+    return
+  }
+  if (!Object.keys(idCardResult.value).length) {
+    ElMessage.warning('请先完成身份证识别')
+    return
+  }
+
+  const { 姓名, 身份证号, 签发机关, 有效期限 } = idCardResult.value
+  // 解析有效期限为起止
+  let validFrom = ''
+  let validTo = ''
+  if (有效期限 && 有效期限.includes('-')) {
+    const parts = 有效期限.split('-').map(s => s.trim())
+    validFrom = parts[0] || ''
+    validTo = parts[1] || ''
+  }
+
+  try {
+    await saveIdcardInfo({
+      name: 姓名 || '',
+      idNumber: 身份证号 || '',
+      issuingAuthority: 签发机关 || '',
+      validFrom,
+      validTo
+    })
+    ElMessage.success('保存成功')
+  } catch (e) {
+    console.error('保存身份证信息失败', e)
+    ElMessage.error('保存失败，请稍后重试')
   }
 }
 
