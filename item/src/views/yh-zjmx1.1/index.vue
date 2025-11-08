@@ -10,11 +10,12 @@
         :props="{ checkStrictly: true, expandTrigger: 'hover' }"
         placeholder="选择公司和银行"
         class="mr-2"
-        style="margin-right: 16px;"
+        style="width: 600px; margin-right: 16px;"
       />
-      <el-button @click="loadFromDB" type="primary">查询</el-button>
       <el-button @click="exportExcel" >💾 导出 Excel</el-button>
       <el-button @click="addRow">➕ 添加行</el-button>
+      <el-button @click="loadFromDB" type="primary">查询</el-button>
+
       <!-- <el-button type="info" @click="saveChanges" :loading="saving">💾 保存编辑</el-button>  -->
     </div>
 
