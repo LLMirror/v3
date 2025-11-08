@@ -1379,7 +1379,7 @@ router.post("/getSettlementData", async (req, res) => {
   const user = await utils.getUserRole(req, res);
   const userId = user.user.id;
   
-  const sql = `SELECT  id,unique_key,日期,公司,银行,摘要,收入,支出,余额,备注,发票 FROM \`pt_cw_zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
+  const sql = `SELECT  id,日期,公司,银行,摘要,收入,支出,余额,备注,发票 FROM \`pt_cw_zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
   // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
@@ -1397,6 +1397,7 @@ router.post("/getSettlementCompanyBank", async (req, res) => {
 
 // 出纳表 - 新增单条记录
 router.post("/addSettlementData", async (req, res) => {
+  console.log(req.body);
   try {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
@@ -1405,15 +1406,15 @@ router.post("/addSettlementData", async (req, res) => {
 
     const { tableName, data } = req.body;
     
-    if (!tableName || !data || !data.unique_key) {
+    if (!tableName || !data || !data.id) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
     }
     
     // 检查是否已存在
-    const checkSQL = `SELECT id FROM \`${tableName}\` WHERE user_id = ? AND unique_key = ?`;
+    const checkSQL = `SELECT id FROM \`${tableName}\` WHERE user_id = ? AND id = ?`;
     const checkResult = await pools({ 
       sql: checkSQL, 
-      val: [userId, data.unique_key], 
+      val: [userId, data.id], 
       isReturn: true 
     });
     
@@ -1422,12 +1423,11 @@ router.post("/addSettlementData", async (req, res) => {
     }
     
     // 执行新增
-    const insertSQL = `INSERT INTO \`${tableName}\` (user_id, unique_key, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号, 录入人) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const insertSQL = `INSERT INTO \`${tableName}\` (user_id,日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号, 录入人, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     await pools({ 
       sql: insertSQL, 
       val: [
         userId, 
-        data.unique_key,
         data['日期'] || '',
         data['公司'] || '',
         data['银行'] || '',
@@ -1438,7 +1438,8 @@ router.post("/addSettlementData", async (req, res) => {
         data['备注'] || '',
         data['发票'] || '',
         data['序号'] || '',
-        userName
+        userName || '',
+        data.id || ''
       ], 
       isReturn: true 
     });
@@ -1476,10 +1477,11 @@ router.post("/updateSettlementData", async (req, res) => {
     }
     
     // 执行更新
-    const updateSQL = `UPDATE \`${tableName}\` SET 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ?,unique_key = ? WHERE user_id = ? AND id = ?`;
+    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ? WHERE user_id = ? AND id = ?`;
     await pools({ 
       sql: updateSQL, 
       val: [
+        data['unique_key'] || '',
         data['日期'] || '',
         data['公司'] || '',
         data['银行'] || '',
@@ -1490,7 +1492,6 @@ router.post("/updateSettlementData", async (req, res) => {
         data['备注'] || '',
         data['发票'] || '',
         data['序号'] || '',
-        data.unique_key || '',
         userId,
         data.id || ''
 
@@ -1513,20 +1514,20 @@ router.post("/deleteSettlementData", async (req, res) => {
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
 
-    const { tableName, uniqueKey } = req.body;
+    const { tableName, id } = req.body;
     
-    if (!tableName || !uniqueKey) {
+    if (!tableName || !id) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
     }
     
     // 执行删除
-    const deleteSQL = `DELETE FROM \`${tableName}\` WHERE user_id = ? AND unique_key = ?`;
+    const deleteSQL = `DELETE FROM \`${tableName}\` WHERE user_id = ? AND id = ?`;
     await pools({ 
       sql: deleteSQL, 
-      val: [userId, uniqueKey], 
+      val: [userId, id], 
       isReturn: true 
     });
-    
+    console.log("result");
     res.send(utils.returnData({ code: 1, msg: "✅ 删除成功" }));
   } catch (err) {
     console.error("❌ 删除数据出错:", err);

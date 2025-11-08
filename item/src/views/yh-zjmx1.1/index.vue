@@ -31,7 +31,7 @@
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
         :total="tableData.length"
-        :page-sizes="[25, 50, 100, 200, 500,1000,3000,5000]"
+        :page-sizes="[50, 100, 200, 500,1000,3000,5000]"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
         layout="prev, pager, next, total, sizes"
@@ -92,7 +92,7 @@ const columns = ref([]);
 
 // 分页
 const currentPage = ref(1);
-const pageSize = ref(25); // 每页 20 条
+const pageSize = ref(50); // 每页 20 条
 
 const pagedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
@@ -259,8 +259,107 @@ const hotSettings = reactive({
   // === 2️⃣ 新增行时触发 ===
   afterCreateRow: async (index, amount, source) => {
     console.log('➕ 新增行事件触发:', { index, amount, source })
+    if (!tableName.value) {
+      ElMessage.warning('请先填写表名');
+      return;
+    }
 
-    
+    try {
+      // 计算全局插入起始索引（页内索引 -> 全局索引）
+      const startAbsIndex = (currentPage.value - 1) * pageSize.value + index;
+
+      // 先获取一次最大id，后续逐个递增使用，减少请求次数
+      let nextId = null;
+      try {
+        const res = await getMaxId({ tableName: tableName.value });
+        if (res?.code === 1) {
+          const d = res?.data;
+          if (typeof d === 'number') nextId = d ;
+          else if (d && typeof d.nextId === 'number') nextId = d.nextId;
+          else if (d && typeof d.maxId === 'number') nextId = d.maxId ;
+        }
+      } catch (err) {
+        console.warn('获取最大id失败，使用本地递增回退', err);
+      }
+      if (!nextId) {
+        const localMax = tableData.value.reduce((max, row) => {
+          const v = Number(row?.id);
+          return Number.isFinite(v) ? Math.max(max, v) : max;
+        }, 0);
+        nextId = localMax ;
+      }
+
+      // 逐行插入
+      for (let k = 0; k < amount; k++) {
+        const newRow = {};
+        // 默认空值
+        colHeaders.value.forEach(h => {
+          if (h !== '序号') newRow[h] = '';
+        });
+        // 复制上一行的 公司/银行/日期
+        const prev = tableData.value[startAbsIndex + k - 1] || tableData.value[startAbsIndex - 1] || tableData.value[tableData.value.length - 1] || null;
+        if (prev) {
+          newRow['公司'] = prev['公司'] ?? '';
+          newRow['银行'] = prev['银行'] ?? '';
+          newRow['日期'] = prev['日期'] ?? '';
+        }
+
+        // 数值列默认值
+        newRow['收入'] = Number(newRow['收入']) || 0;
+        newRow['支出'] = Number(newRow['支出']) || 0;
+        newRow['余额'] = Number(newRow['余额']) || 0;
+
+        // 生成 id
+        newRow['id'] = nextId++;
+
+        // 生成唯一键
+        try {
+          newRow['unique_key'] = await generateUniqueKey(newRow);
+        } catch (e) {
+          console.warn('生成 unique_key 失败，将在后续编辑时更新', e);
+          newRow['unique_key'] = '';
+        }
+
+        // 先调用后端新增，确保 id 立即保存
+        try {
+          const res = await addSettlementData({
+            tableName: tableName.value,
+            data: {
+              unique_key: newRow['unique_key'],
+              '日期': newRow['日期'] || '',
+              '公司': newRow['公司'] || '',
+              '银行': newRow['银行'] || '',
+              '摘要': newRow['摘要'] || '',
+              '收入': newRow['收入'] || 0,
+              '支出': newRow['支出'] || 0,
+              '余额': newRow['余额'] || 0,
+              '备注': newRow['备注'] || '',
+              '发票': newRow['发票'] || '',
+              '序号': startAbsIndex + k + 1,
+              'id': newRow['id']
+            }
+          });
+          if (res?.code !== 1) {
+            ElMessage.error(res?.msg || '新增失败');
+            continue; // 跳过本地插入，保持一致
+          }
+        } catch (err) {
+          ElMessage.error('新增异常：' + (err.message || err));
+          continue;
+        }
+
+        // 在全局数据集插入到指定位置
+        tableData.value.splice(startAbsIndex + k, 0, newRow);
+      }
+
+      // 刷新序号与当前页
+      updateRowNumbers();
+      loadCurrentPage();
+      ElMessage.success(`已插入 ${amount} 行`);
+    } catch (err) {
+      console.error('❌ 插入流程异常:', err);
+      ElMessage.error(`插入流程异常：${err.message || err}`);
+    }
   },
 
   // === 3️⃣ 删除行时触发 ===
@@ -279,13 +378,17 @@ const hotSettings = reactive({
         .map(i => ({ i, row: tableData.value[i] }))
         .filter(item => !!item.row);
 
-      // 先调用后端删除（仅对已有 unique_key 的行），未保存的新行只做本地删除
+      // 先调用后端删除（优先使用 id；无 id 时使用 unique_key），未保存的新行只做本地删除
       for (const { i, row } of rowsToDelete) {
-        if (row.unique_key) {
+        const payload = {};
+        if (row && row.id != null && row.id !== '') payload.id = row.id;
+        if (row && row.unique_key) payload.unique_key = row.unique_key;
+
+        if (Object.keys(payload).length > 0) {
           try {
             const res = await deleteSettlementData({
               tableName: tableName.value,
-              uniqueKey: row.unique_key 
+              id: payload.id
             });
             if (res?.code !== 1) {
               console.error('❌ 后端删除失败:', res?.msg);
@@ -293,7 +396,7 @@ const hotSettings = reactive({
               // 服务器删除失败则跳过本地删除，保持数据一致
               continue;
             }
-            console.log('✅ 后端删除成功:', row.unique_key);
+            console.log('✅ 后端删除成功:', payload);
           } catch (err) {
             console.error('❌ 调用删除接口异常:', err);
             ElMessage.error(`删除异常：${err.message || err}`);
@@ -301,7 +404,7 @@ const hotSettings = reactive({
             continue;
           }
         } else {
-          console.log('ℹ️ 本地未保存行（无 unique_key），仅本地删除');
+          console.log('ℹ️ 本地未保存行（无 id/unique_key），仅本地删除');
         }
       }
 
@@ -732,15 +835,9 @@ function initTableFromObjects(objArray) {
       if (k.toLowerCase() === 'id') {
         columnConfig.readOnly = true;
         columnConfig.className = (columnConfig.className ? `${columnConfig.className} htDimmed` : 'htDimmed');
-        // columnConfig.width =  1;
+        columnConfig.width =  1;
       }
 
-       // id 列设置为只读并淡化显示，避免被编辑
-      if (k.toLowerCase() === 'unique_key') {
-        columnConfig.readOnly = true;
-        columnConfig.className = (columnConfig.className ? `${columnConfig.className} htDimmed` : 'htDimmed');
-        // columnConfig.width =  1;
-      }
         // 如果是“摘要”列，设置列宽为300
     if (k === "摘要") {
       columnConfig.width = 600;
@@ -1042,6 +1139,14 @@ async function addRow() {
     }
   });
 
+  // 默认使用上一行的 公司、银行、日期
+  const lastRow = tableData.value.length > 0 ? tableData.value[tableData.value.length - 1] : null;
+  if (lastRow) {
+    newRow['公司'] = lastRow['公司'] ?? '';
+    newRow['银行'] = lastRow['银行'] ?? '';
+    newRow['日期'] = lastRow['日期'] ?? '';
+  }
+
   // 获取下一个可用的 id（优先后端，失败则本地递增）
   let nextId = null;
   try {
@@ -1049,12 +1154,10 @@ async function addRow() {
     if (res?.code === 1) {
       const d = res?.data;
       if (typeof d === 'number') {
-        nextId = d + 1;
+        nextId = d 
       } else if (d && typeof d.nextId === 'number') {
         nextId = d.nextId;
-      } else if (d && typeof d.maxId === 'number') {
-        nextId = d.maxId + 1;
-      }
+      } 
     }
   } catch (err) {
     // 忽略错误，使用本地回退策略
@@ -1070,6 +1173,46 @@ async function addRow() {
   }
 
   newRow['id'] = nextId;
+  // 数值列默认值
+  newRow['收入'] = Number(newRow['收入']) || 0;
+  newRow['支出'] = Number(newRow['支出']) || 0;
+  newRow['余额'] = Number(newRow['余额']) || 0;
+
+  // 生成唯一键（可在后续编辑时再次更新）
+  try {
+    newRow['unique_key'] = await generateUniqueKey(newRow);
+  } catch (e) {
+    console.warn('生成 unique_key 失败，将在后续编辑时更新', e);
+    newRow['unique_key'] = '';
+  }
+
+  // 先调用后端新增，确保 id 立即保存
+  try {
+    const res = await addSettlementData({
+      tableName: tableName.value,
+      data: {
+        unique_key: newRow['unique_key'],
+        '日期': newRow['日期'] || '',
+        '公司': newRow['公司'] || '',
+        '银行': newRow['银行'] || '',
+        '摘要': newRow['摘要'] || '',
+        '收入': newRow['收入'] || 0,
+        '支出': newRow['支出'] || 0,
+        '余额': newRow['余额'] || 0,
+        '备注': newRow['备注'] || '',
+        '发票': newRow['发票'] || '',
+        '序号': (tableData.value.length + 1),
+        'id': newRow['id']
+      }
+    });
+    if (res?.code !== 1) {
+      ElMessage.error(res?.msg || '新增失败');
+      return;
+    }
+  } catch (err) {
+    ElMessage.error('新增异常：' + (err.message || err));
+    return;
+  }
 
   tableData.value.push(newRow);
   updateRowNumbers(); // 更新序号
