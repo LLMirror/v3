@@ -10,8 +10,26 @@
         :props="{ checkStrictly: true, expandTrigger: 'hover' }"
         placeholder="选择公司和银行"
         class="mr-2"
-        style="width: 600px; margin-right: 16px;"
+        style="width: 500px; margin-right: 16px;"
       />
+      <el-input
+        v-model="summaryKeyword"
+        placeholder="摘要关键词"
+        clearable
+        style="width: 300px; margin-right: 16px;"
+      />
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        value-format="YYYY-MM-DD"
+        unlink-panels
+        clearable
+        style="width: 200px; margin-right: 16px;"
+      />
+
       <el-button type="warning" plain  @click="clearCompanyBankFilter">清空筛选</el-button>
       <el-button @click="exportExcel" >💾 导出 Excel</el-button>
       <el-button @click="addRow">➕ 添加行</el-button>
@@ -77,6 +95,10 @@ registerCellType("autocomplete", AutocompleteCellType);
 
 // 常用摘要关键词，用于输入联想（从API获取）
 const commonKeywords = ref([]);
+// 摘要关键词筛选
+const summaryKeyword = ref('');
+// 日期区间筛选
+const dateRange = ref([]);
 
 /* ====== refs & state ====== */
 const hotTableRef = ref(null);
@@ -1256,9 +1278,26 @@ async function saveChanges() {
 async function loadFromDB() {
   if (!tableName.value) return ElMessage.warning("请先填写表名");
   try {
-    const res = await getSettlementData({ selectedCompanyBank: selectedCompanyBank.value });
+    const [company, bank] = selectedCompanyBank.value || [];
+    const [dateFrom, dateTo] = dateRange.value || [];
+    const res = await getSettlementData({
+      // 兼容旧参数
+      selectedCompanyBank: selectedCompanyBank.value,
+      dateRange: dateRange.value,
+      // 新参数结构，参考 getCashRecords
+      data: {
+        company,
+        bank,
+        summary: summaryKeyword.value || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        page: currentPage.value,
+        size: pageSize.value
+      }
+    });
     if (res?.code !== 1) return ElMessage.error("加载失败：" + res?.msg);
-    const rows = res.data || [];
+    // 兼容后端返回 { data: result, total }
+    const rows = Array.isArray(res.data) ? res.data : (res.data?.data || []);
     if (!rows.length) return initTableFromObjects([]), ElMessage.info("表中没有数据");
     initTableFromObjects(rows);
     ElMessage.success(`已加载 ${rows.length} 条`);
@@ -1268,7 +1307,9 @@ async function loadFromDB() {
 // 清空公司/银行筛选按钮事件
 function clearCompanyBankFilter() {
   selectedCompanyBank.value = [];
-  ElMessage.success('已清空筛选');
+  summaryKeyword.value = '';
+  dateRange.value = [];
+  ElMessage.success('已清空公司/银行、摘要与日期筛选');
 }
 </script>
 

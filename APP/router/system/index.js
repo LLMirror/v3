@@ -1370,19 +1370,45 @@ router.post("/getExcelData", async (req, res) => {
 
 // 获取出纳结算数据
 router.post("/getSettlementData", async (req, res) => {
-  // 公司 银行 有则查询 无责查询全部
-  console.log(req.body);
-  // 从selectedCompanyBank数组中提取公司和银行
-  const selectedCompanyBank = req.body.selectedCompanyBank || [];
-  const company = selectedCompanyBank[0]; // 第一个元素是公司
-  const bank = selectedCompanyBank[1]; // 第二个元素是银行
+  // 参考 getCashRecords 的过滤与分页模式
+  console.log("getSettlementData", req.body);
+  const obj = req.body || {};
+
+  // 登录用户
   const user = await utils.getUserRole(req, res);
   const userId = user.user.id;
-  
-  const sql = `SELECT  id,日期,公司,银行,摘要,收入,支出,余额,备注,发票 FROM \`pt_cw_zjmxb\` WHERE user_id = ${userId} ${company ? `AND 公司 = '${company}'` : ''} ${bank ? `AND 银行 = '${bank}'` : ''} ORDER BY id ASC `;
-  // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
-  const { result } = await pools({ sql, res });
-  res.send(utils.returnData({ data: result }));
+
+  // 兼容两种前端传参形式：selectedCompanyBank/dateRange 与 data 结构
+  const selectedCompanyBank = obj.selectedCompanyBank || [];
+  const dateRange = obj.dateRange || [];
+  const data = obj.data || {};
+
+  const company = data.company ?? selectedCompanyBank[0];
+  const bank = data.bank ?? selectedCompanyBank[1];
+  const summary = data.summary ?? undefined;
+  const dateFrom = data.dateFrom ?? dateRange[0];
+  const dateTo = data.dateTo ?? dateRange[1];
+
+  // 基础查询
+  let sql = `SELECT id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票 FROM \`pt_cw_zjmxb\` WHERE user_id = ${userId}`;
+  // 模糊匹配
+  sql = utils.setLike(sql, '公司', company);
+  sql = utils.setLike(sql, '银行', bank);
+  sql = utils.setLike(sql, '摘要', summary);
+  // 日期区间
+  if (dateFrom) sql += ` AND 日期 >= '${dayjs(dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
+  if (dateTo) sql += ` AND 日期 <= '${dayjs(dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
+
+  // 排序 + 分页
+  sql += ' ORDER BY id ASC';
+  const page = Number(data.page) || 1;
+  const size = Number(data.size) || 1000;
+  let { total } = await utils.getSum({ sql, name: 'pt_cw_zjmxb', res, req });
+  sql = utils.pageSize(sql, page, size);
+
+  const { result } = await pools({ sql, res, req });
+  // 保持前端兼容：返回 data 为数组
+  res.send(utils.returnData({ data: result, total }));
 });
 
 // 获取出纳表公司、银行
