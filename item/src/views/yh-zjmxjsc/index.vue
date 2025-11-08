@@ -292,9 +292,31 @@ function initCompanyPieChart() {
     .slice(0, 10);
   chart.clear();
   chart.setOption({
-    tooltip: { trigger: 'item' },
+    tooltip: {
+      trigger: 'item',
+      formatter: (p) => {
+        const val = Number(p.value || 0);
+        const wan = (val / 10000).toFixed(2);
+        return `净额：${formatMoney(val)} 元<br/>≈ ${wan} 万 (${Math.round(p.percent || 0)}%)`;
+      }
+    },
     legend: { type: 'scroll', orient: 'vertical', right: 10, top: 20, bottom: 20 },
-    series: [{ type: 'pie', radius: '60%', data }]
+    series: [{
+      type: 'pie',
+      radius: '60%',
+      center: ['30%', '50%'],
+      avoidLabelOverlap: true,
+      data,
+      label: {
+        formatter: (p) => {
+          const val = Number(p.value || 0);
+          const wan = (val / 10000).toFixed(2);
+          const percent = Math.round(p.percent || 0);
+          return `${wan}万 (${percent}%)`;
+        }
+      },
+      labelLine: { length: 14, length2: 10 }
+    }]
   });
 }
 
@@ -309,9 +331,31 @@ function initBankPieChart() {
     .slice(0, 10);
   chart.clear();
   chart.setOption({
-    tooltip: { trigger: 'item' },
+    tooltip: {
+      trigger: 'item',
+      formatter: (p) => {
+        const val = Number(p.value || 0);
+        const wan = (val / 10000).toFixed(2);
+        return `净额：${formatMoney(val)} 元<br/>≈ ${wan} 万 (${Math.round(p.percent || 0)}%)`;
+      }
+    },
     legend: { type: 'scroll', orient: 'vertical', right: 10, top: 20, bottom: 20 },
-    series: [{ type: 'pie', radius: '60%', data }]
+    series: [{
+      type: 'pie',
+      radius: '60%',
+      center: ['30%', '50%'],
+      avoidLabelOverlap: true,
+      data,
+      label: {
+        formatter: (p) => {
+          const val = Number(p.value || 0);
+          const wan = (val / 10000).toFixed(2);
+          const percent = Math.round(p.percent || 0);
+          return `${wan}万 (${percent}%)`;
+        }
+      },
+      labelLine: { length: 14, length2: 10 }
+    }]
   });
 }
 
