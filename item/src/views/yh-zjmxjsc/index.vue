@@ -286,6 +286,14 @@ function formatPercent(val) {
   return `${(num * 100).toFixed(1)}%`;
 }
 
+function getTodayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 async function loadDayDetails(day) {
   try {
     selectedDay.value = day;
@@ -321,6 +329,40 @@ function initCompanyChart() {
   });
 }
 
+// 首次加载：不带日期过滤获取最小日期，设置默认范围为[最早日期, 今天]，然后按该范围再次加载概览
+async function initOverviewDefaultRange() {
+  try {
+    const res = await getCashOverview({ data: { company: selectedCompany.value } });
+    const data = res?.data || {};
+    companyFunds.value = data.companyFunds || [];
+    bankBalances.value = data.bankBalances || [];
+    dailyTrend.value = data.dailyTrend || [];
+    todaySummary.value = data.todaySummary || { income: 0, expense: 0, net: 0 };
+    todayDetails.value = data.todayDetails || [];
+    topSummaries.value = data.topSummaries || [];
+    analytics.value = data.analytics || {};
+    selectedDayDetails.value = [];
+    selectedDay.value = '';
+
+    const minDate = dailyTrend.value.length ? dailyTrend.value[0].date : getTodayStr();
+    dateRange.value = [minDate, getTodayStr()];
+
+    await nextTick();
+    initCompanyChart();
+    initBankChart();
+    initDailyChart();
+    initCompanyPieChart();
+    initBankPieChart();
+    initTopSummaryChart();
+
+    // 用默认范围再次加载，确保图表与筛选一致
+    await loadOverview();
+  } catch (err) {
+    console.error(err);
+    ElMessage.error('初始化驾驶舱数据失败');
+  }
+}
+
 function initBankChart() {
   const el = bankChartRef.value;
   if (!el) return;
@@ -353,20 +395,16 @@ function initDailyChart() {
     cumulative[idx] = Number(val.toFixed(2));
     return val;
   }, 0);
-  // 将累计净额拆分为正负两条折线，负值标红，正值标绿
-  const cumulativePos = cumulative.map(v => (v >= 0 ? v : null));
-  const cumulativeNeg = cumulative.map(v => (v < 0 ? v : null));
   chart.clear();
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { data: ['收入', '支出', '累计净额(正)', '累计净额(负)'] },
+    legend: { data: ['收入', '支出', '累计净额'] },
     xAxis: { type: 'category', data: dates },
     yAxis: { type: 'value' },
     series: [
       { name: '收入', type: 'line', smooth: true, data: incomes, itemStyle: { color: '#3ba272' } },
       { name: '支出', type: 'line', smooth: true, data: expenses, itemStyle: { color: '#ee6666' } },
-      { name: '累计净额(正)', type: 'line', smooth: true, data: cumulativePos, itemStyle: { color: '#3ba272' }, connectNulls: false },
-      { name: '累计净额(负)', type: 'line', smooth: true, data: cumulativeNeg, itemStyle: { color: '#ee6666' }, connectNulls: false }
+      { name: '累计净额', type: 'line', smooth: true, data: cumulative, itemStyle: { color: '#5470c6' } }
     ]
   });
 }
@@ -470,7 +508,7 @@ onMounted(() => {
   getCompanyList({}).then(res => {
     companyOptions.value = res?.data || [];
   }).finally(() => {
-    loadOverview();
+    initOverviewDefaultRange();
   });
   // 统一绑定一次 resize 事件
   if (!resizeHandler) {
