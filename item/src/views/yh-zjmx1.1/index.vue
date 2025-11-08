@@ -10,7 +10,7 @@
         :props="{ checkStrictly: true, expandTrigger: 'hover' }"
         placeholder="选择公司和银行"
         class="mr-2"
-        style="width: 500px; margin-right: 16px;"
+        style="width: 560px; margin-right: 16px;"
       />
       <el-input
         v-model="summaryKeyword"
