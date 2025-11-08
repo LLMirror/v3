@@ -17,6 +17,7 @@
     <el-upload
       ref="uploadRef"
       class="upload-demo"
+      :class="{ 'hide-trigger': mode === 'idcard' && fileList.length >= 2 }"
       action=""
       :auto-upload="false"
       :limit="mode === 'ocr' ? 10 : 2"
@@ -215,5 +216,8 @@ const saveIdCard = async () => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.hide-trigger :deep(.el-upload--picture-card) {
+  display: none;
 }
 </style>
