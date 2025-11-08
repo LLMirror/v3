@@ -28,7 +28,7 @@
     />
 
     <!-- 分页 -->
-    <div class="mt-2 flex justify-end">
+    <div class="mt-2 flex justify-end pagination-bar">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -81,7 +81,7 @@ const commonKeywords = ref([]);
 /* ====== refs & state ====== */
 const hotTableRef = ref(null);
 const fileInput = ref(null);
-const tableName = ref("pt-cw-zjmxb");
+const tableName = ref("pt_cw_zjmxb");
 const uploading = ref(false);
 const saving = ref(false);
 const batchSize = ref(1000);
@@ -1034,6 +1034,11 @@ async function loadFromDB() {
 }
 .mb-3 { display: flex;
 justify-content: flex-end;
+}
+
+.pagination-bar {
+  position: relative;
+  z-index: 20;
 }
 
 </style>
