@@ -2,10 +2,8 @@
 
 <template>
   <div class="p-4">
-    <!-- <h2 class="text-xl font-bold mb-3">出纳资金明细登记表</h2> -->
+    <h2 class="text-xl">出纳资金明细登记表</h2>
     <div class="mb-3 flex gap-2 flex-wrap items-center">
-     
-
          <el-cascader
         v-model="selectedCompanyBank"
         :options="companyBankOptions"
@@ -17,7 +15,7 @@
       <el-button @click="loadFromDB" type="primary">查询</el-button>
       <el-button @click="exportExcel" >💾 导出 Excel</el-button>
       <el-button @click="addRow">➕ 添加行</el-button>
-      <el-button type="info" @click="saveChanges" :loading="saving">💾 保存编辑</el-button> 
+      <!-- <el-button type="info" @click="saveChanges" :loading="saving">💾 保存编辑</el-button>  -->
     </div>
 
     <HotTable
@@ -685,7 +683,7 @@ function initTableFromObjects(objArray) {
       if (k.toLowerCase() === 'unique_key') {
         columnConfig.readOnly = true;
         columnConfig.className = (columnConfig.className ? `${columnConfig.className} htDimmed` : 'htDimmed');
-        columnConfig.width =  1;
+        // columnConfig.width =  1;
       }
         // 如果是“摘要”列，设置列宽为300
     if (k === "摘要") {
@@ -1037,10 +1035,18 @@ async function loadFromDB() {
 </script>
 
 <style scoped>
-.excel-table { width:100%; height:700px; }
+.excel-table { width:100%; height: calc(100vh - 300px); }
 :deep(.htInvalid) {
   background: rgba(255,0,0,0.12) !important;
   border: 1px solid rgba(255,0,0,0.2) !important;
+}
+.text-xl{
+  width: 100%;
+  line-height: 50px;
+  text-align: center;
+  font-size: 30px;
+  color: #333;
+  border-bottom: 1px solid #ddd;
 }
 .p-4 { padding: 16px;}
 .excel-table{
