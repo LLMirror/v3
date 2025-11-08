@@ -177,23 +177,24 @@ const hotSettings = reactive({
     // 如果需要，重新计算余额
     if (needRecalc) calculateBalance();
     
-    // 获取修改的行索引
-    const index = changes[0][0];
-    console.log('📝 修改事件触发:', index, decryptMD5(tableData.value[index]?.unique_key || '无unique_key'));
-      
+    // 获取修改的页内行索引并映射为全局索引
+    const rowInPage = changes[0][0];
+    const absIndex = (currentPage.value - 1) * pageSize.value + rowInPage;
+    console.log('📝 修改事件触发:', { rowInPage, absIndex }, decryptMD5(tableData.value[absIndex]?.unique_key || '无unique_key'));
+    
     // 确保行数据存在
-    if (!tableData.value[index]) {
+    if (!tableData.value[absIndex]) {
       console.error('❌ 尝试更新不存在的行:', index);
       return;
     }
     
     // 修改当前单元格的unique_key
     try {
-      tableData.value[index].unique_key = await generateUniqueKey(tableData.value[index]);
-      console.log(`更新行 ${index} 的unique_key:`, tableData.value[index].unique_key);
+      tableData.value[absIndex].unique_key = await generateUniqueKey(tableData.value[absIndex]);
+      console.log(`更新行 ${absIndex} 的unique_key:`, tableData.value[absIndex].unique_key);
       
       // 更新数据到服务器
-      await update_SettlementData(tableData.value[index]);
+      await update_SettlementData(tableData.value[absIndex]);
       
       // 重新渲染表格
       const hot = hotTableRef.value?.hotInstance;
@@ -215,23 +216,24 @@ const hotSettings = reactive({
       // 获取所有被粘贴的唯一行索引
       const pastedRows = new Set();
       changes.forEach((change) => {
-        const [row] = change;
-        if (row !== undefined) {
-          pastedRows.add(row);
+        const [rowInPage] = change;
+        if (rowInPage !== undefined) {
+          pastedRows.add(rowInPage);
         }
       });
       
       // 为每个被粘贴的行生成唯一键
-      for (const rowIndex of pastedRows) {
-        if (tableData.value[rowIndex]) {
+      for (const rowInPage of pastedRows) {
+        const absIndex = (currentPage.value - 1) * pageSize.value + rowInPage;
+        if (tableData.value[absIndex]) {
           try {
-            tableData.value[rowIndex].unique_key = await generateUniqueKey(tableData.value[rowIndex]);
-            console.log(`更新粘贴行 ${rowIndex} 的unique_key:`, tableData.value[rowIndex].unique_key);
+            tableData.value[absIndex].unique_key = await generateUniqueKey(tableData.value[absIndex]);
+            console.log(`更新粘贴行 ${absIndex} 的unique_key:`, tableData.value[absIndex].unique_key);
             
             // 为粘贴的每一行也调用更新接口
-            await update_SettlementData(tableData.value[rowIndex]);
+            await update_SettlementData(tableData.value[absIndex]);
           } catch (error) {
-            console.error(`❌ 更新粘贴行 ${rowIndex} 失败:`, error);
+            console.error(`❌ 更新粘贴行 ${absIndex} 失败:`, error);
           }
         }
       }
