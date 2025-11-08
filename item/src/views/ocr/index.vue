@@ -28,7 +28,10 @@
       accept="image/*"
       list-type="picture-card"
     >
-      <i class="el-icon-plus"></i>
+      <div class="upload-trigger">
+        <el-icon><Plus /></el-icon>
+        <span>上传</span>
+      </div>
       <template #file="{ file }">
         <img :src="file.url" class="upload-image" />
       </template>
@@ -78,6 +81,7 @@
 <script setup>
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import { ocr, idcard, saveIdcardInfo } from "@/api/system/index.js";
 
 // === 响应式变量 ===
@@ -216,6 +220,20 @@ const saveIdCard = async () => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.upload-trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8c939d;
+}
+.upload-trigger :deep(.el-icon) {
+  font-size: 28px;
+}
+.upload-trigger span {
+  margin-top: 6px;
+  font-size: 12px;
 }
 .hide-trigger :deep(.el-upload--picture-card) {
   display: none;
