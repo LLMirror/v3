@@ -726,17 +726,18 @@ router.post('/getCashRecords', async (req, res) => {
     console.log("getCashRecords",req.body)  
     const obj = req.body;
 
+    // 修复：缺少 WHERE 导致 AND 拼接到 FROM 后产生语法错误
     let sql = `SELECT id, 序号 AS seq,LEFT(日期, 10) AS date, 公司 AS company, 银行 AS bank, 摘要 AS summary, 收入 AS income, 支出 AS expense, 余额 AS balance, 备注 AS remark, 发票 AS invoice, user_id AS createdBy, created_at AS createdAt
-               FROM pt_cw_zjmxb `;
-    sql = utils.setLike(sql, '公司', obj.data.company);
-    sql = utils.setLike(sql, '银行', obj.data.bank);
-    sql = utils.setLike(sql, '摘要', obj.data.summary);
-    if (obj.data.dateFrom) sql += ` AND 日期 >= '${dayjs(obj.data.dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
-    if (obj.data.dateTo) sql += ` AND 日期 <= '${dayjs(obj.data.dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
+               FROM pt_cw_zjmxb WHERE 1=1`;
+    sql = utils.setLike(sql, '公司', obj.company);
+    sql = utils.setLike(sql, '银行', obj.bank);
+    sql = utils.setLike(sql, '摘要', obj.summary);
+    if (obj.dateFrom) sql += ` AND 日期 >= '${dayjs(obj.dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
+    if (obj.dateTo) sql += ` AND 日期 <= '${dayjs(obj.dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
 
     let { total } = await utils.getSum({ sql, name: 'pt_cw_zjmxb', res, req });
     // sql += ' ORDER BY 序号 DESC';
-    sql = utils.pageSize(sql, obj.data.page, obj.data.size);
+    sql = utils.pageSize(sql, obj.page, obj.size);
 
     const { result } = await pools({ sql, res, req });
     res.send(utils.returnData({ data: result, total }));
@@ -844,6 +845,17 @@ router.post('/dashboard/cashOverview', async (req, res) => {
     const bank = payload.bank ? String(payload.bank).trim() : '';
     const today = dayjs().format('YYYY-MM-DD');
 
+    // 可选参数：阈值与分析配置
+    let runwayThresholdDays = Number(payload.runwayThresholdDays ?? 30);
+    let anomalyZ = Number(payload.anomalyZ ?? 2);
+    let concentrationTopN = Number(payload.concentrationTopN ?? 3);
+    let concentrationThresholdPct = Number(payload.concentrationThresholdPct ?? 0.7);
+    // 合理边界
+    if (!Number.isFinite(runwayThresholdDays) || runwayThresholdDays <= 0) runwayThresholdDays = 30;
+    if (!Number.isFinite(anomalyZ) || anomalyZ <= 0) anomalyZ = 2;
+    if (!Number.isFinite(concentrationTopN) || concentrationTopN <= 0) concentrationTopN = 3;
+    if (!Number.isFinite(concentrationThresholdPct) || concentrationThresholdPct <= 0 || concentrationThresholdPct >= 1) concentrationThresholdPct = 0.7;
+
     // 公共Where子句（全量，不按用户过滤）
     let whereBase = ` WHERE 1=1 `;
     if (dateFrom) whereBase += ` AND 日期 >= '${dateFrom}'`;
@@ -894,6 +906,33 @@ router.post('/dashboard/cashOverview', async (req, res) => {
                          LIMIT 10`;
     const topSummaryRes = await pools({ sql: sqlTopSummary, res, req });
 
+    // ---------------- 额外分析：现金跑道、账户集中度、异常波动 ----------------
+    const bankList = bankRes.result || [];
+    const totalBalance = bankList.reduce((s, b) => s + Number(b.balance || 0), 0);
+    const sortedBank = [...bankList].sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0));
+    const topBanksRaw = sortedBank.slice(0, concentrationTopN).map(b => ({ bank: b.bank, balance: Number(b.balance || 0) }));
+    const topBalance = topBanksRaw.reduce((s, b) => s + b.balance, 0);
+    const concentrationRatio = totalBalance > 0 ? Number((topBalance / totalBalance).toFixed(4)) : 0;
+    const topBanks = topBanksRaw.map(tb => ({ ...tb, ratio: totalBalance > 0 ? Number((tb.balance / totalBalance).toFixed(4)) : 0 }));
+
+    const dailyList = dailyRes.result || [];
+    const last30 = dailyList.slice(Math.max(0, dailyList.length - 30));
+    const avgExpense30 = last30.length ? last30.reduce((s, d) => s + Number(d.expense || 0), 0) / last30.length : 0;
+    const runwayDays = avgExpense30 > 0 ? Number((totalBalance / avgExpense30).toFixed(2)) : null;
+
+    const last30Net = last30.map(d => Number(d.net || 0));
+    const meanNet = last30Net.length ? last30Net.reduce((s, v) => s + v, 0) / last30Net.length : 0;
+    const stdNet = last30Net.length ? Math.sqrt(last30Net.reduce((s, v) => s + Math.pow(v - meanNet, 2), 0) / last30Net.length) : 0;
+    const anomalies = last30.filter(d => {
+      const netVal = Number(d.net || 0);
+      const z = stdNet > 0 ? Math.abs((netVal - meanNet) / stdNet) : 0;
+      return z >= anomalyZ;
+    }).map(d => ({
+      date: d.date,
+      net: Number(d.net || 0),
+      zScore: stdNet > 0 ? Number(((Number(d.net || 0) - meanNet) / stdNet).toFixed(2)) : 0
+    })).slice(0, 20);
+
     res.send(utils.returnData({
       data: {
         companyFunds: companyRes.result || [],
@@ -901,7 +940,18 @@ router.post('/dashboard/cashOverview', async (req, res) => {
         dailyTrend: dailyRes.result || [],
         todaySummary: (todaySumRes.result && todaySumRes.result[0]) ? todaySumRes.result[0] : { income: 0, expense: 0, net: 0 },
         todayDetails: todayDetailsRes.result || [],
-        topSummaries: topSummaryRes.result || []
+        topSummaries: topSummaryRes.result || [],
+        analytics: {
+          runwayDays,
+          runwayThresholdDays,
+          runwayWarning: runwayDays !== null && runwayDays < runwayThresholdDays,
+          concentrationTopN,
+          concentrationRatio,
+          concentrationThresholdPct,
+          concentrationWarning: concentrationRatio > concentrationThresholdPct,
+          topBanks,
+          anomalies
+        }
       }
     }));
   } catch (error) {

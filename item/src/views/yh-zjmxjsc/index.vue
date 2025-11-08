@@ -25,6 +25,30 @@
       </div>
     </div>
 
+    <!-- 分析预警卡 -->
+    <el-row :gutter="16" class="top-cards">
+      <el-col :span="12">
+        <div class="card" :class="{ warn: analytics.runwayWarning }">
+          <div class="card-title">现金跑道（天）</div>
+          <div class="card-value">{{ formatRunway(analytics.runwayDays) }}</div>
+          <div class="card-sub">阈值：{{ analytics.runwayThresholdDays || 30 }} 天</div>
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="card" :class="{ warn: analytics.concentrationWarning }">
+          <div class="card-title">账户集中度（Top{{ analytics.concentrationTopN || 3 }}）</div>
+          <div class="card-value">{{ formatPercent(analytics.concentrationRatio) }}</div>
+          <div class="card-sub">阈值：{{ formatPercent(analytics.concentrationThresholdPct) }}</div>
+          <div class="card-list" v-if="(analytics.topBanks || []).length">
+            Top银行：
+            <span class="tag" v-for="b in analytics.topBanks" :key="b.bank">
+              {{ b.bank }}（{{ formatPercent(b.ratio) }}）
+            </span>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
+
     <!-- 顶部总览卡片 -->
     <el-row :gutter="16" class="top-cards">
       <el-col :span="6">
@@ -52,6 +76,38 @@
         </div>
       </el-col>
     </el-row>
+
+    <!-- 异常波动列表（近30天） -->
+    <div class="table-card">
+      <div class="chart-title">异常波动（近30天）</div>
+      <el-table :data="analytics.anomalies || []" border size="small" style="width: 100%">
+        <el-table-column prop="date" label="日期" width="140" />
+        <el-table-column prop="net" label="净额" width="160">
+          <template #default="scope">{{ formatMoney(scope.row.net) }}</template>
+        </el-table-column>
+        <el-table-column prop="zScore" label="zScore" width="120" />
+        <el-table-column label="操作" width="140">
+          <template #default="scope">
+            <el-button type="primary" link @click="loadDayDetails(scope.row.date)">查看明细</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <!-- 选定日收付明细 -->
+    <div class="table-card" v-if="selectedDayDetails.length">
+      <div class="chart-title">选定日收付明细（{{ selectedDay }}）</div>
+      <el-table :data="selectedDayDetails" border size="small" style="width: 100%">
+        <el-table-column prop="date" label="日期" width="140" />
+        <el-table-column prop="company" label="公司" width="140" />
+        <el-table-column prop="bank" label="银行" width="140" />
+        <el-table-column prop="summary" label="摘要" />
+        <el-table-column prop="income" label="收入" width="120" />
+        <el-table-column prop="expense" label="支出" width="120" />
+        <el-table-column prop="balance" label="余额" width="120" />
+        <el-table-column prop="remark" label="备注" />
+      </el-table>
+    </div>
 
     <!-- 公司可用资金 & 银行资金余额 -->
     <el-row :gutter="16" class="charts-row">
@@ -147,7 +203,7 @@
 import { ref, onMounted, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { ElMessage } from 'element-plus';
-import { getCashOverview, getCompanyList } from '@/api/system';
+import { getCashOverview, getCompanyList, getCashRecords } from '@/api/system';
 
 const dateRange = ref([]);
 const selectedCompany = ref('');
@@ -173,6 +229,9 @@ const dailyTrend = ref([]);
 const todaySummary = ref({ income: 0, expense: 0, net: 0 });
 const todayDetails = ref([]);
 const topSummaries = ref([]);
+const analytics = ref({});
+const selectedDayDetails = ref([]);
+const selectedDay = ref('');
 
 const totalIncome = ref(0);
 const totalExpense = ref(0);
@@ -195,6 +254,9 @@ async function loadOverview() {
     todaySummary.value = data.todaySummary || { income: 0, expense: 0, net: 0 };
     todayDetails.value = data.todayDetails || [];
     topSummaries.value = data.topSummaries || [];
+    analytics.value = data.analytics || {};
+    selectedDayDetails.value = [];
+    selectedDay.value = '';
 
     // 汇总顶部指标
     totalIncome.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalIncome || 0), 0);
@@ -211,6 +273,30 @@ async function loadOverview() {
   } catch (err) {
     console.error(err);
     ElMessage.error('加载驾驶舱数据失败');
+  }
+}
+
+function formatRunway(days) {
+  if (days === null || days === undefined) return '-';
+  return `${days} 天`;
+}
+
+function formatPercent(val) {
+  const num = Number(val || 0);
+  return `${(num * 100).toFixed(1)}%`;
+}
+
+async function loadDayDetails(day) {
+  try {
+    selectedDay.value = day;
+    const dateFrom = `${day} 00:00:00`;
+    const dateTo = `${day} 23:59:59`;
+    // 注意：API 封装会自动将入参作为 body.data 发送，这里不要再包一层 data
+    const res = await getCashRecords({ company: selectedCompany.value, dateFrom, dateTo, page: 1, size: 200 });
+    selectedDayDetails.value = res?.data || [];
+  } catch (e) {
+    console.error(e);
+    ElMessage.error('加载选定日明细失败');
   }
 }
 
@@ -267,16 +353,20 @@ function initDailyChart() {
     cumulative[idx] = Number(val.toFixed(2));
     return val;
   }, 0);
+  // 将累计净额拆分为正负两条折线，负值标红，正值标绿
+  const cumulativePos = cumulative.map(v => (v >= 0 ? v : null));
+  const cumulativeNeg = cumulative.map(v => (v < 0 ? v : null));
   chart.clear();
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { data: ['收入', '支出', '累计净额'] },
+    legend: { data: ['收入', '支出', '累计净额(正)', '累计净额(负)'] },
     xAxis: { type: 'category', data: dates },
     yAxis: { type: 'value' },
     series: [
       { name: '收入', type: 'line', smooth: true, data: incomes, itemStyle: { color: '#3ba272' } },
       { name: '支出', type: 'line', smooth: true, data: expenses, itemStyle: { color: '#ee6666' } },
-      { name: '累计净额', type: 'line', smooth: true, data: cumulative, itemStyle: { color: '#5470c6' } }
+      { name: '累计净额(正)', type: 'line', smooth: true, data: cumulativePos, itemStyle: { color: '#3ba272' }, connectNulls: false },
+      { name: '累计净额(负)', type: 'line', smooth: true, data: cumulativeNeg, itemStyle: { color: '#ee6666' }, connectNulls: false }
     ]
   });
 }
@@ -419,6 +509,10 @@ onMounted(() => {
 .top-cards .card.highlight { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
 .top-cards .card .income { color: #3ba272; }
 .top-cards .card .expense { color: #ee6666; }
+.top-cards .card.warn { border: 1px solid #ee6666; box-shadow: 0 0 0 2px rgba(238,102,102,0.15); }
+.top-cards .card-sub { margin-top: 4px; color: #888; font-size: 12px; }
+.top-cards .card-list { margin-top: 6px; }
+.tag { display: inline-block; background: #f2f3f5; color: #555; padding: 2px 6px; border-radius: 6px; margin-right: 6px; font-size: 12px; }
 
 .chart-card { background: #fff; border-radius: 10px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
 .chart-title { font-weight: 600; margin-bottom: 8px; }
