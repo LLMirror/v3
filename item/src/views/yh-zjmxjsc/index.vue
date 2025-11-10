@@ -103,6 +103,22 @@
         </el-table>
         
       </div>
+      <!-- 各银行当日汇总（收入/支出/余额） -->
+      <div class="table-card" v-if="todayBankAggregates.length" style="margin-left: 20px;">
+        <div class="chart-title">各银行当日汇总</div>
+        <el-table :data="todayBankAggregates" border size="small" style="width: 100%">
+          <el-table-column prop="bank" label="银行" width="280" />
+          <el-table-column prop="income" label="当日收入" width="160">
+            <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
+          </el-table-column>
+          <el-table-column prop="expense" label="当日支出" width="160">
+            <template #default="scope">{{ formatMoney(scope.row.expense) }}</template>
+          </el-table-column>
+          <el-table-column prop="balance" label="当前实时余额" width="180">
+            <template #default="scope">{{ formatMoney(scope.row.balance) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
       <!-- 异常波动列表（近30天） -->
       <div class="table-card" style="margin-left: 20px;">
         <div class="chart-title">异常波动（近30天）</div>
@@ -264,6 +280,7 @@ const analytics = ref({});
 const selectedDayDetails = ref([]);
 const selectedDay = ref('');
 const todayCompanyAggregates = ref([]);
+const todayBankAggregates = ref([]);
 
 const totalIncome = ref(0);
 const totalExpense = ref(0);
@@ -302,8 +319,9 @@ async function loadOverview() {
     analytics.value = data.analytics || {};
     selectedDayDetails.value = [];
     selectedDay.value = '';
-    // 计算各公司当日汇总
+    // 计算各公司/银行当日汇总
     computeTodayCompanyAggregates();
+    computeTodayBankAggregates();
 
     // 汇总顶部指标
     totalIncome.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalIncome || 0), 0);
@@ -406,6 +424,38 @@ function computeTodayCompanyAggregates() {
   todayCompanyAggregates.value = result;
 }
 
+function computeTodayBankAggregates() {
+  // 汇总今日收入/支出，并使用后端聚合的银行余额
+  const incomeMap = new Map(); // bank -> income
+  const expenseMap = new Map(); // bank -> expense
+  const lastBalanceMap = new Map(); // bank -> last balance (若后端未提供聚合余额)
+
+  for (const r of (todayDetails.value || [])) {
+    const bank = r.bank || '未知银行';
+    incomeMap.set(bank, (incomeMap.get(bank) || 0) + Number(r.income || 0));
+    expenseMap.set(bank, (expenseMap.get(bank) || 0) + Number(r.expense || 0));
+    if (r.balance !== undefined && r.balance !== null) {
+      lastBalanceMap.set(bank, Number(r.balance));
+    }
+  }
+
+  // 银行全集：包含今天有交易的银行 + 概览中的所有银行（即使今日无交易）
+  const bankSet = new Set((bankBalances.value || []).map(i => i.bank));
+  for (const b of incomeMap.keys()) bankSet.add(b);
+  for (const b of expenseMap.keys()) bankSet.add(b);
+
+  const result = [];
+  for (const bank of bankSet) {
+    const income = incomeMap.get(bank) || 0;
+    const expense = expenseMap.get(bank) || 0;
+    // 优先使用后端聚合的银行余额（更准确），否则使用今日最新记录余额
+    const bf = (bankBalances.value || []).find(i => i.bank === bank);
+    const balance = bf ? Number(bf.balance || 0) : Number(lastBalanceMap.get(bank) || 0);
+    result.push({ bank, income, expense, balance });
+  }
+  todayBankAggregates.value = result;
+}
+
 function initCompanyChart() {
   const el = companyChartRef.value;
   if (!el) return;
@@ -452,8 +502,9 @@ async function initOverviewDefaultRange() {
     const minDate = dailyTrend.value.length ? dailyTrend.value[0].date : getTodayStr();
     dateRange.value = [minDate, getTodayStr()];
 
-        // 计算各公司当日汇总
+        // 计算各公司/银行当日汇总
     computeTodayCompanyAggregates();
+    computeTodayBankAggregates();
 
     // 汇总顶部指标
     totalIncome.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalIncome || 0), 0);
