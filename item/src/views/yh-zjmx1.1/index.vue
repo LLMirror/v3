@@ -115,12 +115,18 @@ const colHeaders = ref([]);
 const columns = ref([]);
 // 分页总数（优先使用后端返回的 total）
 const total = ref(0);
+// 使用服务端分页：页码变化时向后端请求对应页数据
+const serverPaging = ref(true);
 
 // 分页
 const currentPage = ref(1);
 const pageSize = ref(50); // 每页 20 条
+// 用于服务端分页时的“前缀余额”（前面所有页的净额累计）
+const balancePrefix = ref(0);
 
 const pagedData = computed(() => {
+  // 服务端分页直接使用当前页的数据；前端分页才做切片
+  if (serverPaging.value) return tableData.value;
   const start = (currentPage.value - 1) * pageSize.value;
   return tableData.value.slice(start, start + pageSize.value);
 });
@@ -205,7 +211,8 @@ const hotSettings = reactive({
     
     // 获取修改的页内行索引并映射为全局索引
     const rowInPage = changes[0][0];
-    const absIndex = (currentPage.value - 1) * pageSize.value + rowInPage;
+    const baseIndex = serverPaging.value ? 0 : (currentPage.value - 1) * pageSize.value;
+    const absIndex = baseIndex + rowInPage;
     console.log('📝 修改事件触发:', { rowInPage, absIndex }, decryptMD5(tableData.value[absIndex]?.unique_key || '无unique_key'));
     
     // 确保行数据存在
@@ -250,7 +257,8 @@ const hotSettings = reactive({
       
       // 为每个被粘贴的行生成唯一键
       for (const rowInPage of pastedRows) {
-        const absIndex = (currentPage.value - 1) * pageSize.value + rowInPage;
+        const baseIndex = serverPaging.value ? 0 : (currentPage.value - 1) * pageSize.value;
+        const absIndex = baseIndex + rowInPage;
         if (tableData.value[absIndex]) {
           try {
             tableData.value[absIndex].unique_key = await generateUniqueKey(tableData.value[absIndex]);
@@ -1048,9 +1056,8 @@ function initTableFromObjects(objArray) {
     
     columns.value.push(columnConfig);
   });
-
-  // 初始化第一页
-  currentPage.value = 1;
+  
+  // 初始化第一页（默认值已为1，避免在数据重载时强制跳回第一页）
   nextTick(() => loadCurrentPage());
   calculateBalance();
 }
@@ -1058,14 +1065,22 @@ function initTableFromObjects(objArray) {
 /* ====== 翻页 ====== */
 function handlePageChange(page) {
   currentPage.value = page;
-  loadCurrentPage();
+  if (serverPaging.value) {
+    loadFromDB();
+  } else {
+    loadCurrentPage();
+  }
 }
 
 // 处理每页显示条数变化
 function handleSizeChange(size) {
   pageSize.value = size;
   currentPage.value = 1; // 重置为第一页
-  loadCurrentPage();
+  if (serverPaging.value) {
+    loadFromDB();
+  } else {
+    loadCurrentPage();
+  }
 }
 
 function loadCurrentPage() {
@@ -1085,10 +1100,18 @@ function loadCurrentPage() {
 
 /* ====== 余额计算 ====== */
 function calculateBalance() {
-  let balance = 0;
+  // 从前缀余额开始累计（服务端分页时），否则从0开始
+  let balance = serverPaging.value ? (balancePrefix.value || 0) : 0;
+
+  const toNum = (v) => {
+    if (v === null || v === undefined || v === '') return 0;
+    if (typeof v === 'string') return Number(v.replace(/,/g, '')) || 0;
+    return Number(v) || 0;
+  };
+
   tableData.value.forEach(row => {
-    const income = parseFloat(row.收入) || 0;
-    const expense = parseFloat(row.支出) || 0;
+    const income = toNum(row.收入);
+    const expense = toNum(row.支出);
     balance += income - expense;
     row['余额'] = Math.round(balance * 100) / 100;
   });
@@ -1292,7 +1315,9 @@ async function loadFromDB() {
         bank,
         summary: summaryKeyword.value || undefined,
         dateFrom: dateFrom || undefined,
-        // dateTo: dateTo || undefined
+        dateTo: dateTo || undefined,
+        page: serverPaging.value ? currentPage.value : undefined,
+        size: serverPaging.value ? pageSize.value : undefined
       }
     });
     if (res?.code !== 1) return ElMessage.error("加载失败：" + res?.msg);
@@ -1301,8 +1326,42 @@ async function loadFromDB() {
     // 设置分页总数：优先使用后端 total，其次使用行数
     const totalFromRes = (typeof res.total === 'number' ? res.total : (res.data?.total));
     total.value = Number.isFinite(totalFromRes) ? totalFromRes : rows.length;
+
+    // 计算前缀余额（仅在服务端分页且页码>1时）
+    balancePrefix.value = 0;
+    if (serverPaging.value && currentPage.value > 1) {
+      const prefixSize = (currentPage.value - 1) * pageSize.value;
+      try {
+        const resPrefix = await getSettlementData({
+          selectedCompanyBank: selectedCompanyBank.value,
+          dateRange: dateRange.value,
+          data: {
+            company,
+            bank,
+            summary: summaryKeyword.value || undefined,
+            dateFrom: dateFrom || undefined,
+            dateTo: dateTo || undefined,
+            page: 1,
+            size: prefixSize
+          }
+        });
+        const prevRows = Array.isArray(resPrefix?.data) ? resPrefix.data : (resPrefix?.data?.data || []);
+        const toNum = (v) => {
+          if (v === null || v === undefined || v === '') return 0;
+          if (typeof v === 'string') return Number(v.replace(/,/g, '')) || 0;
+          return Number(v) || 0;
+        };
+        balancePrefix.value = prevRows.reduce((acc, r) => acc + toNum(r.收入) - toNum(r.支出), 0);
+      } catch (e) {
+        console.warn('计算前缀余额失败，按0处理：', e?.message || e);
+        balancePrefix.value = 0;
+      }
+    }
+
     if (!rows.length) return initTableFromObjects([]), ElMessage.info("表中没有数据");
     initTableFromObjects(rows);
+    // 渲染当前页并以前缀余额继续累计
+    loadCurrentPage();
     ElMessage.success(`已加载 ${rows.length} 条`);
   } catch (err) { ElMessage.error("加载异常：" + (err.message || err)); }
 }
