@@ -205,6 +205,8 @@ onMounted(async () => {
   initTableFromObjects(initData);
 });
 
+
+
 /* ====== Excel日期转换工具函数 ====== */
 function excelNumberToDate(excelNum) {
   // Excel日期起点是1899-12-30
@@ -244,6 +246,12 @@ function isDateColumn(columnName, sampleData) {
   // 基于列名判断
   const dateRelatedNames = ['日期', 'date', '时间', 'time', 'datetime', '时间戳'];
   const lowerColumnName = columnName.toLowerCase();
+
+    // 明确排除不应被识别为日期的字段
+  const blacklist = ['id', '序号', 'unique_key','收入','支出','余额'];
+  if (blacklist.includes(lowerColumnName)) {
+    return false;
+  }
   
   // 如果列名包含日期相关词汇
   for (const name of dateRelatedNames) {

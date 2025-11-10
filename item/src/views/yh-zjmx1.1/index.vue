@@ -727,7 +727,7 @@ function isDateColumn(columnName, sampleData) {
   const dateRelatedNames = ['日期', 'date', '时间', 'time', 'datetime', '时间戳'];
   const lowerColumnName = columnName.toLowerCase();
   // 明确排除不应被识别为日期的字段
-  const blacklist = ['id', '序号', 'unique_key'];
+  const blacklist = ['id', '序号', 'unique_key','收入','支出'];
   if (blacklist.includes(lowerColumnName)) {
     return false;
   }
