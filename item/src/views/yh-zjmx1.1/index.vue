@@ -1,9 +1,9 @@
 
 
 <template>
-  <div class="p-4">
-    <h2 class="text-xl">出纳资金明细登记表</h2>
-    <div class="mb-3 flex gap-2 flex-wrap items-center">
+  <div class="page-wrap p-4" ref="wrapperRef">
+    <h2 class="text-xl" ref="titleRef">出纳资金明细登记表</h2>
+    <div class="mb-3 flex gap-2 flex-wrap items-center tool-bar" ref="toolsRef">
          <el-cascader
         v-model="selectedCompanyBank"
         :options="companyBankOptions"
@@ -46,7 +46,7 @@
     />
 
     <!-- 分页 -->
-    <div class="mt-2 flex justify-end pagination-bar">
+    <div class="mt-2 flex justify-end pagination-bar" ref="paginationRef">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -61,7 +61,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, computed, onMounted } from "vue";
+import { ref, reactive, nextTick, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import md5 from 'js-md5';
 
 // 防抖函数
@@ -109,6 +109,30 @@ const saving = ref(false);
 const batchSize = ref(1000);
 const userStore = useUserStore();
 const loadingKeywords = ref(false);
+
+// 自适应高度相关
+const wrapperRef = ref(null);
+const toolsRef = ref(null);
+const titleRef = ref(null);
+const paginationRef = ref(null);
+const tableHeight = ref(700);
+const updateTableHeight = debounce(() => {
+  nextTick(() => {
+    const wrap = wrapperRef.value;
+    if (!wrap) return;
+    const toolsH = toolsRef.value?.offsetHeight || 0;
+    const titleH = titleRef.value?.offsetHeight || 0;
+    const pagH = paginationRef.value?.offsetHeight || 0;
+    const wrapH = wrap.clientHeight;
+    // 预留内边距与安全间距
+    const padding = 24;
+    const available = Math.max(300, wrapH - toolsH - titleH - pagH - padding);
+    tableHeight.value = available;
+    hotSettings.height = available;
+    const hot = hotTableRef.value?.hotInstance;
+    if (hot) hot.updateSettings({ height: available });
+  });
+}, 100);
 
 const tableData = ref([]);     // 全部数据
 const colHeaders = ref([]);
@@ -182,8 +206,8 @@ const hotSettings = reactive({
   stretchH: "all",
   // 界面语言设置为中文
   language: "zh-CN",
-  // 表格高度设置为700px
-  height: 700,
+  // 自适应表格高度
+  height: tableHeight.value,
   // 许可证密钥 - 非商业和评估使用
   licenseKey: "non-commercial-and-evaluation",
   // 启用日期选择器插件***********************************************************
@@ -488,6 +512,16 @@ const hotSettings = reactive({
     }
   }
 });
+
+// 监听分页数据与窗口尺寸变化，动态调整高度
+onMounted(() => {
+  updateTableHeight();
+  window.addEventListener('resize', updateTableHeight);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateTableHeight);
+});
+watch([currentPage, pageSize, () => tableData.value.length], () => updateTableHeight());
 // 更新修改单元格 数据
 async function update_SettlementData(rowData) {
   // 参数验证
@@ -911,13 +945,13 @@ function initTableFromObjects(objArray) {
       columnConfig.width = 600;
     }
           // 如果是“摘要”列，设置列宽为300
-    if (k === "unique_key" ) {
-      // columnConfig.width = 1;
+    if (k === "id" ) {
+      columnConfig.width = 1;
     }
     if (k === "日期" ) {
       
       columnConfig.className = 'htCenter';
-      columnConfig.width = 80;
+      columnConfig.width = 120;
     }
   
     
@@ -1409,6 +1443,29 @@ function clearCompanyBankFilter() {
 }
 </script>
 
+<style scoped>
+.page-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: calc(100vh - 100px);
+}
+.tool-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--el-bg-color);
+  padding-bottom: 8px;
+}
+.excel-table {
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.pagination-bar {
+  margin-top: auto;
+}
+</style>
 <style scoped>
 .excel-table { width:100%; height: calc(100vh - 300px); }
 :deep(.htInvalid) {
