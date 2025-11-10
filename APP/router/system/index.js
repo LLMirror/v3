@@ -1453,7 +1453,7 @@ keys = [...new Set(keys)];
       // 如果没有找到匹配的映射，使用默认逻辑
       if (!foundMapping) {
         // 默认关键字段
-        const defaultKeyFields = ['日期', '摘要', 'ID', '编号', '名称', '金额', '数量'];
+        const defaultKeyFields = ['日期','系列', '公司','银行','摘要', '收入', '支出','备注','余额'];
         const availableFields = defaultKeyFields.filter(field => field in cleanRow && cleanRow[field]);
         
         if (availableFields.length > 0) {
