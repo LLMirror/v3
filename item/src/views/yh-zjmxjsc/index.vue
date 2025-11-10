@@ -630,7 +630,20 @@ function initTopSummaryChart() {
     tooltip: { trigger: 'axis' },
     xAxis: { type: 'category', data: names },
     yAxis: { type: 'value' },
-    series: [{ type: 'bar', data: counts, itemStyle: { color: '#fac858' } }]
+    series: [{
+      name: '次数',
+      type: 'bar',
+      data: counts,
+      itemStyle: { color: '#fac858' },
+      label: {
+        show: true,
+        position: 'top',
+        formatter: (p) => {
+          const val = Number(p.value || 0);
+          return val.toLocaleString();
+        }
+      }
+    }]
   });
 }
 
