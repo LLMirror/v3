@@ -45,6 +45,27 @@
         layout="prev, pager, next, total, sizes"
       />
     </div>
+
+    <!-- 重复数据弹窗 -->
+    <el-dialog v-model="duplicateDialogVisible" title="重复数据处理" width="80%">
+      <div class="mb-2">
+        <div style="margin-bottom:8px; white-space: pre-wrap;">{{ duplicateMessage }}</div>
+        <el-alert type="warning" :closable="false" show-icon title="提示">
+          <template #description>
+            - 下方显示本次导入检测到的重复明细。<br/>
+            - 点击“保留”后，后端会为重复记录的 `unique_key` 添加 `cfbl` 前缀再入库，避免与原记录冲突。<br/>
+            - 点击“不保留”将跳过这些重复记录。
+          </template>
+        </el-alert>
+      </div>
+      <el-table :data="duplicateRows.map(d => d.row)" height="400" size="small" border>
+        <el-table-column v-for="h in duplicateHeaders" :key="h" :prop="h" :label="h" min-width="120" />
+      </el-table>
+      <template #footer>
+        <el-button @click="onDuplicateCancel">不保留</el-button>
+        <el-button type="primary" @click="onDuplicateKeep">保留（添加 cfbl 前缀）</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -104,6 +125,40 @@ const pagedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   return tableData.value.slice(start, start + pageSize.value);
 });
+
+// 重复弹窗状态
+const duplicateDialogVisible = ref(false);
+const duplicateRows = ref([]);
+const duplicateMessage = ref("");
+let resolveDuplicateDecision = null;
+const duplicateHeaders = computed(() => {
+  const first = duplicateRows.value[0]?.row || null;
+  let keys = first ? Object.keys(first) : [];
+  // 优先使用当前表头的交集，附加少量额外字段
+  const headerIntersect = colHeaders.value.filter(h => keys.includes(h));
+  const extras = keys.filter(k => !headerIntersect.includes(k)).slice(0, 6);
+  const cols = headerIntersect.length ? headerIntersect.concat(extras) : keys.slice(0, 12);
+  // 确保包含 unique_key 方便核对
+  if (!cols.includes('unique_key') && keys.includes('unique_key')) cols.push('unique_key');
+  return cols;
+});
+
+function waitDuplicateDecision(duplicates, msg) {
+  duplicateRows.value = Array.isArray(duplicates) ? duplicates : [];
+  duplicateMessage.value = msg || `发现重复 ${duplicateRows.value.length} 条。`;
+  duplicateDialogVisible.value = true;
+  return new Promise((resolve) => { resolveDuplicateDecision = resolve; });
+}
+function onDuplicateKeep() {
+  duplicateDialogVisible.value = false;
+  if (resolveDuplicateDecision) resolveDuplicateDecision(true);
+  resolveDuplicateDecision = null;
+}
+function onDuplicateCancel() {
+  duplicateDialogVisible.value = false;
+  if (resolveDuplicateDecision) resolveDuplicateDecision(false);
+  resolveDuplicateDecision = null;
+}
 
 /* ====== Handsontable 设置 ====== */
 // Handsontable配置项 - 使用reactive包装使其具有响应式特性
@@ -684,7 +739,25 @@ async function uploadToDB() {
     const total = rows.length; const size = batchSize.value || 500;
     for (let i = 0; i < total; i += size) {
       const batch = rows.slice(i, i + size);
-      const res = await importExcelData({ tableName: tableName.value, data: batch });
+      let res = await importExcelData({ tableName: tableName.value, data: batch });
+      // 发现重复，弹窗展示明细并确认是否保留
+      console.log(" code",res)
+      if (res?.code === 2) {
+        const dupList = res?.data?.duplicates || [];
+        const keep = await waitDuplicateDecision(dupList, res?.msg);
+        if (keep) {
+          // 仅提交重复项，避免整批数据二次插入
+          const onlyDupRows = dupList.map(d => d.row);
+          res = await importExcelData({ tableName: tableName.value, data: onlyDupRows, keepDuplicates: true });
+        } else {
+          // 不保留：视为本批次部分成功，跳过重复
+          const inserted = res?.data?.inserted || 0;
+          const dupCount = dupList.length;
+          ElMessage.info(`已跳过重复 ${dupCount} 条，本批新增 ${inserted} 条`);
+          // 构造一个成功响应用于后续流程
+          res = { code: 1, data: { inserted, keptDuplicates: 0, duplicatesFound: dupCount }, msg: '重复已跳过' };
+        }
+      }
       if (res?.code !== 1) throw new Error(res?.msg || "导入失败");
       ElMessage.success(`已上传 ${Math.min(i+size,total)}/${total}`);
     }
@@ -697,8 +770,29 @@ async function saveChanges() {
   const rows = tableData.value; if (!rows.length) return ElMessage.warning("无数据保存");
   saving.value = true;
   try {
-    const res = await importExcelData({ tableName: tableName.value, data: rows });
-    if (res?.code === 1) ElMessage.success("保存成功"); else throw new Error(res?.msg || "保存失败");
+    let res = await importExcelData({ tableName: tableName.value, data: rows });
+    if (res?.code === 2) {
+      const dupList = res?.data?.duplicates || [];
+      const keep = await waitDuplicateDecision(dupList, res?.msg);
+      if (keep) {
+        // 仅提交重复项，避免整批数据二次插入
+        const onlyDupRows = dupList.map(d => d.row);
+        res = await importExcelData({ tableName: tableName.value, data: onlyDupRows, keepDuplicates: true });
+      } else {
+        // 不保留：视为部分成功
+        const inserted = res?.data?.inserted || 0;
+        const dupCount = dupList.length;
+        ElMessage.info(`保存部分成功：已跳过重复 ${dupCount} 条，新增 ${inserted} 条`);
+        res = { code: 1, data: { inserted, keptDuplicates: 0, duplicatesFound: dupCount }, msg: '重复已跳过' };
+      }
+    }
+    if (res?.code === 1) {
+      const inserted = res?.data?.inserted ?? rows.length;
+      const kept = res?.data?.keptDuplicates ?? 0;
+      ElMessage.success(`保存成功：新增 ${inserted} 条${kept ? `，保留重复 ${kept} 条` : ''}`);
+    } else {
+      throw new Error(res?.msg || "保存失败");
+    }
   } catch (err) { ElMessage.error("保存异常：" + (err.message || err)); }
   finally { saving.value = false; }
 }

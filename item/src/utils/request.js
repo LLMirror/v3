@@ -87,6 +87,10 @@ service.interceptors.response.use(res => {
       } catch (err) {
 
       }
+    // 允许导入Excel的重复提示(code=2)走前端自定义弹框逻辑，不做错误拦截
+    if (code === 2 && res.config && res.config.url === '/system/importExcelData') {
+      return Promise.resolve(res.data)
+    }
     if (code === 203) {
       ElMessageBox.confirm(msg||'登录状态已过期，您可以继续留在该页面，或者重新登录', '系统提示', { confirmButtonText: '重新登录', cancelButtonText: '取消', type: 'warning' }).then(() => {
         isRelogin.show = false;

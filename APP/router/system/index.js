@@ -1393,8 +1393,8 @@ keys = [...new Set(keys)];
     // 判断是否已有 name 字段
     // const hasNameField = keys.includes("name");
 
-    // ✅ 构造插入数据
-    const values = data.map(row => {
+    // ✅ 预处理行，生成唯一键与插入值
+    const prepared = data.map(row => {
       const cleanRow = { ...row };
       // “录入人”映射成 name
       // if ("录入人" in cleanRow) cleanRow.name = cleanRow["录入人"];
@@ -1483,9 +1483,9 @@ keys = [...new Set(keys)];
       }
       const uniqueKey = crypto.createHash("md5").update(uniqueStr).digest("hex");
 
-      // user_id + 所有字段值 + name + unique_key
-      const rowValues = [userId, ...keys.map(k => cleanRow[k] ?? ""),  uniqueKey];
-      return rowValues;
+      // user_id + 所有字段值 + unique_key
+      const rowValues = [userId, ...keys.map(k => cleanRow[k] ?? ""), uniqueKey];
+      return { uniqueKey, rowValues, cleanRow };
     });
 
     // ✅ 插入字段 - 确保包含name字段
@@ -1495,20 +1495,97 @@ keys = [...new Set(keys)];
     // 每行占位符精确计算 - 增加name字段的占位符
     const rowPlaceholder = "(" + Array(1 + keys.length  + 1).fill("?").join(",") + ")";
 
-    // 拼接 SQL
-    const sql = `
-      INSERT INTO \`${tableName}\` (${allFields})
-      VALUES ${values.map(() => rowPlaceholder).join(",")}
-      ON DUPLICATE KEY UPDATE created_at = VALUES(created_at)
-    `;
+    // 读取参数：是否保留重复（由前端弹窗确认）
+    const { keepDuplicates } = req.body;
 
-    // 执行 SQL
-    await pools({ sql, val: values.flat(), res, req });
+    // 查询数据库中已存在的 unique_key（当前用户）
+    const allKeys = prepared.map(p => p.uniqueKey);
+    let existingKeysSet = new Set();
+    if (allKeys.length > 0) {
+      // 使用显式占位符展开，避免 IN (?) 无法绑定数组导致未命中已有键
+      const placeholders = allKeys.map(() => '?').join(',');
+      const existingQuery = `SELECT unique_key FROM \`${tableName}\` WHERE user_id = ? AND unique_key IN (${placeholders})`;
+      const existingResult = await pools({ sql: existingQuery, val: [userId, ...allKeys], isReturn: true });
+      const existingRows = existingResult && Array.isArray(existingResult) ? existingResult :
+        (existingResult && Array.isArray(existingResult.result) ? existingResult.result : []);
+      existingKeysSet = new Set(existingRows.map(r => r.unique_key));
+    }
 
+    // 检测同批导入内的重复 unique_key，保留首条，其余视为重复
+    const seenKeys = new Set();
+    const incomingDupRows = [];
+    const uniquePrepared = [];
+    for (const p of prepared) {
+      if (seenKeys.has(p.uniqueKey)) {
+        incomingDupRows.push(p);
+      } else {
+        seenKeys.add(p.uniqueKey);
+        uniquePrepared.push(p);
+      }
+    }
+
+    // 划分新增与重复（数据库中已存在的重复 + 同批内重复）
+    const newRows = uniquePrepared.filter(p => !existingKeysSet.has(p.uniqueKey));
+    const dbDupRows = uniquePrepared.filter(p => existingKeysSet.has(p.uniqueKey));
+    const dupRows = [...dbDupRows, ...incomingDupRows];
+
+    // 先插入新增
+    if (newRows.length > 0) {
+      const insertNewSql = `INSERT INTO \`${tableName}\` (${allFields}) VALUES ${newRows.map(() => rowPlaceholder).join(",")}`;
+      try {
+        await pools({ sql: insertNewSql, val: newRows.flatMap(p => p.rowValues), res, req });
+      } catch (e) {
+        // 兜底：若仍因唯一键冲突报错，记录并返回重复提示，避免 500
+        console.error('导入新增时报唯一键冲突，兜底提示重复：', e?.message || e);
+        return res.send(utils.returnData({
+          code: 2,
+          msg: `⚠️ 发现重复 ${dupRows.length} 条，已导入 ${newRows.length} 条。是否保留重复？`,
+          data: {
+            inserted: newRows.length,
+            duplicates: dupRows.map(d => ({ unique_key: d.uniqueKey, row: d.cleanRow }))
+          }
+        }));
+      }
+    }
+
+    // 如果存在重复且前端未确认保留，返回重复明细，不插入重复
+    if (dupRows.length > 0 && !keepDuplicates) {
+      return res.send(utils.returnData({
+        code: 2,
+        msg: `⚠️ 发现重复 ${dupRows.length} 条，已导入 ${newRows.length} 条。是否保留重复？`,
+        data: {
+          inserted: newRows.length,
+          duplicates: dupRows.map(d => ({ unique_key: d.uniqueKey, row: d.cleanRow }))
+        }
+      }));
+    }
+
+    // 保留重复：为重复行的 unique_key 增加前缀 cfbl_ 后再插入
+    if (dupRows.length > 0 && keepDuplicates) {
+      // 为重复项生成唯一前缀，避免同批重复再次冲突：cfbl_<序号>_<md5>
+      const keyRepeatCounter = new Map();
+      const dupRowsWithPrefix = dupRows.map(d => {
+        const count = (keyRepeatCounter.get(d.uniqueKey) || 0) + 1;
+        keyRepeatCounter.set(d.uniqueKey, count);
+        const prefixedKey = `cfbl_${count}_${d.uniqueKey}`;
+        const rowVals = [...d.rowValues];
+        rowVals[rowVals.length - 1] = prefixedKey; // 替换 unique_key 为带前缀
+        return { rowValues: rowVals, cleanRow: d.cleanRow, uniqueKey: prefixedKey };
+      });
+
+      const insertDupSql = `INSERT INTO \`${tableName}\` (${allFields}) VALUES ${dupRowsWithPrefix.map(() => rowPlaceholder).join(",")}`;
+      await pools({ sql: insertDupSql, val: dupRowsWithPrefix.flatMap(p => p.rowValues), res, req });
+    }
+
+    // 成功返回统计
     res.send(utils.returnData({
       code: 1,
-      msg: `✅ 成功导入 ${data.length} 条记录（重复将自动忽略）`,
-      data: { count: data.length }
+      msg: `✅ 导入完成：新增 ${newRows.length} 条${dupRows.length ? `，保留重复 ${keepDuplicates ? dupRows.length : 0} 条` : ''}${dupRows.length && !keepDuplicates ? '（重复未保留）' : ''}`,
+      data: {
+        inserted: newRows.length,
+        keptDuplicates: keepDuplicates ? dupRows.length : 0,
+        duplicatesFound: dupRows.length
+      }
     }));
   } catch (err) {
     console.error("❌ 导入 Excel 出错:", err);
