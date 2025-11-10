@@ -181,6 +181,23 @@
       </el-col>
     </el-row>
 
+    <!-- 各公司当日汇总（收入/支出/余额） -->
+    <div class="table-card" v-if="todayCompanyAggregates.length">
+      <div class="chart-title">各公司当日汇总</div>
+      <el-table :data="todayCompanyAggregates" border size="small" style="width: 100%">
+        <el-table-column prop="company" label="公司" width="180" />
+        <el-table-column prop="income" label="当日收入" width="160">
+          <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
+        </el-table-column>
+        <el-table-column prop="expense" label="当日支出" width="160">
+          <template #default="scope">{{ formatMoney(scope.row.expense) }}</template>
+        </el-table-column>
+        <el-table-column prop="balance" label="当前实时余额" width="180">
+          <template #default="scope">{{ formatMoney(scope.row.balance) }}</template>
+        </el-table-column>
+      </el-table>
+    </div>
+
     <!-- 当日收付明细 -->
     <div class="table-card">
       <div class="chart-title">当日收付明细</div>
@@ -232,6 +249,7 @@ const topSummaries = ref([]);
 const analytics = ref({});
 const selectedDayDetails = ref([]);
 const selectedDay = ref('');
+const todayCompanyAggregates = ref([]);
 
 const totalIncome = ref(0);
 const totalExpense = ref(0);
@@ -257,6 +275,8 @@ async function loadOverview() {
     analytics.value = data.analytics || {};
     selectedDayDetails.value = [];
     selectedDay.value = '';
+    // 计算各公司当日汇总
+    computeTodayCompanyAggregates();
 
     // 汇总顶部指标
     totalIncome.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalIncome || 0), 0);
@@ -311,6 +331,47 @@ async function loadDayDetails(day) {
 function getOrInitChart(el) {
   if (!el) return null;
   return echarts.getInstanceByDom(el) || echarts.init(el);
+}
+
+function computeTodayCompanyAggregates() {
+  // 汇总今日收入/支出，并记录每家公司各银行最新余额
+  const incomeMap = new Map(); // company -> income
+  const expenseMap = new Map(); // company -> expense
+  const lastBankBalanceMap = new Map(); // company -> Map(bank -> last balance)
+
+  for (const r of (todayDetails.value || [])) {
+    const company = r.company || '未知公司';
+    const bank = r.bank || '未知银行';
+    incomeMap.set(company, (incomeMap.get(company) || 0) + Number(r.income || 0));
+    expenseMap.set(company, (expenseMap.get(company) || 0) + Number(r.expense || 0));
+    if (r.balance !== undefined && r.balance !== null) {
+      const bm = lastBankBalanceMap.get(company) || new Map();
+      bm.set(bank, Number(r.balance));
+      lastBankBalanceMap.set(company, bm);
+    }
+  }
+
+  // 公司全集：包含今天有交易的公司 + 概览中的所有公司（即使今日无交易）
+  const companySet = new Set((companyFunds.value || []).map(i => i.company));
+  for (const c of incomeMap.keys()) companySet.add(c);
+  for (const c of expenseMap.keys()) companySet.add(c);
+
+  const result = [];
+  for (const company of companySet) {
+    const income = incomeMap.get(company) || 0;
+    const expense = expenseMap.get(company) || 0;
+    // 优先使用公司聚合余额（更准确），否则按各银行最新余额相加
+    const cf = (companyFunds.value || []).find(i => i.company === company);
+    let balance = cf ? Number(cf.balance || 0) : 0;
+    if (!cf) {
+      const bm = lastBankBalanceMap.get(company);
+      if (bm) {
+        for (const v of bm.values()) balance += Number(v || 0);
+      }
+    }
+    result.push({ company, income, expense, balance });
+  }
+  todayCompanyAggregates.value = result;
 }
 
 function initCompanyChart() {
