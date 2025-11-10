@@ -699,6 +699,11 @@ function isDateColumn(columnName, sampleData) {
   // 基于列名判断
   const dateRelatedNames = ['日期', 'date', '时间', 'time', 'datetime', '时间戳'];
   const lowerColumnName = columnName.toLowerCase();
+  // 明确排除不应被识别为日期的字段
+  const blacklist = ['id', '序号', 'unique_key'];
+  if (blacklist.includes(lowerColumnName)) {
+    return false;
+  }
   
   // 如果列名包含日期相关词汇
   for (const name of dateRelatedNames) {
@@ -865,11 +870,13 @@ function initTableFromObjects(objArray) {
           culture: 'zh-CN'
         };
       }
-      // id 列设置为只读并淡化显示，避免被编辑
+      // id 列显式设置为数值并只读，避免被识别为日期
       if (k.toLowerCase() === 'id') {
         columnConfig.readOnly = true;
-        columnConfig.className = (columnConfig.className ? `${columnConfig.className} htDimmed` : 'htDimmed');
-        columnConfig.width =  1;
+        columnConfig.type = 'numeric';
+        columnConfig.numericFormat = { pattern: '0', culture: 'zh-CN' };
+        columnConfig.className = (columnConfig.className ? `${columnConfig.className} htCenter` : 'htCenter');
+        columnConfig.width = 100;
       }
 
         // 如果是“摘要”列，设置列宽为300
