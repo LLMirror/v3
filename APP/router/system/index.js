@@ -732,6 +732,8 @@ router.post('/getCashRecords', async (req, res) => {
     sql = utils.setLike(sql, '公司', obj.company);
     sql = utils.setLike(sql, '银行', obj.bank);
     sql = utils.setLike(sql, '摘要', obj.summary);
+    // 支持按“系列”筛选
+    sql = utils.setLike(sql, '系列', obj.series);
     if (obj.dateFrom) sql += ` AND 日期 >= '${dayjs(obj.dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
     if (obj.dateTo) sql += ` AND 日期 <= '${dayjs(obj.dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
 
@@ -843,6 +845,7 @@ router.post('/dashboard/cashOverview', async (req, res) => {
     const dateTo = payload.dateTo ? dayjs(payload.dateTo).format('YYYY-MM-DD HH:mm:ss') : null;
     const company = payload.company ? String(payload.company).trim() : '';
     const bank = payload.bank ? String(payload.bank).trim() : '';
+    const series = payload.series ? String(payload.series).trim() : '';
     const today = dayjs().format('YYYY-MM-DD');
 
     // 可选参数：阈值与分析配置
@@ -862,6 +865,7 @@ router.post('/dashboard/cashOverview', async (req, res) => {
     if (dateTo) whereBase += ` AND 日期 <= '${dateTo}'`;
     if (company) whereBase += ` AND 公司 LIKE '%${company}%'`;
     if (bank) whereBase += ` AND 银行 LIKE '%${bank}%'`;
+    if (series) whereBase += ` AND 系列 LIKE '%${series}%'`;
 
     // 1) 每个公司可用资金（收入-支出）
     let sqlCompany = `SELECT 公司 AS company, ROUND(SUM(收入),2) AS totalIncome, ROUND(SUM(支出),2) AS totalExpense, ROUND(SUM(收入) - SUM(支出),2) AS balance
@@ -884,10 +888,28 @@ router.post('/dashboard/cashOverview', async (req, res) => {
                     ORDER BY date ASC`;
     const dailyRes = await pools({ sql: sqlDaily, res, req });
 
+    // 3.1) 每日实时余额（按公司+银行当日最后一条记录的余额求和）
+    // 使用子查询选出每个公司/银行在当日的最大序号记录，再汇总余额
+    let sqlDailyBalance = `
+      SELECT s.date, ROUND(SUM(s.balance), 2) AS balance
+      FROM (
+        SELECT LEFT(t.日期,10) AS date, t.公司 AS company, t.银行 AS bank, t.余额 AS balance
+        FROM pt_cw_zjmxb t
+        JOIN (
+          SELECT 公司, 银行, LEFT(日期,10) AS d, MAX(序号) AS maxSeq
+          FROM pt_cw_zjmxb ${whereBase}
+          GROUP BY 公司, 银行, LEFT(日期,10)
+        ) m ON t.公司 = m.公司 AND t.银行 = m.银行 AND LEFT(t.日期,10) = m.d AND t.序号 = m.maxSeq
+      ) s
+      GROUP BY s.date
+      ORDER BY s.date ASC`;
+    const dailyBalanceRes = await pools({ sql: sqlDailyBalance, res, req });
+
     // 4) 当日收付情况（汇总）
     let todayWhere = ` WHERE LEFT(日期,10) = '${today}'`;
     if (company) todayWhere += ` AND 公司 LIKE '%${company}%'`;
     if (bank) todayWhere += ` AND 银行 LIKE '%${bank}%'`;
+    if (series) todayWhere += ` AND 系列 LIKE '%${series}%'`;
     let sqlTodaySum = `SELECT ROUND(SUM(收入),2) AS income, ROUND(SUM(支出),2) AS expense, ROUND(SUM(收入) - SUM(支出),2) AS net
                        FROM pt_cw_zjmxb ${todayWhere}`;
     const todaySumRes = await pools({ sql: sqlTodaySum, res, req });
@@ -916,6 +938,9 @@ router.post('/dashboard/cashOverview', async (req, res) => {
     const topBanks = topBanksRaw.map(tb => ({ ...tb, ratio: totalBalance > 0 ? Number((tb.balance / totalBalance).toFixed(4)) : 0 }));
 
     const dailyList = dailyRes.result || [];
+    const balanceList = dailyBalanceRes.result || [];
+    const balanceMap = new Map(balanceList.map(b => [b.date, Number(b.balance || 0)]));
+    const mergedDaily = dailyList.map(d => ({ ...d, balance: balanceMap.get(d.date) ?? null }));
     const last30 = dailyList.slice(Math.max(0, dailyList.length - 30));
     const avgExpense30 = last30.length ? last30.reduce((s, d) => s + Number(d.expense || 0), 0) / last30.length : 0;
     const runwayDays = avgExpense30 > 0 ? Number((totalBalance / avgExpense30).toFixed(2)) : null;
@@ -937,7 +962,7 @@ router.post('/dashboard/cashOverview', async (req, res) => {
       data: {
         companyFunds: companyRes.result || [],
         bankBalances: bankRes.result || [],
-        dailyTrend: dailyRes.result || [],
+        dailyTrend: mergedDaily || [],
         todaySummary: (todaySumRes.result && todaySumRes.result[0]) ? todaySumRes.result[0] : { income: 0, expense: 0, net: 0 },
         todayDetails: todayDetailsRes.result || [],
         topSummaries: topSummaryRes.result || [],
@@ -976,6 +1001,14 @@ router.post('/getBankList', async (req, res) => {
     const sql = `SELECT DISTINCT 银行 AS bank FROM pt_cw_zjmxb ORDER BY 银行`;
     const { result } = await pools({ sql, res, req });
     const data = result.map(r => r.bank);
+    res.send(utils.returnData({ data }));
+});
+
+/** 获取系列列表（从数据库去重） */
+router.post('/getSeriesList', async (req, res) => {
+    const sql = `SELECT DISTINCT 系列 AS series FROM pt_cw_zjmxb WHERE 系列 IS NOT NULL AND 系列 <> '' ORDER BY 系列`;
+    const { result } = await pools({ sql, res, req });
+    const data = (result || []).map(r => r.series);
     res.send(utils.returnData({ data }));
 });
 

@@ -12,6 +12,15 @@
         >
           <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
         </el-select>
+        <el-select
+          v-model="selectedSeries"
+          placeholder="选择系列"
+          clearable
+          filterable
+          style="width: 220px; margin-right: 12px;"
+        >
+          <el-option v-for="s in seriesOptions" :key="s.value" :label="s.label" :value="s.value" />
+        </el-select>
         <el-date-picker
           v-model="dateRange"
           type="daterange"
@@ -220,11 +229,13 @@
 import { ref, onMounted, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { ElMessage } from 'element-plus';
-import { getCashOverview, getCompanyList, getCashRecords } from '@/api/system';
+import { getCashOverview, getCompanyList, getCashRecords, getSeriesList } from '@/api/system';
 
 const dateRange = ref([]);
 const selectedCompany = ref('');
+const selectedSeries = ref('');
 const companyOptions = ref([]);
+const seriesOptions = ref([]);
 const companyChartRef = ref(null);
 const bankChartRef = ref(null);
 const dailyChartRef = ref(null);
@@ -263,7 +274,10 @@ function formatMoney(n) {
 async function loadOverview() {
   try {
     const [dateFrom, dateTo] = dateRange.value || [];
-    const res = await getCashOverview({ data: { dateFrom, dateTo, company: selectedCompany.value } });
+    const payload = { dateFrom, dateTo };
+    if (selectedCompany.value) payload.company = selectedCompany.value;
+    if (selectedSeries.value) payload.series = selectedSeries.value;
+    const res = await getCashOverview({ data: payload });
 
     const data = res?.data || {};
     companyFunds.value = data.companyFunds || [];
@@ -320,7 +334,10 @@ async function loadDayDetails(day) {
     const dateFrom = `${day} 00:00:00`;
     const dateTo = `${day} 23:59:59`;
     // 注意：API 封装会自动将入参作为 body.data 发送，这里不要再包一层 data
-    const res = await getCashRecords({ company: selectedCompany.value, dateFrom, dateTo, page: 1, size: 200 });
+    const params = { dateFrom, dateTo, page: 1, size: 200 };
+    if (selectedCompany.value) params.company = selectedCompany.value;
+    if (selectedSeries.value) params.series = selectedSeries.value;
+    const res = await getCashRecords(params);
     selectedDayDetails.value = res?.data || [];
   } catch (e) {
     console.error(e);
@@ -393,7 +410,10 @@ function initCompanyChart() {
 // 首次加载：不带日期过滤获取最小日期，设置默认范围为[最早日期, 今天]，然后按该范围再次加载概览
 async function initOverviewDefaultRange() {
   try {
-    const res = await getCashOverview({ data: { company: selectedCompany.value } });
+    const initPayload = {};
+    if (selectedCompany.value) initPayload.company = selectedCompany.value;
+    if (selectedSeries.value) initPayload.series = selectedSeries.value;
+    const res = await getCashOverview({ data: initPayload });
     const data = res?.data || {};
     companyFunds.value = data.companyFunds || [];
     bankBalances.value = data.bankBalances || [];
@@ -424,6 +444,18 @@ async function initOverviewDefaultRange() {
   }
 }
 
+// 加载“系列”选项（从数据库表去重查询）
+async function loadSeriesOptions() {
+  try {
+    const res = await getSeriesList({});
+    const arr = res?.data || [];
+    seriesOptions.value = arr.map(s => ({ label: s, value: s }));
+  } catch (e) {
+    console.error(e);
+    seriesOptions.value = [];
+  }
+}
+
 function initBankChart() {
   const el = bankChartRef.value;
   if (!el) return;
@@ -448,24 +480,18 @@ function initDailyChart() {
   const dates = dailyTrend.value.map(i => i.date);
   const incomes = dailyTrend.value.map(i => Number(i.income || 0));
   const expenses = dailyTrend.value.map(i => Number(i.expense || 0));
-  // 累计净额
-  const nets = dailyTrend.value.map(i => Number(i.net || 0));
-  const cumulative = [];
-  nets.reduce((acc, cur, idx) => {
-    const val = acc + cur;
-    cumulative[idx] = Number(val.toFixed(2));
-    return val;
-  }, 0);
+  // 每日实时余额（后端已提供每日日终余额）
+  const balances = dailyTrend.value.map(i => Number(i.balance ?? 0));
   chart.clear();
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { data: ['收入', '支出', '累计净额'] },
+    legend: { data: ['收入', '支出', '实时累计余额'] },
     xAxis: { type: 'category', data: dates },
     yAxis: { type: 'value' },
     series: [
       { name: '收入', type: 'line', smooth: true, data: incomes, itemStyle: { color: '#3ba272' } },
       { name: '支出', type: 'line', smooth: true, data: expenses, itemStyle: { color: '#ee6666' } },
-      { name: '累计净额', type: 'line', smooth: true, data: cumulative, itemStyle: { color: '#5470c6' } }
+      { name: '实时累计余额', type: 'line', smooth: true, data: balances, itemStyle: { color: '#5470c6' } }
     ]
   });
 }
@@ -571,6 +597,8 @@ onMounted(() => {
   }).finally(() => {
     initOverviewDefaultRange();
   });
+  // 加载系列选项
+  loadSeriesOptions();
   // 统一绑定一次 resize 事件
   if (!resizeHandler) {
     resizeHandler = () => {

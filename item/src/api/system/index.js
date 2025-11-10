@@ -292,10 +292,16 @@ export function getCompanyList(data) {
 	});
 }
 export function getBankList(data) {
-	return request({
-		url: "/system/getBankList",
-		data
-	});
+  return request({
+    url: "/system/getBankList",
+    data
+  });
+}
+export function getSeriesList(data) {
+  return request({
+    url: "/system/getSeriesList",
+    data
+  });
 }
 export function getCashSummaryList(data) {
   return request({
