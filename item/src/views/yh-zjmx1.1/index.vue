@@ -50,7 +50,7 @@
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
-        :total="tableData.length"
+        :total="total"
         :page-sizes="[50, 100, 200, 500,1000,3000,5000]"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
@@ -113,6 +113,8 @@ const loadingKeywords = ref(false);
 const tableData = ref([]);     // 全部数据
 const colHeaders = ref([]);
 const columns = ref([]);
+// 分页总数（优先使用后端返回的 total）
+const total = ref(0);
 
 // 分页
 const currentPage = ref(1);
@@ -1290,12 +1292,15 @@ async function loadFromDB() {
         bank,
         summary: summaryKeyword.value || undefined,
         dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined
+        // dateTo: dateTo || undefined
       }
     });
     if (res?.code !== 1) return ElMessage.error("加载失败：" + res?.msg);
     // 兼容后端返回 { data: result, total }
     const rows = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    // 设置分页总数：优先使用后端 total，其次使用行数
+    const totalFromRes = (typeof res.total === 'number' ? res.total : (res.data?.total));
+    total.value = Number.isFinite(totalFromRes) ? totalFromRes : rows.length;
     if (!rows.length) return initTableFromObjects([]), ElMessage.info("表中没有数据");
     initTableFromObjects(rows);
     ElMessage.success(`已加载 ${rows.length} 条`);
