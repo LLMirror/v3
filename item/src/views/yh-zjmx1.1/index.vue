@@ -1290,9 +1290,7 @@ async function loadFromDB() {
         bank,
         summary: summaryKeyword.value || undefined,
         dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        page: currentPage.value,
-        size: pageSize.value
+        dateTo: dateTo || undefined
       }
     });
     if (res?.code !== 1) return ElMessage.error("加载失败：" + res?.msg);

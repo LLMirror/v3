@@ -85,22 +85,40 @@
         </div>
       </el-col>
     </el-row>
-
-    <!-- 异常波动列表（近30天） -->
-    <div class="table-card">
-      <div class="chart-title">异常波动（近30天）</div>
-      <el-table :data="analytics.anomalies || []" border size="small" style="width: 100%">
-        <el-table-column prop="date" label="日期" width="140" />
-        <el-table-column prop="net" label="净额" width="160">
-          <template #default="scope">{{ formatMoney(scope.row.net) }}</template>
-        </el-table-column>
-        <el-table-column prop="zScore" label="zScore" width="120" />
-        <el-table-column label="操作" width="140">
-          <template #default="scope">
-            <el-button type="primary" link @click="loadDayDetails(scope.row.date)">查看明细</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+    <div class="table-card" style="display: flex;margin-bottom: 20px;"> 
+        <!-- 各公司当日汇总（收入/支出/余额） -->
+      <div class="table-card" v-if="todayCompanyAggregates.length">
+        <div class="chart-title">各公司当日汇总</div>
+        <el-table :data="todayCompanyAggregates" border size="small" style="width: 100%">
+          <el-table-column prop="company" label="公司" width="280" />
+          <el-table-column prop="income" label="当日收入" width="160">
+            <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
+          </el-table-column>
+          <el-table-column prop="expense" label="当日支出" width="160">
+            <template #default="scope">{{ formatMoney(scope.row.expense) }}</template>
+          </el-table-column>
+          <el-table-column prop="balance" label="当前实时余额" width="180">
+            <template #default="scope">{{ formatMoney(scope.row.balance) }}</template>
+          </el-table-column>
+        </el-table>
+        
+      </div>
+      <!-- 异常波动列表（近30天） -->
+      <div class="table-card" style="margin-left: 20px;">
+        <div class="chart-title">异常波动（近30天）</div>
+        <el-table :data="analytics.anomalies || []" border size="small" style="width: 100%">
+          <el-table-column prop="date" label="日期" width="140" />
+          <el-table-column prop="net" label="净额" width="160">
+            <template #default="scope">{{ formatMoney(scope.row.net) }}</template>
+          </el-table-column>
+          <el-table-column prop="zScore" label="zScore" width="120" />
+          <el-table-column label="操作" width="140">
+            <template #default="scope">
+              <el-button type="primary" link @click="loadDayDetails(scope.row.date)">查看明细</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </div>
 
     <!-- 选定日收付明细 -->
@@ -190,22 +208,7 @@
       </el-col>
     </el-row>
 
-    <!-- 各公司当日汇总（收入/支出/余额） -->
-    <div class="table-card" v-if="todayCompanyAggregates.length">
-      <div class="chart-title">各公司当日汇总</div>
-      <el-table :data="todayCompanyAggregates" border size="small" style="width: 100%">
-        <el-table-column prop="company" label="公司" width="180" />
-        <el-table-column prop="income" label="当日收入" width="160">
-          <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
-        </el-table-column>
-        <el-table-column prop="expense" label="当日支出" width="160">
-          <template #default="scope">{{ formatMoney(scope.row.expense) }}</template>
-        </el-table-column>
-        <el-table-column prop="balance" label="当前实时余额" width="180">
-          <template #default="scope">{{ formatMoney(scope.row.balance) }}</template>
-        </el-table-column>
-      </el-table>
-    </div>
+
 
     <!-- 当日收付明细 -->
     <div class="table-card">

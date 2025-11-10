@@ -863,9 +863,9 @@ router.post('/dashboard/cashOverview', async (req, res) => {
     let whereBase = ` WHERE 1=1 `;
     if (dateFrom) whereBase += ` AND 日期 >= '${dateFrom}'`;
     if (dateTo) whereBase += ` AND 日期 <= '${dateTo}'`;
-    if (company) whereBase += ` AND 公司 LIKE '%${company}%'`;
-    if (bank) whereBase += ` AND 银行 LIKE '%${bank}%'`;
-    if (series) whereBase += ` AND 系列 LIKE '%${series}%'`;
+    if (company) whereBase += ` AND 公司 = '${company}'`;
+    if (bank) whereBase += ` AND 银行 = '${bank}'`;
+    if (series) whereBase += ` AND 系列 = '${series}'`;
 
     // 1) 每个公司可用资金（收入-支出）
     let sqlCompany = `SELECT 公司 AS company, ROUND(SUM(收入),2) AS totalIncome, ROUND(SUM(支出),2) AS totalExpense, ROUND(SUM(收入) - SUM(支出),2) AS balance
@@ -1413,7 +1413,7 @@ keys = [...new Set(keys)];
       // 使用数组存储tableName和对应字段的映射关系
       const tableFieldMappings = [
         // 财务类表映射
-        { tableNames: ['pt_cw_zjmxb', '财务', '收支'], fields: ['日期', '摘要', '收入', '支出','备注','余额'] },
+        { tableNames: ['pt_cw_zjmxb', '财务', '收支'], fields: ['日期','系列', '公司','银行','摘要', '收入', '支出','备注','余额'] },
         // 订单类表映射
         { tableNames: ['pt-cw-yqdz', '订单'], fields: ['订单号', '渠道打车订单号', '下单时间'] },
         // 库存类表映射
