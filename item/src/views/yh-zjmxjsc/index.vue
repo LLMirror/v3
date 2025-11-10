@@ -415,7 +415,17 @@ function initCompanyChart() {
     tooltip: { trigger: 'axis' },
     xAxis: { type: 'category', data: names },
     yAxis: { type: 'value' },
-    series: [{ type: 'bar', data: values, itemStyle: { color: '#5470c6' } }]
+    series: [{
+      name: '余额',
+      type: 'bar',
+      data: values,
+      itemStyle: { color: '#5470c6' },
+      label: {
+        show: true,
+        position: 'top',
+        formatter: (p) => formatMoney(p.value)
+      }
+    }]
   });
 }
 
@@ -439,6 +449,14 @@ async function initOverviewDefaultRange() {
     const minDate = dailyTrend.value.length ? dailyTrend.value[0].date : getTodayStr();
     dateRange.value = [minDate, getTodayStr()];
 
+        // 计算各公司当日汇总
+    computeTodayCompanyAggregates();
+
+    // 汇总顶部指标
+    totalIncome.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalIncome || 0), 0);
+    totalExpense.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalExpense || 0), 0);
+    totalNet.value = totalIncome.value - totalExpense.value;
+
     await nextTick();
     initCompanyChart();
     initBankChart();
@@ -447,8 +465,13 @@ async function initOverviewDefaultRange() {
     initBankPieChart();
     initTopSummaryChart();
 
+
+
+
     // 用默认范围再次加载，确保图表与筛选一致
-    await loadOverview();
+    // await loadOverview();
+
+
   } catch (err) {
     console.error(err);
     ElMessage.error('初始化驾驶舱数据失败');
@@ -479,7 +502,17 @@ function initBankChart() {
     tooltip: { trigger: 'axis' },
     xAxis: { type: 'category', data: names },
     yAxis: { type: 'value' },
-    series: [{ type: 'bar', data: values, itemStyle: { color: '#91cc75' } }]
+    series: [{
+      name: '余额',
+      type: 'bar',
+      data: values,
+      itemStyle: { color: '#91cc75' },
+      label: {
+        show: true,
+        position: 'top',
+        formatter: (p) => formatMoney(p.value)
+      }
+    }]
   });
 }
 
