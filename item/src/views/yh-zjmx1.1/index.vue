@@ -123,6 +123,8 @@ const currentPage = ref(1);
 const pageSize = ref(50); // 每页 20 条
 // 用于服务端分页时的“前缀余额”（前面所有页的净额累计）
 const balancePrefix = ref(0);
+// 删除前行快照（在 beforeRemoveRow 捕获，afterRemoveRow 使用）
+const deleteSnapshot = ref([]);
 
 const pagedData = computed(() => {
   // 服务端分页直接使用当前页的数据；前端分页才做切片
@@ -283,6 +285,18 @@ const hotSettings = reactive({
     ElMessage.success('数据粘贴完成，已自动生成唯一标识并同步到服务器');
   },
 
+  // 删除行前触发：捕获将要删除的行的快照，避免删除后索引错位
+  beforeRemoveRow: (index, amount, physicalRows, source) => {
+    const baseIndex = serverPaging.value ? 0 : (currentPage.value - 1) * pageSize.value;
+    const absIndices = (Array.isArray(physicalRows) && physicalRows.length > 0)
+      ? physicalRows.map(r => baseIndex + r)
+      : Array.from({ length: amount }, (_, k) => baseIndex + index + k);
+    deleteSnapshot.value = absIndices
+      .map(i => ({ i, row: tableData.value[i] }))
+      .filter(item => !!item.row);
+    console.log('🧊 删除前快照:', deleteSnapshot.value);
+  },
+
     // === 1️⃣ 修改数据时触发 ===
   // afterChange: async (changes, source) => {
    
@@ -405,15 +419,25 @@ const hotSettings = reactive({
     }
 
     try {
-      const start = (currentPage.value - 1) * pageSize.value;
-      // 先收集待删除的全局索引与行数据，避免删除过程中索引变化
-      const absIndices = Array.from({ length: amount }, (_, k) => start + index + k);
-      const rowsToDelete = absIndices
-        .map(i => ({ i, row: tableData.value[i] }))
-        .filter(item => !!item.row);
+      // 计算当前页在全局数据中的起始索引（服务器分页时，pagedData 已是当前页，起始为 0）
+      const baseIndex = serverPaging.value ? 0 : (currentPage.value - 1) * pageSize.value;
+
+      // 优先使用 physicalRows（更可靠，考虑排序/筛选后真实的页内索引）
+      const absIndices = (Array.isArray(physicalRows) && physicalRows.length > 0)
+        ? physicalRows.map(r => baseIndex + r)
+        : Array.from({ length: amount }, (_, k) => baseIndex + index + k);
+
+      console.log('🔢 计算删除的全局索引:', absIndices);
+
+      // 优先使用删除前快照，若不存在则按当前索引映射
+      const rowsToDelete = (deleteSnapshot.value && deleteSnapshot.value.length > 0)
+        ? deleteSnapshot.value
+        : absIndices.map(i => ({ i, row: tableData.value[i] })).filter(item => !!item.row);
+      console.log('🧾 待删除行集合:', rowsToDelete);
 
       // 先调用后端删除（优先使用 id；无 id 时使用 unique_key），未保存的新行只做本地删除
       for (const { i, row } of rowsToDelete) {
+        console.log('🧾 准备删除行:', { index: i, id: row?.id, unique_key: row?.unique_key, 摘要: row?.['摘要'] })
         const payload = {};
         if (row && row.id != null && row.id !== '') payload.id = row.id;
         if (row && row.unique_key) payload.unique_key = row.unique_key;
@@ -438,7 +462,7 @@ const hotSettings = reactive({
             continue;
           }
         } else {
-          console.log('ℹ️ 本地未保存行（无 id/unique_key），仅本地删除');
+          console.log('⚠️ 行无有效 id（或仅有 unique_key），跳过后端删除，仅本地删除');
         }
       }
 
@@ -450,6 +474,9 @@ const hotSettings = reactive({
             tableData.value.splice(i, 1);
           }
         });
+
+      // 清理删除快照
+      deleteSnapshot.value = [];
 
       // 更新序号并刷新当前页
       updateRowNumbers();
