@@ -266,6 +266,17 @@ const totalIncome = ref(0);
 const totalExpense = ref(0);
 const totalNet = ref(0);
 
+// 请求去重与并发保护
+const isLoadingOverview = ref(false);
+
+function buildOverviewPayload() {
+  const [dateFrom, dateTo] = dateRange.value || [];
+  const payload = { dateFrom, dateTo };
+  if (selectedCompany.value) payload.company = selectedCompany.value;
+  if (selectedSeries.value) payload.series = selectedSeries.value;
+  return payload;
+}
+
 function formatMoney(n) {
   const num = Number(n || 0);
   return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -273,10 +284,9 @@ function formatMoney(n) {
 
 async function loadOverview() {
   try {
-    const [dateFrom, dateTo] = dateRange.value || [];
-    const payload = { dateFrom, dateTo };
-    if (selectedCompany.value) payload.company = selectedCompany.value;
-    if (selectedSeries.value) payload.series = selectedSeries.value;
+    if (isLoadingOverview.value) return;
+    isLoadingOverview.value = true;
+    const payload = buildOverviewPayload();
     const res = await getCashOverview({ data: payload });
 
     const data = res?.data || {};
@@ -307,6 +317,8 @@ async function loadOverview() {
   } catch (err) {
     console.error(err);
     ElMessage.error('加载驾驶舱数据失败');
+  } finally {
+    isLoadingOverview.value = false;
   }
 }
 
@@ -410,9 +422,8 @@ function initCompanyChart() {
 // 首次加载：不带日期过滤获取最小日期，设置默认范围为[最早日期, 今天]，然后按该范围再次加载概览
 async function initOverviewDefaultRange() {
   try {
+    // 使用全量数据获取最早日期，不受公司/系列筛选影响
     const initPayload = {};
-    if (selectedCompany.value) initPayload.company = selectedCompany.value;
-    if (selectedSeries.value) initPayload.series = selectedSeries.value;
     const res = await getCashOverview({ data: initPayload });
     const data = res?.data || {};
     companyFunds.value = data.companyFunds || [];
