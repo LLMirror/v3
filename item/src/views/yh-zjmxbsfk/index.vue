@@ -966,8 +966,9 @@ async function enrichPayableListActuals() {
     if (typeof v === 'string') return Number(v.replace(/,/g, '')) || 0
     return Number(v) || 0
   }
-  const tasks = new Map()
-  const makeKey = (r) => {
+  // 1) 按“系列+公司+账号+对方公司名字+月份(还款日期)”分组
+  const groups = new Map()
+  const groupKeyOf = (r) => {
     const series = (r['系列'] || '').trim()
     const company = (r['公司'] || '').trim()
     const bank = (r['账号'] || r['银行'] || '').trim()
@@ -976,39 +977,43 @@ async function enrichPayableListActuals() {
     const ym = date ? date.slice(0, 7) : ''
     return `${series}||${company}||${bank}||${target}||${ym}`
   }
-  const monthRangeFromDate = (dateStr) => {
-    const { from, to } = getMonthRangeFromDate(dateStr)
-    return { from, to }
-  }
   for (const r of rows) {
-    const key = makeKey(r)
-    if (!tasks.has(key)) {
-      const series = (r['系列'] || '').trim()
-      const company = (r['公司'] || '').trim()
-      const bank = (r['账号'] || r['银行'] || '').trim()
-      const summary = (r['对方公司名字'] || '').trim() || undefined
-      const date = (r['还款日期'] || '').trim()
-      if (!series || !company || !bank || !date) continue
-      const { from, to } = monthRangeFromDate(date)
-      tasks.set(key, getCashRecords({ series, company, bank, summary, dateFrom: from, dateTo: to, page: 1, size: 5000 }))
-    }
+    const key = groupKeyOf(r)
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(r)
   }
-  const results = new Map()
-  for (const [key, p] of tasks.entries()) {
+
+  // 2) 对每个分组查询当月“支出”总额，并按日期升序进行分配
+  for (const [key, groupRows] of groups.entries()) {
+    // 解析键得到查询条件
+    const [series, company, bank, target, ym] = key.split('||')
+    if (!series || !company || !bank || !ym) continue
+    const { from, to } = getMonthRangeFromYearMonth(ym)
+    let totalExpense = 0
     try {
-      const res = await p
+      const res = await getCashRecords({ series, company, bank, summary: target || undefined, dateFrom: from, dateTo: to, page: 1, size: 5000 })
       const arr = Array.isArray(res?.data) ? res.data : []
-      const sumExpense = arr.reduce((acc, r) => acc + toNum(r.expense ?? r['支出']), 0)
-      results.set(key, Math.round(sumExpense * 100) / 100)
+      totalExpense = arr.reduce((acc, r) => acc + toNum(r.expense ?? r['支出']), 0)
+      totalExpense = Math.round(totalExpense * 100) / 100
     } catch (e) {
-      results.set(key, undefined)
-      console.warn('应付列表自动汇总失败:', e?.message || e)
+      console.warn('应付列表分组汇总失败:', e?.message || e)
+      continue
     }
-  }
-  for (const r of rows) {
-    const key = makeKey(r)
-    const val = results.get(key)
-    if (val !== undefined) r['实付金额'] = val
+
+    // 按“还款日期升序，再按id升序”分配总支出到每一条应付，且不超过“金额”
+    const sorted = [...groupRows].sort((a, b) => {
+      const ad = (a['还款日期'] || '').trim()
+      const bd = (b['还款日期'] || '').trim()
+      if (ad !== bd) return ad.localeCompare(bd)
+      return Number(a.id || 0) - Number(b.id || 0)
+    })
+    let remain = totalExpense
+    for (const r of sorted) {
+      const amt = toNum(r['金额'])
+      const alloc = Math.min(amt, Math.max(0, remain))
+      r['实付金额'] = Math.round(alloc * 100) / 100
+      remain = Math.max(0, Math.round((remain - alloc) * 100) / 100)
+    }
   }
 }
 </script>
