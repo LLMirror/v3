@@ -124,7 +124,7 @@
       <div class="table-card" v-if="todayCompanyAggregates.length">
         <div class="chart-title">各公司{{ selectedDay ? '选定日' : '当日' }}汇总{{ selectedDay ? `（${selectedDay}）` : '' }}</div>
         <el-table :data="todayCompanyAggregates" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
-          <el-table-column prop="company" label="公司" width="280" />
+          <el-table-column prop="company" label="公司" width="550" />
           <el-table-column prop="income" label="当日收入" width="160">
             <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
           </el-table-column>
@@ -141,7 +141,7 @@
       <div class="table-card" v-if="todayBankAggregates.length" style="margin-left: 20px;">
         <div class="chart-title">各银行{{ selectedDay ? '选定日' : '当日' }}汇总{{ selectedDay ? `（${selectedDay}）` : '' }}</div>
         <el-table :data="todayBankAggregates" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
-          <el-table-column prop="bank" label="银行" width="380" />
+          <el-table-column prop="bank" label="银行" width="550" />
           <el-table-column prop="income" label="当日收入" width="160">
             <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
           </el-table-column>
