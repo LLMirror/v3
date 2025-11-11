@@ -413,6 +413,36 @@ export function getMaxId(params) {
   });
 }
 
+// 应付/应收 新增与列表
+export function addPayable(params) {
+  return request({
+    url: "/system/addPayable",
+    method: "post",
+    data: params
+  });
+}
+export function addReceivable(params) {
+  return request({
+    url: "/system/addReceivable",
+    method: "post",
+    data: params
+  });
+}
+export function getPayableList(params) {
+  return request({
+    url: "/system/getPayableList",
+    method: "post",
+    data: params
+  });
+}
+export function getReceivableList(params) {
+  return request({
+    url: "/system/getReceivableList",
+    method: "post",
+    data: params
+  });
+}
+
 // 获取百度 AI 访问令牌
 export function getAccessToken(params) {
   return request({

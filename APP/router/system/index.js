@@ -1723,6 +1723,206 @@ router.post('/getUniqueSeriesCompanyBank', async (req, res) => {
   }
 });
 
+// ===================== 应收/应付明细录入（新表） =====================
+// 表结构：
+// - 应付表：pt_cw_zjmxbfk（增加列：实付金额）
+// - 应收表：pt_cw_zjmxbsk（增加列：实收金额）
+// 若不存在则依据结构自动创建；所有数据按 user_id 归属
+
+// 生成创建“应付”表的SQL
+function getCreatePayableTableSql() {
+  return `
+    CREATE TABLE IF NOT EXISTS \`pt_cw_zjmxbfk\` (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL COMMENT '创建用户ID',
+      系列 VARCHAR(100) COMMENT '系列',
+      公司 VARCHAR(200) COMMENT '公司',
+      账号 VARCHAR(200) COMMENT '账号/银行',
+      分类 VARCHAR(100) COMMENT '分类',
+      车牌 VARCHAR(100) COMMENT '车牌',
+      车架号 VARCHAR(200) COMMENT '车架号',
+      还款日期 DATE COMMENT '还款日期',
+      金额 DECIMAL(18,2) DEFAULT 0 COMMENT '金额',
+      实付金额 DECIMAL(18,2) DEFAULT 0 COMMENT '实付金额',
+      商业保单号 VARCHAR(200) COMMENT '商业保单号',
+      车损 DECIMAL(18,2) DEFAULT 0 COMMENT '车损',
+      三者 DECIMAL(18,2) DEFAULT 0 COMMENT '三者',
+      司机 DECIMAL(18,2) DEFAULT 0 COMMENT '司机',
+      乘客 DECIMAL(18,2) DEFAULT 0 COMMENT '乘客',
+      交强单号 VARCHAR(200) COMMENT '交强单号',
+      交强金额 DECIMAL(18,2) DEFAULT 0 COMMENT '交强金额',
+      出单日期 DATE COMMENT '出单日期',
+      备注 TEXT COMMENT '备注',
+      create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+      update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+      INDEX idx_user(user_id),
+      INDEX idx_sc(系列, 公司),
+      INDEX idx_acc(账号)
+    ) COMMENT='应付明细表';
+  `;
+}
+
+// 生成创建“应收”表的SQL
+function getCreateReceivableTableSql() {
+  return `
+    CREATE TABLE IF NOT EXISTS \`pt_cw_zjmxbsk\` (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL COMMENT '创建用户ID',
+      系列 VARCHAR(100) COMMENT '系列',
+      公司 VARCHAR(200) COMMENT '公司',
+      账号 VARCHAR(200) COMMENT '账号/银行',
+      分类 VARCHAR(100) COMMENT '分类',
+      车牌 VARCHAR(100) COMMENT '车牌',
+      车架 VARCHAR(200) COMMENT '车架',
+      金额 DECIMAL(18,2) DEFAULT 0 COMMENT '金额',
+      实收金额 DECIMAL(18,2) DEFAULT 0 COMMENT '实收金额',
+      应收月份 VARCHAR(20) COMMENT 'YYYY-MM',
+      开始日期 DATE COMMENT '开始日期',
+      结束日期 DATE COMMENT '结束日期',
+      赠送天数 INT DEFAULT 0 COMMENT '赠送天数',
+      备注 TEXT COMMENT '备注',
+      create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+      update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+      INDEX idx_user(user_id),
+      INDEX idx_sc(系列, 公司),
+      INDEX idx_acc(账号)
+    ) COMMENT='应收明细表';
+  `;
+}
+
+// 确保两张表存在
+async function ensureSettlementDetailTables() {
+  await ensureDbwhTableExists('pt_cw_zjmxbfk', getCreatePayableTableSql());
+  await ensureDbwhTableExists('pt_cw_zjmxbsk', getCreateReceivableTableSql());
+}
+
+// 新增-应付
+router.post('/addPayable', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    await ensureSettlementDetailTables();
+
+    const payload = req.body?.data || req.body || {};
+    const fields = {
+      系列: payload.series || payload['系列'] || '',
+      公司: payload.company || payload['公司'] || '',
+      账号: payload.account || payload['账号'] || payload['银行'] || '',
+      分类: payload.category || payload['分类'] || '',
+      车牌: payload.plate || payload['车牌'] || '',
+      车架号: payload.vin || payload['车架号'] || '',
+      还款日期: payload.repayDate || payload['还款日期'] || null,
+      金额: Number(payload.amount || payload['金额'] || 0),
+      实付金额: Number(payload.actualPayAmount || payload['实付金额'] || 0),
+      商业保单号: payload.policyCommercial || payload['商业保单号'] || '',
+      车损: Number(payload.carDamage || payload['车损'] || 0),
+      三者: Number(payload.thirdParty || payload['三者'] || 0),
+      司机: Number(payload.driver || payload['司机'] || 0),
+      乘客: Number(payload.passenger || payload['乘客'] || 0),
+      交强单号: payload.policyMandatory || payload['交强单号'] || '',
+      交强金额: Number(payload.mandatoryAmount || payload['交强金额'] || 0),
+      出单日期: payload.issueDate || payload['出单日期'] || null,
+      备注: payload.remark || payload['备注'] || ''
+    };
+
+    const cols = Object.keys(fields);
+    const placeholders = cols.map(() => '?').join(',');
+    const sql = `INSERT INTO \`pt_cw_zjmxbfk\` (user_id, ${cols.join(',')}) VALUES (?, ${placeholders})`;
+    const vals = [userId, ...cols.map(k => fields[k])];
+    await pools({ sql, val: vals, res, req });
+    res.send(utils.returnData({ msg: '应付新增成功' }));
+  } catch (error) {
+    console.error('addPayable error:', error);
+    res.send(utils.returnData({ code: -1, msg: '应付新增失败', err: error?.message }));
+  }
+});
+
+// 新增-应收
+router.post('/addReceivable', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    await ensureSettlementDetailTables();
+
+    const payload = req.body?.data || req.body || {};
+    const fields = {
+      系列: payload.series || payload['系列'] || '',
+      公司: payload.company || payload['公司'] || '',
+      账号: payload.account || payload['账号'] || payload['银行'] || '',
+      分类: payload.category || payload['分类'] || '',
+      车牌: payload.plate || payload['车牌'] || '',
+      车架: payload.vin || payload['车架'] || '',
+      金额: Number(payload.amount || payload['金额'] || 0),
+      实收金额: Number(payload.actualReceiveAmount || payload['实收金额'] || 0),
+      应收月份: payload.receivableMonth || payload['应收月份'] || '',
+      开始日期: payload.leaseStartDate || payload['开始日期'] || null,
+      结束日期: payload.leaseEndDate || payload['结束日期'] || null,
+      赠送天数: Number(payload.giftDays || payload['赠送天数'] || 0),
+      备注: payload.remark || payload['备注'] || ''
+    };
+
+    const cols = Object.keys(fields);
+    const placeholders = cols.map(() => '?').join(',');
+    const sql = `INSERT INTO \`pt_cw_zjmxbsk\` (user_id, ${cols.join(',')}) VALUES (?, ${placeholders})`;
+    const vals = [userId, ...cols.map(k => fields[k])];
+    await pools({ sql, val: vals, res, req });
+    res.send(utils.returnData({ msg: '应收新增成功' }));
+  } catch (error) {
+    console.error('addReceivable error:', error);
+    res.send(utils.returnData({ code: -1, msg: '应收新增失败', err: error?.message }));
+  }
+});
+
+// 列表-应付（支持按系列/公司/账号过滤）
+router.post('/getPayableList', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    await ensureSettlementDetailTables();
+
+    const payload = req.body?.data || req.body || {};
+    const series = (payload.series || '').trim();
+    const company = (payload.company || '').trim();
+    const account = (payload.account || payload.bank || '').trim();
+
+    let sql = `SELECT id, 系列, 公司, 账号, 分类, 车牌, 车架号, 还款日期, 金额, 实付金额, 商业保单号, 车损, 三者, 司机, 乘客, 交强单号, 交强金额, 出单日期, 备注, create_time FROM \`pt_cw_zjmxbfk\` WHERE user_id=${userId}`;
+    sql = utils.setLike(sql, '系列', series);
+    sql = utils.setLike(sql, '公司', company);
+    sql = utils.setLike(sql, '账号', account);
+    sql += ' ORDER BY id DESC LIMIT 2000';
+    const { result } = await pools({ sql, res, req });
+    res.send(utils.returnData({ data: result }));
+  } catch (error) {
+    console.error('getPayableList error:', error);
+    res.send(utils.returnData({ code: -1, msg: '获取应付列表失败', err: error?.message }));
+  }
+});
+
+// 列表-应收（支持按系列/公司/账号过滤）
+router.post('/getReceivableList', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    await ensureSettlementDetailTables();
+
+    const payload = req.body?.data || req.body || {};
+    const series = (payload.series || '').trim();
+    const company = (payload.company || '').trim();
+    const account = (payload.account || payload.bank || '').trim();
+
+    let sql = `SELECT id, 系列, 公司, 账号, 分类, 车牌, 车架, 金额, 实收金额, 应收月份, 开始日期, 结束日期, 赠送天数, 备注, create_time FROM \`pt_cw_zjmxbsk\` WHERE user_id=${userId}`;
+    sql = utils.setLike(sql, '系列', series);
+    sql = utils.setLike(sql, '公司', company);
+    sql = utils.setLike(sql, '账号', account);
+    sql += ' ORDER BY id DESC LIMIT 2000';
+    const { result } = await pools({ sql, res, req });
+    res.send(utils.returnData({ data: result }));
+  } catch (error) {
+    console.error('getReceivableList error:', error);
+    res.send(utils.returnData({ code: -1, msg: '获取应收列表失败', err: error?.message }));
+  }
+});
+
 // 出纳表 - 新增单条记录
 router.post("/addSettlementData", async (req, res) => {
   console.log(req.body);
