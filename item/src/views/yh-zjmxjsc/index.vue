@@ -1,5 +1,5 @@
 <template>
-  <div class="cash-cockpit">
+  <div class="cash-cockpit" :class="{ dark: isDark }" v-loading="isLoadingOverview">
     <div class="cockpit-header">
       <h2>资金明细驾驶舱</h2>
       <div class="filters">
@@ -31,6 +31,8 @@
           style="width: 320px; margin-right: 12px;"
         />
         <el-button type="primary" @click="loadOverview">查询</el-button>
+        <el-divider direction="vertical" style="margin: 0 12px" />
+        <el-switch v-model="isDark" inline-prompt active-text="深色" inactive-text="浅色" />
       </div>
     </div>
 
@@ -54,6 +56,38 @@
               {{ b.bank }}（{{ formatPercent(b.ratio) }}）
             </span>
           </div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <!-- 洞察指标扩展 -->
+    <el-row :gutter="16" class="insight-cards">
+      <el-col :span="6">
+        <div class="card">
+          <div class="card-title">应收回款率</div>
+          <div class="card-value">{{ formatPercent(insights.receivableRate) }}</div>
+          <div class="card-sub">近筛选范围内（按月汇总）</div>
+        </div>
+      </el-col>
+      <el-col :span="6">
+        <div class="card">
+          <div class="card-title">应付付款率</div>
+          <div class="card-value">{{ formatPercent(insights.payableRate) }}</div>
+          <div class="card-sub">近筛选范围内（按月汇总）</div>
+        </div>
+      </el-col>
+      <el-col :span="6">
+        <div class="card">
+          <div class="card-title">银行集中度（HHI）</div>
+          <div class="card-value">{{ insights.bankHHI?.toFixed(3) || '-' }}</div>
+          <div class="card-sub">越接近1表示越集中</div>
+        </div>
+      </el-col>
+      <el-col :span="6">
+        <div class="card">
+          <div class="card-title">净额波动系数（CV）</div>
+          <div class="card-value">{{ insights.volatilityCV?.toFixed(3) || '-' }}</div>
+          <div class="card-sub">近{{ dailyTrend.length }}天（标准差/均值）</div>
         </div>
       </el-col>
     </el-row>
@@ -85,10 +119,10 @@
         </div>
       </el-col>
     </el-row>
-    <div class="table-card" style="display: flex;margin-bottom: 20px;"> 
+    <div class="table-card aggregates-row">
         <!-- 各公司当日汇总（收入/支出/余额） -->
       <div class="table-card" v-if="todayCompanyAggregates.length">
-        <div class="chart-title">各公司当日汇总</div>
+        <div class="chart-title">各公司{{ selectedDay ? '选定日' : '当日' }}汇总{{ selectedDay ? `（${selectedDay}）` : '' }}</div>
         <el-table :data="todayCompanyAggregates" border size="small" style="width: 100%">
           <el-table-column prop="company" label="公司" width="280" />
           <el-table-column prop="income" label="当日收入" width="160">
@@ -105,7 +139,7 @@
       </div>
       <!-- 各银行当日汇总（收入/支出/余额） -->
       <div class="table-card" v-if="todayBankAggregates.length" style="margin-left: 20px;">
-        <div class="chart-title">各银行当日汇总</div>
+        <div class="chart-title">各银行{{ selectedDay ? '选定日' : '当日' }}汇总{{ selectedDay ? `（${selectedDay}）` : '' }}</div>
         <el-table :data="todayBankAggregates" border size="small" style="width: 100%">
           <el-table-column prop="bank" label="银行" width="380" />
           <el-table-column prop="income" label="当日收入" width="160">
@@ -287,6 +321,9 @@ import * as echarts from 'echarts';
 import { ElMessage } from 'element-plus';
 import { getCashOverview, getCompanyList, getCashRecords, getSeriesList, getReceivableList, getPayableList } from '@/api/system';
 
+// 页面外观
+const isDark = ref(false);
+
 const dateRange = ref([]);
 const selectedCompany = ref('');
 const selectedSeries = ref('');
@@ -330,6 +367,14 @@ const todayBankAggregates = ref([]);
 const totalIncome = ref(0);
 const totalExpense = ref(0);
 const totalNet = ref(0);
+
+// 扩展洞察指标
+const insights = ref({
+  receivableRate: null,  // 实收/应收总额
+  payableRate: null,     // 实付/应付总额
+  bankHHI: null,         // 银行集中度（赫芬达尔-赫希曼指数）
+  volatilityCV: null     // 近N天净额波动系数（标准差/均值）
+});
 
 // 按月汇总的应收/应付数据
 const receivableMonthly = ref({ months: [], received: [], unreceived: [] });
@@ -405,6 +450,9 @@ async function loadOverview() {
     await loadPayableCompanyAgg();
     await nextTick();
     initPayableCompanyChart();
+
+    // 计算扩展洞察
+    computeInsights();
   } catch (err) {
     console.error(err);
     ElMessage.error('加载驾驶舱数据失败');
@@ -442,6 +490,9 @@ async function loadDayDetails(day) {
     if (selectedSeries.value) params.series = selectedSeries.value;
     const res = await getCashRecords(params);
     selectedDayDetails.value = res?.data || [];
+    // 选定日联动汇总表
+    computeTodayCompanyAggregates();
+    computeTodayBankAggregates();
   } catch (e) {
     console.error(e);
     ElMessage.error('加载选定日明细失败');
@@ -458,8 +509,8 @@ function computeTodayCompanyAggregates() {
   const incomeMap = new Map(); // company -> income
   const expenseMap = new Map(); // company -> expense
   const lastBankBalanceMap = new Map(); // company -> Map(bank -> last balance)
-
-  for (const r of (todayDetails.value || [])) {
+  const src = (selectedDay.value && (selectedDayDetails.value || []).length) ? selectedDayDetails.value : todayDetails.value;
+  for (const r of (src || [])) {
     const company = r.company || '未知公司';
     const bank = r.bank || '未知银行';
     incomeMap.set(company, (incomeMap.get(company) || 0) + Number(r.income || 0));
@@ -499,8 +550,8 @@ function computeTodayBankAggregates() {
   const incomeMap = new Map(); // bank -> income
   const expenseMap = new Map(); // bank -> expense
   const lastBalanceMap = new Map(); // bank -> last balance (若后端未提供聚合余额)
-
-  for (const r of (todayDetails.value || [])) {
+  const src = (selectedDay.value && (selectedDayDetails.value || []).length) ? selectedDayDetails.value : todayDetails.value;
+  for (const r of (src || [])) {
     const bank = r.bank || '未知银行';
     incomeMap.set(bank, (incomeMap.get(bank) || 0) + Number(r.income || 0));
     expenseMap.set(bank, (expenseMap.get(bank) || 0) + Number(r.expense || 0));
@@ -898,7 +949,7 @@ async function initOverviewDefaultRange() {
     const data = res?.data || {};
     companyFunds.value = data.companyFunds || [];
     bankBalances.value = data.bankBalances || [];
-    dailyTrend.value = data.dailyTrend || [];
+  dailyTrend.value = data.dailyTrend || [];
     todaySummary.value = data.todaySummary || { income: 0, expense: 0, net: 0 };
     todayDetails.value = data.todayDetails || [];
     topSummaries.value = data.topSummaries || [];
@@ -916,7 +967,7 @@ async function initOverviewDefaultRange() {
     // 汇总顶部指标
     totalIncome.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalIncome || 0), 0);
     totalExpense.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalExpense || 0), 0);
-    totalNet.value = totalIncome.value - totalExpense.value;
+  totalNet.value = totalIncome.value - totalExpense.value;
 
     await nextTick();
     initCompanyChart();
@@ -924,13 +975,16 @@ async function initOverviewDefaultRange() {
     initDailyChart();
     initCompanyPieChart();
     initBankPieChart();
-    initTopSummaryChart();
+  initTopSummaryChart();
 
 
 
 
     // 用默认范围再次加载，确保图表与筛选一致
     await loadOverview();
+
+    // 初始也计算一次洞察
+    computeInsights();
 
 
   } catch (err) {
@@ -999,6 +1053,58 @@ function initDailyChart() {
       { name: '实时累计余额', type: 'line', smooth: true, data: balances, itemStyle: { color: '#5470c6' } }
     ]
   });
+
+  // 点击主图联动选定日明细与汇总
+  try {
+    chart.off('click');
+  } catch (_) {}
+  chart.on('click', (params) => {
+    const date = params?.name;
+    if (date) {
+      loadDayDetails(date);
+    }
+  });
+}
+
+// 计算扩展洞察指标
+function computeInsights() {
+  // 银行集中度（HHI）
+  const bankVals = (bankBalances.value || []).map(i => Number(i.balance || 0)).filter(v => v > 0);
+  const bankSum = bankVals.reduce((s, v) => s + v, 0);
+  if (bankSum > 0 && bankVals.length) {
+    const shares = bankVals.map(v => v / bankSum);
+    insights.value.bankHHI = shares.reduce((s, q) => s + q * q, 0);
+  } else {
+    insights.value.bankHHI = null;
+  }
+
+  // 净额波动系数（近N天）
+  const nets = (dailyTrend.value || []).map(i => Number(i.income || 0) - Number(i.expense || 0));
+  if (nets.length) {
+    const mean = nets.reduce((s, v) => s + v, 0) / nets.length;
+    const variance = nets.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / nets.length;
+    const std = Math.sqrt(variance);
+    insights.value.volatilityCV = mean !== 0 ? (std / Math.abs(mean)) : std;
+  } else {
+    insights.value.volatilityCV = null;
+  }
+
+  // 应收/应付的完成率（按月聚合）
+  const recTotal = (receivableMonthly.value.months || []).reduce((sum, _, i) => {
+    const r = Number(receivableMonthly.value.received[i] || 0);
+    const u = Number(receivableMonthly.value.unreceived[i] || 0);
+    return sum + r + u;
+  }, 0);
+  const recActual = (receivableMonthly.value.received || []).reduce((s, v) => s + Number(v || 0), 0);
+  insights.value.receivableRate = recTotal > 0 ? (recActual / recTotal) : null;
+
+  const payTotal = (payableMonthly.value.months || []).reduce((sum, _, i) => {
+    const p = Number(payableMonthly.value.paid[i] || 0);
+    const u = Number(payableMonthly.value.unpaid[i] || 0);
+    return sum + p + u;
+  }, 0);
+  const payActual = (payableMonthly.value.paid || []).reduce((s, v) => s + Number(v || 0), 0);
+  insights.value.payableRate = payTotal > 0 ? (payActual / payTotal) : null;
 }
 
 function initCompanyPieChart() {
@@ -1139,6 +1245,39 @@ onMounted(() => {
 <style scoped>
 .cash-cockpit {
   padding: 16px;
+  /* 主题变量 */
+  --bg: #f5f7fa;
+  --text: #333;
+  --muted: #888;
+  --card-bg: #fff;
+  --shadow: 0 2px 10px rgba(0,0,0,0.06);
+  --primary-from: #667eea;
+  --primary-to: #764ba2;
+  --border-color: rgba(0,0,0,0.08);
+  /* 映射到 Element Plus 的 CSS 变量，确保 el-table 跟随主题 */
+  --el-bg-color: var(--bg);
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: var(--muted);
+  --el-color-primary: var(--primary-from);
+  --el-border-color: var(--border-color);
+  --el-table-bg-color: var(--card-bg);
+  --el-table-header-bg-color: var(--card-bg);
+  --el-table-header-text-color: var(--text);
+  --el-table-border-color: var(--border-color);
+  --el-table-row-hover-bg-color: rgba(0,0,0,0.03);
+  background-color: var(--bg);
+  color: var(--text);
+}
+.cash-cockpit.dark {
+  --bg: #0f172a;
+  --text: #e5e7eb;
+  --muted: #9aa0a6;
+  --card-bg: #111827;
+  --shadow: 0 2px 10px rgba(0,0,0,0.4);
+  --primary-from: #3b82f6;
+  --primary-to: #7c3aed;
+  --border-color: #1f2937;
+  --el-table-row-hover-bg-color: rgba(255,255,255,0.04);
 }
 .cockpit-header {
   display: flex;
@@ -1148,14 +1287,14 @@ onMounted(() => {
 }
 .filters { display: flex; align-items: center; }
 .top-cards .card {
-  background: #fff;
+  background: var(--card-bg);
   border-radius: 10px;
   padding: 16px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow);
 }
-.top-cards .card .card-title { color: #888; font-size: 14px; }
+.top-cards .card .card-title { color: var(--muted); font-size: 14px; }
 .top-cards .card .card-value { font-size: 22px; font-weight: 600; }
-.top-cards .card.highlight { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; }
+.top-cards .card.highlight { background: linear-gradient(135deg, var(--primary-from) 0%, var(--primary-to) 100%); color: #fff; }
 .top-cards .card .income { color: #3ba272; }
 .top-cards .card .expense { color: #ee6666; }
 .top-cards .card.warn { border: 1px solid #ee6666; box-shadow: 0 0 0 2px rgba(238,102,102,0.15); }
@@ -1163,12 +1302,78 @@ onMounted(() => {
 .top-cards .card-list { margin-top: 6px; }
 .tag { display: inline-block; background: #f2f3f5; color: #555; padding: 2px 6px; border-radius: 6px; margin-right: 6px; font-size: 12px; }
 
-.chart-card { background: #fff; border-radius: 10px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+.chart-card { background: var(--card-bg); border-radius: 10px; padding: 12px; box-shadow: var(--shadow); }
 .chart-title { font-weight: 600; margin-bottom: 8px; }
 .chart { width: 100%; height: 320px; }
 .chart.large { height: 380px; }
 
 .charts-row + .charts-row { margin-top: 12px; }
 
-.table-card { background: #fff; border-radius: 10px; padding: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-top: 12px; }
+.table-card { background: var(--card-bg); border-radius: 10px; padding: 12px; box-shadow: var(--shadow); margin-top: 12px; }
+
+/* 让 Element Plus 表格跟随主题变量 */
+.cash-cockpit :deep(.el-table) {
+  /* 将 EP 变量直接作用在表格根，避免作用域穿透问题 */
+  --el-bg-color: var(--bg);
+  --el-text-color-primary: var(--text);
+  --el-text-color-regular: var(--muted);
+  --el-table-bg-color: var(--card-bg);
+  --el-table-header-bg-color: var(--card-bg);
+  --el-table-header-text-color: var(--text);
+  --el-table-border-color: var(--border-color);
+  background-color: var(--el-table-bg-color);
+  color: var(--el-text-color-primary);
+}
+.cash-cockpit :deep(.el-table__header),
+.cash-cockpit :deep(.el-table__footer) {
+  background-color: var(--el-table-header-bg-color) !important;
+  color: var(--el-table-header-text-color) !important;
+}
+.cash-cockpit :deep(.el-table__header th),
+.cash-cockpit :deep(.el-table__header .cell) {
+  background-color: var(--el-table-header-bg-color) !important;
+  color: var(--el-table-header-text-color) !important;
+}
+.cash-cockpit :deep(.el-table__header-wrapper) {
+  background-color: var(--el-table-header-bg-color) !important;
+}
+.cash-cockpit :deep(.el-table__body-wrapper) {
+  background-color: var(--el-table-bg-color) !important;
+}
+.cash-cockpit :deep(.el-table__cell) {
+  background-color: var(--el-table-bg-color);
+  color: var(--el-text-color-primary);
+}
+.cash-cockpit :deep(.el-table__body .cell) {
+  color: var(--el-text-color-primary);
+}
+.cash-cockpit :deep(.el-table__body tr:hover>td) {
+  background-color: var(--el-table-row-hover-bg-color) !important;
+}
+.cash-cockpit :deep(.el-table td),
+.cash-cockpit :deep(.el-table th) {
+  border-color: var(--el-table-border-color) !important;
+}
+.cash-cockpit :deep(.el-table .el-table__empty-block) {
+  background-color: var(--el-table-bg-color);
+  color: var(--el-text-color-regular);
+}
+/* striped 行支持 */
+.cash-cockpit :deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: var(--el-table-striped-bg, var(--el-table-bg-color));
+}
+
+/* 洞察卡片与汇总表格的布局优化 */
+.insight-cards .card { background: var(--card-bg); border-radius: 10px; padding: 16px; box-shadow: var(--shadow); }
+.aggregates-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+.aggregates-row > .table-card { flex: 1 1 500px; min-width: 420px; }
+
+@media (max-width: 1024px) {
+  .chart { height: 280px; }
+  .chart.large { height: 320px; }
+}
+@media (max-width: 768px) {
+  .cockpit-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .filters { flex-wrap: wrap; gap: 8px; }
+}
 </style>
