@@ -814,6 +814,8 @@ function initTableFromObjects(objArray) {
 
   // 复制数据并添加序号列，同时转换Excel日期格式
   const keys = Object.keys(objArray[0]);
+  // 根据分页计算全局序号起始值
+  const baseIndex = serverPaging.value ? (currentPage.value - 1) * pageSize.value : 0;
   
   // 识别日期列
   const dateColumns = new Set();
@@ -853,7 +855,7 @@ function initTableFromObjects(objArray) {
   
   // 复制数据并转换日期
   tableData.value = JSON.parse(JSON.stringify(objArray)).map((row, index) => {
-    const processedRow = { ...row, '序号': index + 1 };
+    const processedRow = { ...row, '序号': baseIndex + index + 1 };
     
     // 转换日期列中的Excel数字格式
     dateColumns.forEach(col => {
@@ -1356,8 +1358,9 @@ async function addRow() {
 
 // 更新所有行的序号
 function updateRowNumbers() {
+  const baseIndex = serverPaging.value ? (currentPage.value - 1) * pageSize.value : 0;
   tableData.value.forEach((row, index) => {
-    row['序号'] = index + 1;
+    row['序号'] = baseIndex + index + 1;
   });
 }
 function addColumn() {
