@@ -169,6 +169,42 @@
       </el-col>
     </el-row>
 
+    <!-- 应收/应付（按月） -->
+    <el-row :gutter="16" class="charts-row">
+      <el-col :span="12">
+        <div class="chart-card">
+          <div class="chart-title">应收/实收（按月）</div>
+          <div ref="receivableChartRef" class="chart"></div>
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="chart-card">
+          <div class="chart-title">应付/实付（按月）</div>
+          <div ref="payableChartRef" class="chart"></div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <!-- 应收/实收（公司维度） -->
+    <el-row :gutter="16" class="charts-row">
+      <el-col :span="24">
+        <div class="chart-card">
+          <div class="chart-title">应收/实收（公司维度）</div>
+          <div ref="receivableCompanyChartRef" class="chart large"></div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <!-- 应付/实付（公司维度） -->
+    <el-row :gutter="16" class="charts-row">
+      <el-col :span="24">
+        <div class="chart-card">
+          <div class="chart-title">应付/实付（公司维度）</div>
+          <div ref="payableCompanyChartRef" class="chart large"></div>
+        </div>
+      </el-col>
+    </el-row>
+
     <!-- 每天收入支出趋势 -->
     <el-row :gutter="16" class="charts-row">
       <el-col :span="24">
@@ -249,7 +285,7 @@
 import { ref, onMounted, nextTick } from 'vue';
 import * as echarts from 'echarts';
 import { ElMessage } from 'element-plus';
-import { getCashOverview, getCompanyList, getCashRecords, getSeriesList } from '@/api/system';
+import { getCashOverview, getCompanyList, getCashRecords, getSeriesList, getReceivableList, getPayableList } from '@/api/system';
 
 const dateRange = ref([]);
 const selectedCompany = ref('');
@@ -262,6 +298,10 @@ const dailyChartRef = ref(null);
 const companyPieChartRef = ref(null);
 const bankPieChartRef = ref(null);
 const topSummaryChartRef = ref(null);
+const receivableChartRef = ref(null);
+const payableChartRef = ref(null);
+const receivableCompanyChartRef = ref(null);
+const payableCompanyChartRef = ref(null);
 // 缓存图表实例，避免重复初始化
 const companyChart = ref(null);
 const bankChart = ref(null);
@@ -269,6 +309,10 @@ const dailyChart = ref(null);
 const companyPieChart = ref(null);
 const bankPieChart = ref(null);
 const topSummaryChart = ref(null);
+const receivableChart = ref(null);
+const payableChart = ref(null);
+const receivableCompanyChart = ref(null);
+const payableCompanyChart = ref(null);
 let resizeHandler = null;
 
 const companyFunds = ref([]);
@@ -286,6 +330,15 @@ const todayBankAggregates = ref([]);
 const totalIncome = ref(0);
 const totalExpense = ref(0);
 const totalNet = ref(0);
+
+// 按月汇总的应收/应付数据
+const receivableMonthly = ref({ months: [], received: [], unreceived: [] });
+const payableMonthly = ref({ months: [], paid: [], unpaid: [] });
+
+// 公司维度的应收/实收
+const receivableCompanyAgg = ref({ names: [], received: [], unreceived: [] });
+// 公司维度的应付/实付
+const payableCompanyAgg = ref({ names: [], paid: [], unpaid: [] });
 
 // 请求去重与并发保护
 const isLoadingOverview = ref(false);
@@ -308,7 +361,7 @@ async function loadOverview() {
     if (isLoadingOverview.value) return;
     isLoadingOverview.value = true;
     const payload = buildOverviewPayload();
-    const res = await getCashOverview({ data: payload });
+    const res = await getCashOverview(payload);
 
     const data = res?.data || {};
     companyFunds.value = data.companyFunds || [];
@@ -336,6 +389,22 @@ async function loadOverview() {
     initCompanyPieChart();
     initBankPieChart();
     initTopSummaryChart();
+
+    // 加载并绘制应收/应付（按月）柱状图
+    await loadReceivablePayableMonthly();
+    await nextTick();
+    initReceivableChart();
+    initPayableChart();
+
+    // 加载并绘制应收/实收（公司维度）柱状图
+    await loadReceivableCompanyAgg();
+    await nextTick();
+    initReceivableCompanyChart();
+
+    // 加载并绘制应付/实付（公司维度）柱状图
+    await loadPayableCompanyAgg();
+    await nextTick();
+    initPayableCompanyChart();
   } catch (err) {
     console.error(err);
     ElMessage.error('加载驾驶舱数据失败');
@@ -483,12 +552,349 @@ function initCompanyChart() {
   });
 }
 
+// 解析日期字符串为 YYYY-MM
+function parseMonth(str) {
+  if (!str) return '';
+  const s = String(str).trim();
+  if (/^\d{4}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 7);
+  return '';
+}
+
+// 判断某月是否处于筛选的日期范围内
+function isMonthInRange(month, range) {
+  if (!month) return false;
+  const [from, to] = range || [];
+  if (!from || !to) return true;
+  // 按“月份”维度比较范围：将日期范围规整为 YYYY-MM
+  const fromMonth = parseMonth(from);
+  const toMonth = parseMonth(to);
+  if (!fromMonth || !toMonth) return true;
+  const mDate = new Date(`${month}-01`);
+  const fromDate = new Date(`${fromMonth}-01`);
+  const toDate = new Date(`${toMonth}-01`);
+  return mDate >= fromDate && mDate <= toDate;
+}
+
+async function loadReceivablePayableMonthly() {
+  try {
+    const params = {};
+    if (selectedCompany.value) params.company = selectedCompany.value;
+    if (selectedSeries.value) params.series = selectedSeries.value;
+
+    // 获取应收列表
+    const recRes = await getReceivableList(params);
+    const recList = recRes?.data || [];
+    const recAmtByMonth = new Map(); // 应收金额
+    const recActByMonth = new Map(); // 实收金额
+    for (const r of recList) {
+      const month = parseMonth(r['应收月份'] || r['开始日期'] || r['结束日期'] || r['create_time']);
+      if (!month) continue;
+      if (!isMonthInRange(month, dateRange.value)) continue;
+      const amt = Number(r['金额'] || 0);
+      const act = Number(r['实收金额'] || 0);
+      recAmtByMonth.set(month, (recAmtByMonth.get(month) || 0) + amt);
+      recActByMonth.set(month, (recActByMonth.get(month) || 0) + act);
+    }
+    const recMonths = Array.from(new Set([...recAmtByMonth.keys(), ...recActByMonth.keys()])).sort();
+    const recReceived = recMonths.map(m => Number(recActByMonth.get(m) || 0));
+    const recUnreceived = recMonths.map((m, i) => {
+      const amt = Number(recAmtByMonth.get(m) || 0);
+      const act = recReceived[i];
+      return Math.max(0, amt - act);
+    });
+    receivableMonthly.value = { months: recMonths, received: recReceived, unreceived: recUnreceived };
+
+    // 获取应付列表
+    const payRes = await getPayableList(params);
+    const payList = payRes?.data || [];
+    const payAmtByMonth = new Map(); // 应付金额
+    const payActByMonth = new Map(); // 实付金额
+    for (const p of payList) {
+      const month = parseMonth(p['还款日期'] || p['create_time']);
+      if (!month) continue;
+      if (!isMonthInRange(month, dateRange.value)) continue;
+      const amt = Number(p['金额'] || 0);
+      const act = Number(p['实付金额'] || 0);
+      payAmtByMonth.set(month, (payAmtByMonth.get(month) || 0) + amt);
+      payActByMonth.set(month, (payActByMonth.get(month) || 0) + act);
+    }
+    const payMonths = Array.from(new Set([...payAmtByMonth.keys(), ...payActByMonth.keys()])).sort();
+    const payPaid = payMonths.map(m => Number(payActByMonth.get(m) || 0));
+    const payUnpaid = payMonths.map((m, i) => {
+      const amt = Number(payAmtByMonth.get(m) || 0);
+      const act = payPaid[i];
+      return Math.max(0, amt - act);
+    });
+    payableMonthly.value = { months: payMonths, paid: payPaid, unpaid: payUnpaid };
+  } catch (e) {
+    console.error('加载应收/应付数据失败', e);
+    receivableMonthly.value = { months: [], received: [], unreceived: [] };
+    payableMonthly.value = { months: [], paid: [], unpaid: [] };
+  }
+}
+
+// 应收/实收（公司维度）聚合
+async function loadReceivableCompanyAgg() {
+  try {
+    const params = {};
+    // 保持与页面筛选一致：按系列/公司过滤
+    if (selectedCompany.value) params.company = selectedCompany.value;
+    if (selectedSeries.value) params.series = selectedSeries.value;
+    const recRes = await getReceivableList(params);
+    const recList = recRes?.data || [];
+    // 公司 -> { amt, act }
+    const map = new Map();
+    for (const r of recList) {
+      const company = r['公司'] || r.company || '未知公司';
+      const month = parseMonth(r['应收月份'] || r['开始日期'] || r['结束日期'] || r['create_time']);
+      if (month && !isMonthInRange(month, dateRange.value)) continue; // 日期范围过滤
+      const amt = Number(r['金额'] || 0);
+      const act = Number(r['实收金额'] || 0);
+      const cur = map.get(company) || { amt: 0, act: 0 };
+      cur.amt += amt;
+      cur.act += act;
+      map.set(company, cur);
+    }
+    // 排序：按应收总额降序
+    const rows = Array.from(map.entries()).map(([name, v]) => ({ name, amt: v.amt, act: v.act }));
+    rows.sort((a, b) => b.amt - a.amt);
+    const names = rows.map(r => r.name);
+    const received = rows.map(r => Number(r.act || 0));
+    const unreceived = rows.map((r, i) => Math.max(0, Number(r.amt || 0) - received[i]));
+    receivableCompanyAgg.value = { names, received, unreceived };
+  } catch (e) {
+    console.error('加载公司维度应收/实收失败', e);
+    receivableCompanyAgg.value = { names: [], received: [], unreceived: [] };
+  }
+}
+
+function initReceivableCompanyChart() {
+  const el = receivableCompanyChartRef.value;
+  if (!el) return;
+  const chart = getOrInitChart(el);
+  receivableCompanyChart.value = chart;
+  const names = receivableCompanyAgg.value.names;
+  const received = receivableCompanyAgg.value.received;
+  const unreceived = receivableCompanyAgg.value.unreceived;
+  const totals = received.map((v, i) => v + (unreceived[i] || 0));
+  chart.clear();
+  chart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params) => {
+        const actual = params.find(p => p.seriesName === '实收');
+        const total = params.find(p => p.seriesName === '应收总额');
+        const sActual = actual ? formatMoney(actual.value) : '0.00';
+        const sTotal = total ? formatMoney(total.value) : '0.00';
+        const sPending = (actual && total) ? formatMoney(Number(total.value) - Number(actual.value)) : '0.00';
+        return `${params[0].axisValue}<br/>总应收：${sTotal}<br/>实收：${sActual}<br/>未收：${sPending}`;
+      }
+    },
+    legend: { data: ['应收总额', '实收'] },
+    xAxis: { type: 'category', data: names },
+    yAxis: { type: 'value' },
+    series: [
+      {
+        name: '应收总额',
+        type: 'bar',
+        data: totals,
+        itemStyle: { color: 'rgba(46, 204, 113, 0.25)' },
+        barWidth: 'auto'
+      },
+      {
+        name: '实收',
+        type: 'bar',
+        data: received,
+        itemStyle: { color: '#2ecc71' },
+        barWidth: 'auto',
+        barGap: '-100%',
+        label: { show: true, position: 'top', formatter: (p) => formatMoney(p.value) }
+      }
+    ]
+  });
+}
+
+function initReceivableChart() {
+  const el = receivableChartRef.value;
+  if (!el) return;
+  const chart = getOrInitChart(el);
+  receivableChart.value = chart;
+  const months = receivableMonthly.value.months;
+  const received = receivableMonthly.value.received;
+  const unreceived = receivableMonthly.value.unreceived;
+  const totals = received.map((v, i) => v + (unreceived[i] || 0));
+  chart.clear();
+  chart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params) => {
+        const actual = params.find(p => p.seriesName === '实收');
+        const total = params.find(p => p.seriesName === '应收总额');
+        const sActual = actual ? formatMoney(actual.value) : '0.00';
+        const sTotal = total ? formatMoney(total.value) : '0.00';
+        const sPending = (actual && total) ? formatMoney(Number(total.value) - Number(actual.value)) : '0.00';
+        return `${params[0].axisValue}<br/>总应收：${sTotal}<br/>实收：${sActual}<br/>未收：${sPending}`;
+      }
+    },
+    legend: { data: ['应收总额', '实收'] },
+    xAxis: { type: 'category', data: months },
+    yAxis: { type: 'value' },
+    series: [
+      {
+        name: '应收总额',
+        type: 'bar',
+        data: totals,
+        itemStyle: { color: 'rgba(46, 204, 113, 0.25)' },
+        barWidth: 'auto'
+      },
+      {
+        name: '实收',
+        type: 'bar',
+        data: received,
+        itemStyle: { color: '#2ecc71' },
+        barWidth: 'auto',
+        barGap: '-100%',
+        label: { show: true, position: 'top', formatter: (p) => formatMoney(p.value) }
+      }
+    ]
+  });
+}
+
+function initPayableChart() {
+  const el = payableChartRef.value;
+  if (!el) return;
+  const chart = getOrInitChart(el);
+  payableChart.value = chart;
+  const months = payableMonthly.value.months;
+  const paid = payableMonthly.value.paid;
+  const unpaid = payableMonthly.value.unpaid;
+  const totals = paid.map((v, i) => v + (unpaid[i] || 0));
+  chart.clear();
+  chart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params) => {
+        const actual = params.find(p => p.seriesName === '实付');
+        const total = params.find(p => p.seriesName === '应付总额');
+        const sActual = actual ? formatMoney(actual.value) : '0.00';
+        const sTotal = total ? formatMoney(total.value) : '0.00';
+        const sPending = (actual && total) ? formatMoney(Number(total.value) - Number(actual.value)) : '0.00';
+        return `${params[0].axisValue}<br/>总应付：${sTotal}<br/>实付：${sActual}<br/>未付：${sPending}`;
+      }
+    },
+    legend: { data: ['应付总额', '实付'] },
+    xAxis: { type: 'category', data: months },
+    yAxis: { type: 'value' },
+    series: [
+      {
+        name: '应付总额',
+        type: 'bar',
+        data: totals,
+        itemStyle: { color: 'rgba(231, 76, 60, 0.25)' },
+        barWidth: 'auto'
+      },
+      {
+        name: '实付',
+        type: 'bar',
+        data: paid,
+        itemStyle: { color: '#e74c3c' },
+        barWidth: 'auto',
+        barGap: '-100%',
+        label: { show: true, position: 'top', formatter: (p) => formatMoney(p.value) }
+      }
+    ]
+  });
+}
+
+// 应付/实付（公司维度）聚合
+async function loadPayableCompanyAgg() {
+  try {
+    const params = {};
+    if (selectedCompany.value) params.company = selectedCompany.value;
+    if (selectedSeries.value) params.series = selectedSeries.value;
+    const payRes = await getPayableList(params);
+    const payList = payRes?.data || [];
+    const map = new Map(); // 公司 -> { amt, act }
+    for (const p of payList) {
+      const company = p['公司'] || p.company || '未知公司';
+      const month = parseMonth(p['还款日期'] || p['create_time']);
+      if (month && !isMonthInRange(month, dateRange.value)) continue;
+      const amt = Number(p['金额'] || 0);
+      const act = Number(p['实付金额'] || 0);
+      const cur = map.get(company) || { amt: 0, act: 0 };
+      cur.amt += amt;
+      cur.act += act;
+      map.set(company, cur);
+    }
+    const rows = Array.from(map.entries()).map(([name, v]) => ({ name, amt: v.amt, act: v.act }));
+    rows.sort((a, b) => b.amt - a.amt);
+    const names = rows.map(r => r.name);
+    const paid = rows.map(r => Number(r.act || 0));
+    const unpaid = rows.map((r, i) => Math.max(0, Number(r.amt || 0) - paid[i]));
+    payableCompanyAgg.value = { names, paid, unpaid };
+  } catch (e) {
+    console.error('加载公司维度应付/实付失败', e);
+    payableCompanyAgg.value = { names: [], paid: [], unpaid: [] };
+  }
+}
+
+function initPayableCompanyChart() {
+  const el = payableCompanyChartRef.value;
+  if (!el) return;
+  const chart = getOrInitChart(el);
+  payableCompanyChart.value = chart;
+  const names = payableCompanyAgg.value.names;
+  const paid = payableCompanyAgg.value.paid;
+  const unpaid = payableCompanyAgg.value.unpaid;
+  const totals = paid.map((v, i) => v + (unpaid[i] || 0));
+  chart.clear();
+  chart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params) => {
+        const actual = params.find(p => p.seriesName === '实付');
+        const total = params.find(p => p.seriesName === '应付总额');
+        const sActual = actual ? formatMoney(actual.value) : '0.00';
+        const sTotal = total ? formatMoney(total.value) : '0.00';
+        const sPending = (actual && total) ? formatMoney(Number(total.value) - Number(actual.value)) : '0.00';
+        return `${params[0].axisValue}<br/>总应付：${sTotal}<br/>实付：${sActual}<br/>未付：${sPending}`;
+      }
+    },
+    legend: { data: ['应付总额', '实付'] },
+    xAxis: { type: 'category', data: names },
+    yAxis: { type: 'value' },
+    series: [
+      {
+        name: '应付总额',
+        type: 'bar',
+        data: totals,
+        itemStyle: { color: 'rgba(231, 76, 60, 0.25)' },
+        barWidth: 'auto'
+      },
+      {
+        name: '实付',
+        type: 'bar',
+        data: paid,
+        itemStyle: { color: '#e74c3c' },
+        barWidth: 'auto',
+        barGap: '-100%',
+        label: { show: true, position: 'top', formatter: (p) => formatMoney(p.value) }
+      }
+    ]
+  });
+}
+
 // 首次加载：不带日期过滤获取最小日期，设置默认范围为[最早日期, 今天]，然后按该范围再次加载概览
 async function initOverviewDefaultRange() {
   try {
     // 使用全量数据获取最早日期，不受公司/系列筛选影响
     const initPayload = {};
-    const res = await getCashOverview({ data: initPayload });
+    const res = await getCashOverview(initPayload);
     const data = res?.data || {};
     companyFunds.value = data.companyFunds || [];
     bankBalances.value = data.bankBalances || [];
@@ -524,7 +930,7 @@ async function initOverviewDefaultRange() {
 
 
     // 用默认范围再次加载，确保图表与筛选一致
-    // await loadOverview();
+    await loadOverview();
 
 
   } catch (err) {
@@ -720,6 +1126,10 @@ onMounted(() => {
       companyPieChart.value && companyPieChart.value.resize();
       bankPieChart.value && bankPieChart.value.resize();
       topSummaryChart.value && topSummaryChart.value.resize();
+      receivableChart.value && receivableChart.value.resize();
+      payableChart.value && payableChart.value.resize();
+      receivableCompanyChart.value && receivableCompanyChart.value.resize();
+      payableCompanyChart.value && payableCompanyChart.value.resize();
     };
     window.addEventListener('resize', resizeHandler);
   }
