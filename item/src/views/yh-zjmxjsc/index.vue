@@ -1265,6 +1265,14 @@ onMounted(() => {
   --el-table-header-text-color: var(--text);
   --el-table-border-color: var(--border-color);
   --el-table-row-hover-bg-color: rgba(0,0,0,0.03);
+  /* 输入与选择组件变量映射，确保背景与文字跟随主题 */
+  --el-input-bg-color: var(--card-bg);
+  --el-select-bg-color: var(--card-bg);
+  --el-fill-color: var(--card-bg);
+  --el-input-border-color: var(--border-color);
+  --el-input-text-color: var(--text);
+  --el-input-hover-border-color: var(--border-color);
+  --el-input-focus-border-color: var(--border-color);
   background-color: var(--bg);
   color: var(--text);
 }
@@ -1363,6 +1371,77 @@ onMounted(() => {
   background-color: var(--el-table-striped-bg, var(--el-table-bg-color));
 }
 
+/* 顶部过滤控件主题适配 */
+.cash-cockpit :deep(.filters .el-input__wrapper),
+.cash-cockpit :deep(.filters .el-select__wrapper),
+.cash-cockpit :deep(.filters .el-date-editor .el-input__wrapper),
+.cash-cockpit :deep(.filters .el-range-editor .el-input__wrapper) {
+  background-color: var(--card-bg) !important;
+  color: var(--text) !important;
+  box-shadow: 0 0 0 1px var(--el-table-border-color) inset !important;
+}
+.cash-cockpit :deep(.filters .el-input__inner::placeholder) {
+  color: var(--muted) !important;
+}
+.cash-cockpit :deep(.filters .el-input__prefix),
+.cash-cockpit :deep(.filters .el-input__suffix) {
+  color: var(--muted) !important;
+}
+.cash-cockpit :deep(.filters .el-select .el-select__selection) {
+  color: var(--text) !important;
+}
+.cash-cockpit :deep(.filters .el-range-input) {
+  color: var(--text) !important;
+}
+.cash-cockpit :deep(.filters .el-range-separator) {
+  color: var(--muted) !important;
+}
+
+/* 弹层（下拉/日期面板）主题适配，通过 popper-class 定位 */
+.cockpit-popper {
+  background-color: var(--card-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--el-table-border-color) !important;
+}
+.cockpit-popper :deep(.el-select-dropdown__item) {
+  color: var(--text) !important;
+}
+.cockpit-popper :deep(.el-select-dropdown__item.is-hovering),
+.cockpit-popper :deep(.el-select-dropdown__item:hover) {
+  background-color: var(--el-table-row-hover-bg-color) !important;
+}
+.cockpit-popper :deep(.el-select-dropdown__item.selected) {
+  background-color: var(--el-table-row-hover-bg-color) !important;
+}
+.cockpit-popper :deep(.el-picker-panel),
+.cockpit-popper :deep(.el-picker-panel__content),
+.cockpit-popper :deep(.el-picker-panel__footer) {
+  background-color: var(--card-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--el-table-border-color) !important;
+}
+.cockpit-popper :deep(.el-date-picker__header),
+.cockpit-popper :deep(.el-date-picker__header-label) {
+  color: var(--text) !important;
+}
+.cockpit-popper :deep(.el-date-table td) {
+  color: var(--text) !important;
+}
+.cockpit-popper :deep(.el-date-table td .el-date-table-cell__text) {
+  color: var(--text) !important;
+}
+.cockpit-popper :deep(.el-date-table td.available:hover .el-date-table-cell__text) {
+  background-color: var(--el-table-row-hover-bg-color) !important;
+}
+.cockpit-popper :deep(.el-date-table td.current .el-date-table-cell__text),
+.cockpit-popper :deep(.el-date-table td.in-range .el-date-table-cell__text) {
+  background-color: var(--el-table-row-hover-bg-color) !important;
+}
+.cockpit-popper :deep(.el-time-panel) {
+  background-color: var(--card-bg) !important;
+  color: var(--text) !important;
+  border-color: var(--el-table-border-color) !important;
+}
 /* 洞察卡片与汇总表格的布局优化 */
 .insight-cards .card { background: var(--card-bg); border-radius: 10px; padding: 16px; box-shadow: var(--shadow); }
 .aggregates-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
