@@ -443,6 +443,36 @@ export function getReceivableList(params) {
   });
 }
 
+// 应付/应收 更新与删除
+export function updatePayable(params) {
+  return request({
+    url: "/system/updatePayable",
+    method: "post",
+    data: params
+  });
+}
+export function deletePayable(params) {
+  return request({
+    url: "/system/deletePayable",
+    method: "post",
+    data: params
+  });
+}
+export function updateReceivable(params) {
+  return request({
+    url: "/system/updateReceivable",
+    method: "post",
+    data: params
+  });
+}
+export function deleteReceivable(params) {
+  return request({
+    url: "/system/deleteReceivable",
+    method: "post",
+    data: params
+  });
+}
+
 // 获取百度 AI 访问令牌
 export function getAccessToken(params) {
   return request({

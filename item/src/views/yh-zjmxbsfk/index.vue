@@ -30,6 +30,11 @@
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="12" :md="8">
+              <el-form-item label="对方公司名字" prop="targetCompanyName">
+                <el-input v-model="payableForm.targetCompanyName" placeholder="请输入对方公司名字" clearable />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8">
               <el-form-item label="账号" prop="account">
                 <el-select v-model="payableForm.account" placeholder="请选择账号" filterable clearable :disabled="!payableForm.company">
                   <el-option v-for="opt in payableAccountOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
@@ -123,6 +128,7 @@
           <el-table :data="payableBatch" size="small" border height="360">
             <el-table-column prop="系列" label="系列" width="120" />
             <el-table-column prop="公司" label="公司" width="160" />
+            <el-table-column prop="对方公司名字" label="对方公司名字" width="160" />
             <el-table-column prop="账号" label="账号" width="160" />
             <el-table-column prop="分类" label="分类" width="120" />
             <el-table-column prop="车牌" label="车牌" width="120" />
@@ -142,27 +148,54 @@
         </div>
 
         <div class="list-section">
-          <div class="preview-title">应付记录列表（{{ Array.isArray(payableList) ? payableList.length : 0 }} 条）</div>
-          <el-table :data="payableList" size="small" border height="360">
-            <el-table-column prop="系列" label="系列" width="120" />
-            <el-table-column prop="公司" label="公司" width="160" />
-            <el-table-column prop="账号" label="账号" width="160" />
-            <el-table-column prop="分类" label="分类" width="120" />
-            <el-table-column prop="车牌" label="车牌" width="120" />
-            <el-table-column prop="车架号" label="车架号" width="160" />
-            <el-table-column prop="还款日期" label="还款日期" width="120" />
-            <el-table-column prop="金额" label="金额" width="120" />
-            <el-table-column prop="实付金额" label="实付金额" width="120" />
-            <el-table-column prop="商业保单号" label="商业保单号" width="160" />
-            <el-table-column prop="车损" label="车损" width="100" />
-            <el-table-column prop="三者" label="三者" width="100" />
-            <el-table-column prop="司机" label="司机" width="100" />
-            <el-table-column prop="乘客" label="乘客" width="100" />
-            <el-table-column prop="交强单号" label="交强单号" width="160" />
-            <el-table-column prop="交强金额" label="交强金额" width="120" />
-            <el-table-column prop="出单日期" label="出单日期" width="120" />
-            <el-table-column prop="备注" label="备注" />
-          </el-table>
+  <div class="preview-title">应付记录列表（{{ Array.isArray(payableList) ? payableList.length : 0 }} 条）</div>
+  <el-table :data="payableList" size="small" border height="360">
+  <el-table-column prop="系列" label="系列" width="120" />
+  <el-table-column prop="公司" label="公司" width="160" />
+  <el-table-column prop="对方公司名字" label="对方公司名字" width="160" />
+  <el-table-column prop="账号" label="账号" width="160" />
+  <el-table-column prop="分类" label="分类" width="120" />
+  <el-table-column prop="车牌" label="车牌" width="120" />
+  <el-table-column prop="车架号" label="车架号" width="160" />
+  <el-table-column prop="还款日期" label="还款日期" width="120" />
+  <el-table-column prop="金额" label="金额" width="120" />
+  <el-table-column prop="实付金额" label="实付金额" width="120" />
+  <el-table-column prop="商业保单号" label="商业保单号" width="160" />
+  <el-table-column prop="车损" label="车损" width="100" />
+  <el-table-column prop="三者" label="三者" width="100" />
+  <el-table-column prop="司机" label="司机" width="100" />
+  <el-table-column prop="乘客" label="乘客" width="100" />
+  <el-table-column prop="交强单号" label="交强单号" width="160" />
+  <el-table-column prop="交强金额" label="交强金额" width="120" />
+  <el-table-column prop="出单日期" label="出单日期" width="120" />
+  <el-table-column prop="备注" label="备注" />
+  <el-table-column label="操作" fixed="right" width="160">
+    <template #default="{ row }">
+      <el-button size="small" type="primary" @click="openEditPayable(row)">编辑</el-button>
+      <el-button size="small" type="danger" @click="confirmDeletePayable(row)">删除</el-button>
+    </template>
+  </el-table-column>
+  </el-table>
+  <!-- 编辑应付对话框 -->
+  <el-dialog v-model="editPayableVisible" title="编辑应付记录" width="560px">
+    <el-form :model="editPayableForm" label-width="90px">
+      <el-form-item label="金额"><el-input-number v-model="editPayableForm.amount" :min="0" :step="0.01" /></el-form-item>
+      <el-form-item label="实付金额"><el-input-number v-model="editPayableForm.actualPayAmount" :min="0" :step="0.01" /></el-form-item>
+      <el-form-item label="还款日期"><el-date-picker v-model="editPayableForm.repayDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
+      <el-form-item label="对方公司名字"><el-input v-model="editPayableForm.targetCompanyName" /></el-form-item>
+      <el-form-item label="分类"><el-input v-model="editPayableForm.category" /></el-form-item>
+      <el-form-item label="车牌"><el-input v-model="editPayableForm.plate" /></el-form-item>
+      <el-form-item label="车架号"><el-input v-model="editPayableForm.vin" /></el-form-item>
+      <el-form-item label="商业保单号"><el-input v-model="editPayableForm.policyCommercial" /></el-form-item>
+      <el-form-item label="交强单号"><el-input v-model="editPayableForm.policyMandatory" /></el-form-item>
+      <el-form-item label="交强金额"><el-input-number v-model="editPayableForm.mandatoryAmount" :min="0" :step="0.01" /></el-form-item>
+      <el-form-item label="备注"><el-input v-model="editPayableForm.remark" type="textarea" /></el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="editPayableVisible=false">取消</el-button>
+      <el-button type="primary" @click="submitEditPayable">保存</el-button>
+    </template>
+  </el-dialog>
         </div>
       </el-tab-pane>
 
@@ -196,6 +229,12 @@
                 <el-select v-model="receivableForm.account" placeholder="请选择账号" filterable clearable :disabled="!receivableForm.company">
                   <el-option v-for="opt in receivableAccountOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </el-select>
+              </el-form-item>
+            </el-col>
+
+            <el-col :xs="24" :sm="12" :md="8">
+              <el-form-item label="对方公司名字" prop="targetCompanyName">
+                <el-input v-model="receivableForm.targetCompanyName" placeholder="请输入对方公司名字" clearable />
               </el-form-item>
             </el-col>
 
@@ -287,22 +326,50 @@
         </div>
 
         <div class="list-section">
-          <div class="preview-title">应收记录列表（{{ Array.isArray(receivableList) ? receivableList.length : 0 }} 条）</div>
-          <el-table :data="receivableList" size="small" border height="360">
-            <el-table-column prop="系列" label="系列" width="120" />
-            <el-table-column prop="公司" label="公司" width="160" />
-            <el-table-column prop="账号" label="账号" width="160" />
-            <el-table-column prop="分类" label="分类" width="120" />
-            <el-table-column prop="车牌" label="车牌" width="120" />
-            <el-table-column prop="车架" label="车架" width="160" />
-            <el-table-column prop="金额" label="金额" width="120" />
-            <el-table-column prop="实收金额" label="实收金额" width="120" />
-            <el-table-column prop="应收月份" label="应收月份" width="120" />
-            <el-table-column prop="开始日期" label="开始日期" width="120" />
-            <el-table-column prop="结束日期" label="结束日期" width="120" />
-            <el-table-column prop="赠送天数" label="赠送天数" width="120" />
-            <el-table-column prop="备注" label="备注" />
-          </el-table>
+  <div class="preview-title">应收记录列表（{{ Array.isArray(receivableList) ? receivableList.length : 0 }} 条）</div>
+  <el-table :data="receivableList" size="small" border height="360">
+  <el-table-column prop="系列" label="系列" width="120" />
+  <el-table-column prop="公司" label="公司" width="160" />
+  <el-table-column prop="对方公司名字" label="对方公司名字" width="160" />
+  <el-table-column prop="账号" label="账号" width="160" />
+   
+  <el-table-column prop="分类" label="分类" width="120" />
+  <el-table-column prop="车牌" label="车牌" width="120" />
+  <el-table-column prop="车架" label="车架" width="160" />
+  <el-table-column prop="金额" label="金额" width="120" />
+  <el-table-column prop="实收金额" label="实收金额" width="120" />
+  <el-table-column prop="应收月份" label="应收月份" width="120" />
+  <el-table-column prop="开始日期" label="开始日期" width="120" />
+  <el-table-column prop="结束日期" label="结束日期" width="120" />
+  <el-table-column prop="续签日期" label="续签日期" width="120" />
+  <el-table-column prop="赠送天数" label="赠送天数" width="120" />
+  <el-table-column prop="备注" label="备注" />
+  <el-table-column label="操作" fixed="right" width="160">
+    <template #default="{ row }">
+      <el-button size="small" type="primary" @click="openEditReceivable(row)">编辑</el-button>
+      <el-button size="small" type="danger" @click="confirmDeleteReceivable(row)">删除</el-button>
+    </template>
+  </el-table-column>
+  </el-table>
+  <!-- 编辑应收对话框 -->
+  <el-dialog v-model="editReceivableVisible" title="编辑应收记录" width="560px">
+    <el-form :model="editReceivableForm" label-width="90px">
+      <el-form-item label="金额"><el-input-number v-model="editReceivableForm.amount" :min="0" :step="0.01" /></el-form-item>
+      <el-form-item label="实收金额"><el-input-number v-model="editReceivableForm.actualReceiveAmount" :min="0" :step="0.01" /></el-form-item>
+      <el-form-item label="应收月份"><el-input v-model="editReceivableForm.receivableMonth" placeholder="YYYY-MM" /></el-form-item>
+      <el-form-item label="开始日期"><el-date-picker v-model="editReceivableForm.leaseStartDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
+      <el-form-item label="结束日期"><el-date-picker v-model="editReceivableForm.leaseEndDate" type="date" value-format="YYYY-MM-DD" /></el-form-item>
+      <el-form-item label="赠送天数"><el-input-number v-model="editReceivableForm.giftDays" :min="0" /></el-form-item>
+      <el-form-item label="分类"><el-input v-model="editReceivableForm.category" /></el-form-item>
+      <el-form-item label="车牌"><el-input v-model="editReceivableForm.plate" /></el-form-item>
+      <el-form-item label="车架"><el-input v-model="editReceivableForm.vin" /></el-form-item>
+      <el-form-item label="备注"><el-input v-model="editReceivableForm.remark" type="textarea" /></el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="editReceivableVisible=false">取消</el-button>
+      <el-button type="primary" @click="submitEditReceivable">保存</el-button>
+    </template>
+  </el-dialog>
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -312,7 +379,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getSeriesList, getSettlementCompanyBank, getUniqueSeriesCompanyBank, addPayable, addReceivable, getPayableList, getReceivableList } from '@/api/system'
+import { getSeriesList, getSettlementCompanyBank, getUniqueSeriesCompanyBank, addPayable, addReceivable, getPayableList, getReceivableList, updatePayable, deletePayable, updateReceivable, deleteReceivable } from '@/api/system'
 
 const activeTab = ref('payable')
 
@@ -393,7 +460,7 @@ async function fetchAccounts(series, company) {
 // 应付表单
 const payableFormRef = ref()
 const payableForm = reactive({
-  series: '', company: '', account: '', category: '', plate: '', vin: '',
+  series: '', company: '', targetCompanyName: '', account: '', category: '', plate: '', vin: '',
   repayDate: '', amount: null, actualPayAmount: null,
   policyCommercial: '', carDamage: null, thirdParty: null, driver: null, passenger: null,
   policyMandatory: '', mandatoryAmount: null, issueDate: '',
@@ -425,7 +492,7 @@ function onResetPayable() {
 // 应收表单
 const receivableFormRef = ref()
 const receivableForm = reactive({
-  series: '', company: '', account: '', category: '', plate: '', vin: '',
+  series: '', company: '', targetCompanyName: '', account: '', category: '', plate: '', vin: '',
   amount: null, actualReceiveAmount: null, receivableMonth: '', leaseStartDate: '', leaseEndDate: '', giftDays: 0, remark: ''
 })
 const receivableRules = {
@@ -456,6 +523,7 @@ async function onSubmitReceivable() {
     if (!valid) return
     try {
       const payload = { ...receivableForm }
+      payload.renewDate = receivableRenewDate.value || ''
       await addReceivable({ data: payload })
       ElMessage.success('应收保存成功')
       await loadReceivableList()
@@ -528,6 +596,97 @@ function computeRowRenewDate(row) {
   const days = Number(row['赠送天数'])
   return addDays(end, days)
 }
+// 编辑对话框：应付
+const editPayableVisible = ref(false)
+const editPayableForm = reactive({ id: null, amount: null, actualPayAmount: null, repayDate: '', targetCompanyName: '', category: '', plate: '', vin: '', policyCommercial: '', policyMandatory: '', mandatoryAmount: null, remark: '' })
+function openEditPayable(row) {
+  editPayableVisible.value = true
+  editPayableForm.id = row.id
+  editPayableForm.amount = row['金额']
+  editPayableForm.actualPayAmount = row['实付金额']
+  editPayableForm.repayDate = row['还款日期'] || ''
+  editPayableForm.targetCompanyName = row['对方公司名字'] || ''
+  editPayableForm.category = row['分类'] || ''
+  editPayableForm.plate = row['车牌'] || ''
+  editPayableForm.vin = row['车架号'] || ''
+  editPayableForm.policyCommercial = row['商业保单号'] || ''
+  editPayableForm.policyMandatory = row['交强单号'] || ''
+  editPayableForm.mandatoryAmount = row['交强金额']
+  editPayableForm.remark = row['备注'] || ''
+}
+async function submitEditPayable() {
+  try {
+    await updatePayable({ data: { id: editPayableForm.id, amount: editPayableForm.amount, actualPayAmount: editPayableForm.actualPayAmount, repayDate: editPayableForm.repayDate, targetCompanyName: editPayableForm.targetCompanyName, category: editPayableForm.category, plate: editPayableForm.plate, vin: editPayableForm.vin, policyCommercial: editPayableForm.policyCommercial, policyMandatory: editPayableForm.policyMandatory, mandatoryAmount: editPayableForm.mandatoryAmount, remark: editPayableForm.remark } })
+    ElMessage.success('应付更新成功')
+    editPayableVisible.value = false
+    await loadPayableList()
+  } catch (e) {
+    ElMessage.error('应付更新失败')
+  }
+}
+async function confirmDeletePayable(row) {
+  // 先处理用户确认，取消/关闭直接返回，不提示错误
+  try {
+    await ElMessageBox.confirm(`确认删除应付记录 #${row.id} 吗？`, '提示', { type: 'warning' })
+  } catch (e) {
+    return
+  }
+  // 执行删除
+  try {
+    await deletePayable({ data: { id: row.id } })
+    ElMessage.success('已删除应付记录')
+    await loadPayableList()
+  } catch (e) {
+    ElMessage.error(e?.msg || e?.message || '删除失败')
+  }
+}
+
+// 编辑对话框：应收
+const editReceivableVisible = ref(false)
+const editReceivableForm = reactive({ id: null, amount: null, actualReceiveAmount: null, receivableMonth: '', leaseStartDate: '', leaseEndDate: '', giftDays: null, targetCompanyName: '', category: '', plate: '', vin: '', remark: '' })
+function openEditReceivable(row) {
+  editReceivableVisible.value = true
+  editReceivableForm.id = row.id
+  editReceivableForm.amount = row['金额']
+  editReceivableForm.actualReceiveAmount = row['实收金额']
+  editReceivableForm.receivableMonth = row['应收月份'] || ''
+  editReceivableForm.leaseStartDate = row['开始日期'] || ''
+  editReceivableForm.leaseEndDate = row['结束日期'] || ''
+  editReceivableForm.giftDays = row['赠送天数']
+  editReceivableForm.targetCompanyName = row['对方公司名字'] || ''
+  editReceivableForm.category = row['分类'] || ''
+  editReceivableForm.plate = row['车牌'] || ''
+  editReceivableForm.vin = row['车架'] || ''
+  editReceivableForm.remark = row['备注'] || ''
+}
+async function submitEditReceivable() {
+  try {
+    const renewDate = addDays(editReceivableForm.leaseEndDate, Number(editReceivableForm.giftDays))
+    await updateReceivable({ data: { id: editReceivableForm.id, amount: editReceivableForm.amount, actualReceiveAmount: editReceivableForm.actualReceiveAmount, receivableMonth: editReceivableForm.receivableMonth, leaseStartDate: editReceivableForm.leaseStartDate, leaseEndDate: editReceivableForm.leaseEndDate, renewDate, giftDays: editReceivableForm.giftDays, targetCompanyName: editReceivableForm.targetCompanyName, category: editReceivableForm.category, plate: editReceivableForm.plate, vin: editReceivableForm.vin, remark: editReceivableForm.remark } })
+    ElMessage.success('应收更新成功')
+    editReceivableVisible.value = false
+    await loadReceivableList()
+  } catch (e) {
+    ElMessage.error('应收更新失败')
+  }
+}
+async function confirmDeleteReceivable(row) {
+  // 先处理用户确认，取消/关闭直接返回，不提示错误
+  try {
+    await ElMessageBox.confirm(`确认删除应收记录 #${row.id} 吗？`, '提示', { type: 'warning' })
+  } catch (e) {
+    return
+  }
+  // 执行删除
+  try {
+    
+    await deleteReceivable({ data: { id: row.id } })
+    ElMessage.success('已删除应收记录')
+    await loadReceivableList()
+  } catch (e) {
+    ElMessage.error(e?.msg || e?.message || '删除失败')
+  }
+}
 // 批量数据
 const payableBatch = ref([])
 const receivableBatch = ref([])
@@ -565,7 +724,7 @@ function parseCSV(text) {
 
 // 应付批量
 function downloadPayableTemplate() {
-  const headers = ['系列','公司','账号','分类','车牌','车架号','还款日期','金额','商业保单号','车损','三者','司机','乘客','交强单号','交强金额','出单日期']
+  const headers = ['系列','公司','对方公司名字','账号','分类','车牌','车架号','还款日期','金额','商业保单号','车损','三者','司机','乘客','交强单号','交强金额','出单日期']
   downloadCSV('应付导入模板.csv', headers, [])
 }
 function onPayableFileChange(file) {
@@ -584,7 +743,7 @@ function onPayableFileChange(file) {
   reader.readAsText(file.raw || file)
 }
 function exportPayableCSV() {
-  const headers = ['系列','公司','账号','分类','车牌','车架号','还款日期','金额','商业保单号','车损','三者','司机','乘客','交强单号','交强金额','出单日期']
+  const headers = ['系列','公司','对方公司名字','账号','分类','车牌','车架号','还款日期','金额','商业保单号','车损','三者','司机','乘客','交强单号','交强金额','出单日期']
   downloadCSV('应付导出.csv', headers, payableBatch.value)
 }
 function submitPayableBatch() {
@@ -595,7 +754,7 @@ function submitPayableBatch() {
 
 // 应收批量
 function downloadReceivableTemplate() {
-  const headers = ['系列','公司','账号','分类','车牌','车架','金额','应收月份','开始日期','结束日期','赠送天数','备注']
+  const headers = ['系列','公司','对方公司名字','账号','分类','车牌','车架','金额','应收月份','开始日期','结束日期','赠送天数','备注']
   downloadCSV('应收导入模板.csv', headers, [])
 }
 function onReceivableFileChange(file) {
@@ -614,7 +773,7 @@ function onReceivableFileChange(file) {
   reader.readAsText(file.raw || file)
 }
 function exportReceivableCSV() {
-  const headers = ['系列','公司','账号','分类','车牌','车架','金额','应收月份','开始日期','结束日期','续签日期','赠送天数','备注']
+  const headers = ['系列','公司','对方公司名字','账号','分类','车牌','车架','金额','应收月份','开始日期','结束日期','续签日期','赠送天数','备注']
   const rows = (receivableBatch.value || []).map(r => ({ ...r, '续签日期': computeRowRenewDate(r) }))
   downloadCSV('应收导出.csv', headers, rows)
 }
@@ -656,119 +815,3 @@ async function loadReceivableList() {
 .preview-title { font-weight: 600; margin-bottom: 8px; }
 .list-section { margin-top: 16px; }
 </style>
-// 批量数据
-const payableBatch = ref([])
-const receivableBatch = ref([])
-
-// CSV 工具
-function downloadCSV(filename, headers, rows) {
-  const headerLine = headers.join(',')
-  const bodyLines = rows.map(r => headers.map(h => (r[h] ?? '')).join(',')).join('\n')
-  const content = headerLine + '\n' + (bodyLines || '')
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
-  const link = document.createElement('a')
-  const url = URL.createObjectURL(blob)
-  link.setAttribute('href', url)
-  link.setAttribute('download', filename)
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
-
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim().length)
-  if (!lines.length) return { headers: [], rows: [] }
-  const headers = lines[0].split(',').map(h => h.trim())
-  const rows = []
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',')
-    const row = {}
-    headers.forEach((h, idx) => { row[h] = (cols[idx] ?? '').trim() })
-    rows.push(row)
-  }
-  return { headers, rows }
-}
-
-// 应付批量
-function downloadPayableTemplate() {
-  const headers = ['系列','公司','账号','分类','车牌','车架号','还款日期','金额','商业保单号','车损','三者','司机','乘客','交强单号','交强金额','出单日期']
-  downloadCSV('应付导入模板.csv', headers, [])
-}
-function onPayableFileChange(file) {
-  const reader = new FileReader()
-  reader.onload = () => {
-    const { headers, rows } = parseCSV(String(reader.result || ''))
-    const required = ['系列','公司','账号','金额']
-    const missing = required.filter(h => !headers.includes(h))
-    if (missing.length) {
-      ElMessage.error('CSV缺少必要列: ' + missing.join(', '))
-      return
-    }
-    payableBatch.value = rows
-    ElMessage.success(`已导入应付 ${rows.length} 条`)
-  }
-  reader.readAsText(file.raw || file)
-}
-function exportPayableCSV() {
-  const headers = ['系列','公司','账号','分类','车牌','车架号','还款日期','金额','商业保单号','车损','三者','司机','乘客','交强单号','交强金额','出单日期']
-  downloadCSV('应付导出.csv', headers, payableBatch.value)
-}
-function submitPayableBatch() {
-  // 等待后端API：这里仅占位
-  console.log('submit payable batch ->', payableBatch.value)
-  ElMessage.success('应付批量提交成功（占位，待API对接）')
-}
-
-// 应收批量
-function downloadReceivableTemplate() {
-  const headers = ['系列','公司','账号','分类','车牌','车架','金额','应收月份','开始日期','结束日期','赠送天数','备注']
-  downloadCSV('应收导入模板.csv', headers, [])
-}
-function onReceivableFileChange(file) {
-  const reader = new FileReader()
-  reader.onload = () => {
-    const { headers, rows } = parseCSV(String(reader.result || ''))
-    const required = ['系列','公司','账号','金额']
-    const missing = required.filter(h => !headers.includes(h))
-    if (missing.length) {
-      ElMessage.error('CSV缺少必要列: ' + missing.join(', '))
-      return
-    }
-    receivableBatch.value = rows
-    ElMessage.success(`已导应收 ${rows.length} 条`)
-  }
-  reader.readAsText(file.raw || file)
-}
-function exportReceivableCSV() {
-  const headers = ['系列','公司','账号','分类','车牌','车架','金额','应收月份','开始日期','结束日期','续签日期','赠送天数','备注']
-  const rows = (receivableBatch.value || []).map(r => ({ ...r, '续签日期': computeRowRenewDate(r) }))
-  downloadCSV('应收导出.csv', headers, rows)
-}
-function submitReceivableBatch() {
-  // 等待后端API：这里仅占位
-  console.log('submit receivable batch ->', receivableBatch.value)
-  ElMessage.success('应收批量提交成功（占位，待API对接）')
-}
-// 列表加载函数
-const payableList = ref([])
-const receivableList = ref([])
-async function loadPayableList() {
-  try {
-    const res = await getPayableList({ data: { series: payableForm.series, company: payableForm.company, account: payableForm.account } })
-    payableList.value = res?.data || []
-  } catch (e) {
-    console.warn('加载应付列表失败：', e?.message || e)
-    payableList.value = []
-  }
-}
-async function loadReceivableList() {
-  try {
-    const res = await getReceivableList({ data: { series: receivableForm.series, company: receivableForm.company, account: receivableForm.account } })
-    receivableList.value = res?.data || []
-  } catch (e) {
-    console.warn('加载应收列表失败：', e?.message || e)
-    receivableList.value = []
-  }
-}

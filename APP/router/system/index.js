@@ -1737,6 +1737,7 @@ function getCreatePayableTableSql() {
       user_id INT NOT NULL COMMENT '创建用户ID',
       系列 VARCHAR(100) COMMENT '系列',
       公司 VARCHAR(200) COMMENT '公司',
+      对方公司名字 VARCHAR(200) COMMENT '对方公司名字',
       账号 VARCHAR(200) COMMENT '账号/银行',
       分类 VARCHAR(100) COMMENT '分类',
       车牌 VARCHAR(100) COMMENT '车牌',
@@ -1770,6 +1771,7 @@ function getCreateReceivableTableSql() {
       user_id INT NOT NULL COMMENT '创建用户ID',
       系列 VARCHAR(100) COMMENT '系列',
       公司 VARCHAR(200) COMMENT '公司',
+      对方公司名字 VARCHAR(200) COMMENT '对方公司名字',
       账号 VARCHAR(200) COMMENT '账号/银行',
       分类 VARCHAR(100) COMMENT '分类',
       车牌 VARCHAR(100) COMMENT '车牌',
@@ -1796,17 +1798,48 @@ async function ensureSettlementDetailTables() {
   await ensureDbwhTableExists('pt_cw_zjmxbsk', getCreateReceivableTableSql());
 }
 
+// 确保“应收”表存在列：续签日期
+async function ensureReceivableRenewDateColumn(res, req) {
+  try {
+    const { result } = await pools({ sql: "SHOW COLUMNS FROM `pt_cw_zjmxbsk` LIKE '续签日期'", res, req });
+    if (!Array.isArray(result) || result.length === 0) {
+      await pools({ sql: "ALTER TABLE `pt_cw_zjmxbsk` ADD COLUMN `续签日期` DATE COMMENT '续签日期' AFTER `结束日期`", res, req });
+    }
+  } catch (e) {
+    console.error('ensureReceivableRenewDateColumn error:', e);
+  }
+}
+// 确保两张表存在列：对方公司名字
+async function ensureTargetCompanyNameColumns(res, req) {
+  try {
+    // 应付表新增列
+    const { result: fkCols } = await pools({ sql: "SHOW COLUMNS FROM `pt_cw_zjmxbfk` LIKE '对方公司名字'", res, req });
+    if (!Array.isArray(fkCols) || fkCols.length === 0) {
+      await pools({ sql: "ALTER TABLE `pt_cw_zjmxbfk` ADD COLUMN `对方公司名字` VARCHAR(200) COMMENT '对方公司名字' AFTER `公司`", res, req });
+    }
+    // 应收表新增列
+    const { result: skCols } = await pools({ sql: "SHOW COLUMNS FROM `pt_cw_zjmxbsk` LIKE '对方公司名字'", res, req });
+    if (!Array.isArray(skCols) || skCols.length === 0) {
+      await pools({ sql: "ALTER TABLE `pt_cw_zjmxbsk` ADD COLUMN `对方公司名字` VARCHAR(200) COMMENT '对方公司名字' AFTER `公司`", res, req });
+    }
+  } catch (e) {
+    console.error('ensureTargetCompanyNameColumns error:', e);
+  }
+}
+
 // 新增-应付
 router.post('/addPayable', async (req, res) => {
   try {
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
     await ensureSettlementDetailTables();
+    await ensureTargetCompanyNameColumns(res, req);
 
     const payload = req.body?.data || req.body || {};
     const fields = {
       系列: payload.series || payload['系列'] || '',
       公司: payload.company || payload['公司'] || '',
+      对方公司名字: payload.targetCompanyName || payload['对方公司名字'] || '',
       账号: payload.account || payload['账号'] || payload['银行'] || '',
       分类: payload.category || payload['分类'] || '',
       车牌: payload.plate || payload['车牌'] || '',
@@ -1843,11 +1876,14 @@ router.post('/addReceivable', async (req, res) => {
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
     await ensureSettlementDetailTables();
+    await ensureReceivableRenewDateColumn(res, req);
+    await ensureTargetCompanyNameColumns(res, req);
 
     const payload = req.body?.data || req.body || {};
     const fields = {
       系列: payload.series || payload['系列'] || '',
       公司: payload.company || payload['公司'] || '',
+      对方公司名字: payload.targetCompanyName || payload['对方公司名字'] || '',
       账号: payload.account || payload['账号'] || payload['银行'] || '',
       分类: payload.category || payload['分类'] || '',
       车牌: payload.plate || payload['车牌'] || '',
@@ -1857,6 +1893,7 @@ router.post('/addReceivable', async (req, res) => {
       应收月份: payload.receivableMonth || payload['应收月份'] || '',
       开始日期: payload.leaseStartDate || payload['开始日期'] || null,
       结束日期: payload.leaseEndDate || payload['结束日期'] || null,
+      续签日期: payload.renewDate || payload['续签日期'] || null,
       赠送天数: Number(payload.giftDays || payload['赠送天数'] || 0),
       备注: payload.remark || payload['备注'] || ''
     };
@@ -1885,7 +1922,7 @@ router.post('/getPayableList', async (req, res) => {
     const company = (payload.company || '').trim();
     const account = (payload.account || payload.bank || '').trim();
 
-    let sql = `SELECT id, 系列, 公司, 账号, 分类, 车牌, 车架号, 还款日期, 金额, 实付金额, 商业保单号, 车损, 三者, 司机, 乘客, 交强单号, 交强金额, 出单日期, 备注, create_time FROM \`pt_cw_zjmxbfk\` WHERE user_id=${userId}`;
+    let sql = `SELECT id, 系列, 公司, 对方公司名字, 账号, 分类, 车牌, 车架号, 还款日期, 金额, 实付金额, 商业保单号, 车损, 三者, 司机, 乘客, 交强单号, 交强金额, 出单日期, 备注, create_time FROM \`pt_cw_zjmxbfk\` WHERE user_id=${userId}`;
     sql = utils.setLike(sql, '系列', series);
     sql = utils.setLike(sql, '公司', company);
     sql = utils.setLike(sql, '账号', account);
@@ -1904,13 +1941,14 @@ router.post('/getReceivableList', async (req, res) => {
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
     await ensureSettlementDetailTables();
+    await ensureReceivableRenewDateColumn(res, req);
 
     const payload = req.body?.data || req.body || {};
     const series = (payload.series || '').trim();
     const company = (payload.company || '').trim();
     const account = (payload.account || payload.bank || '').trim();
 
-    let sql = `SELECT id, 系列, 公司, 账号, 分类, 车牌, 车架, 金额, 实收金额, 应收月份, 开始日期, 结束日期, 赠送天数, 备注, create_time FROM \`pt_cw_zjmxbsk\` WHERE user_id=${userId}`;
+    let sql = `SELECT id, 系列, 公司, 对方公司名字, 账号, 分类, 车牌, 车架, 金额, 实收金额, 应收月份, 开始日期, 结束日期, 续签日期, 赠送天数, 备注, create_time FROM \`pt_cw_zjmxbsk\` WHERE user_id=${userId}`;
     sql = utils.setLike(sql, '系列', series);
     sql = utils.setLike(sql, '公司', company);
     sql = utils.setLike(sql, '账号', account);
@@ -1920,6 +1958,135 @@ router.post('/getReceivableList', async (req, res) => {
   } catch (error) {
     console.error('getReceivableList error:', error);
     res.send(utils.returnData({ code: -1, msg: '获取应收列表失败', err: error?.message }));
+  }
+});
+
+// 更新-应付
+router.post('/updatePayable', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    await ensureSettlementDetailTables();
+
+    const payload = req.body?.data || req.body || {};
+    const id = Number(payload.id || payload.ID || payload.Id);
+    if (!id) return res.send(utils.returnData({ code: -1, msg: '缺少id' }));
+
+  const fields = {
+    系列: payload.series ?? payload['系列'],
+    公司: payload.company ?? payload['公司'],
+    对方公司名字: payload.targetCompanyName ?? payload['对方公司名字'],
+    账号: payload.account ?? payload['账号'] ?? payload['银行'],
+    分类: payload.category ?? payload['分类'],
+    车牌: payload.plate ?? payload['车牌'],
+    车架号: payload.vin ?? payload['车架号'],
+    还款日期: payload.repayDate ?? payload['还款日期'],
+      金额: payload.amount ?? payload['金额'],
+      实付金额: payload.actualPayAmount ?? payload['实付金额'],
+      商业保单号: payload.policyCommercial ?? payload['商业保单号'],
+      车损: payload.carDamage ?? payload['车损'],
+      三者: payload.thirdParty ?? payload['三者'],
+      司机: payload.driver ?? payload['司机'],
+      乘客: payload.passenger ?? payload['乘客'],
+      交强单号: payload.policyMandatory ?? payload['交强单号'],
+      交强金额: payload.mandatoryAmount ?? payload['交强金额'],
+      出单日期: payload.issueDate ?? payload['出单日期'],
+      备注: payload.remark ?? payload['备注']
+    };
+
+    const setCols = Object.keys(fields).filter(k => fields[k] !== undefined);
+    if (!setCols.length) return res.send(utils.returnData({ code: -1, msg: '无可更新字段' }));
+    const setSql = setCols.map(k => `\`${k}\`=?`).join(',');
+    const sql = `UPDATE \`pt_cw_zjmxbfk\` SET ${setSql} WHERE id=? AND user_id=?`;
+    const vals = [...setCols.map(k => fields[k]), id, userId];
+    await pools({ sql, val: vals, res, req });
+    res.send(utils.returnData({ msg: '应付更新成功' }));
+  } catch (error) {
+    console.error('updatePayable error:', error);
+    res.send(utils.returnData({ code: -1, msg: '应付更新失败', err: error?.message }));
+  }
+});
+
+// 删除-应付
+router.post('/deletePayable', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    await ensureSettlementDetailTables();
+
+    const payload = req.body?.data || req.body || {};
+    const id = Number(payload.id || payload.ID || payload.Id);
+    if (!id) return res.send(utils.returnData({ code: -1, msg: '缺少id' }));
+    const sql = 'DELETE FROM `pt_cw_zjmxbfk` WHERE id=? AND user_id=?';
+    const vals = [id, userId];
+    await pools({ sql, val: vals, res, req });
+    res.send(utils.returnData({ msg: '应付删除成功' }));
+  } catch (error) {
+    console.error('deletePayable error:', error);
+    res.send(utils.returnData({ code: -1, msg: '应付删除失败', err: error?.message }));
+  }
+});
+
+// 更新-应收
+router.post('/updateReceivable', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    await ensureSettlementDetailTables();
+    await ensureReceivableRenewDateColumn(res, req);
+
+    const payload = req.body?.data || req.body || {};
+    const id = Number(payload.id || payload.ID || payload.Id);
+    if (!id) return res.send(utils.returnData({ code: -1, msg: '缺少id' }));
+
+  const fields = {
+    系列: payload.series ?? payload['系列'],
+    公司: payload.company ?? payload['公司'],
+    对方公司名字: payload.targetCompanyName ?? payload['对方公司名字'],
+    账号: payload.account ?? payload['账号'] ?? payload['银行'],
+    分类: payload.category ?? payload['分类'],
+    车牌: payload.plate ?? payload['车牌'],
+    车架: payload.vin ?? payload['车架'],
+    金额: payload.amount ?? payload['金额'],
+      实收金额: payload.actualReceiveAmount ?? payload['实收金额'],
+      应收月份: payload.receivableMonth ?? payload['应收月份'],
+      开始日期: payload.leaseStartDate ?? payload['开始日期'],
+      结束日期: payload.leaseEndDate ?? payload['结束日期'],
+      续签日期: payload.renewDate ?? payload['续签日期'],
+      赠送天数: payload.giftDays ?? payload['赠送天数'],
+      备注: payload.remark ?? payload['备注']
+    };
+
+    const setCols = Object.keys(fields).filter(k => fields[k] !== undefined);
+    if (!setCols.length) return res.send(utils.returnData({ code: -1, msg: '无可更新字段' }));
+    const setSql = setCols.map(k => `\`${k}\`=?`).join(',');
+    const sql = `UPDATE \`pt_cw_zjmxbsk\` SET ${setSql} WHERE id=? AND user_id=?`;
+    const vals = [...setCols.map(k => fields[k]), id, userId];
+    await pools({ sql, val: vals, res, req });
+    res.send(utils.returnData({ msg: '应收更新成功' }));
+  } catch (error) {
+    console.error('updateReceivable error:', error);
+    res.send(utils.returnData({ code: -1, msg: '应收更新失败', err: error?.message }));
+  }
+});
+
+// 删除-应收
+router.post('/deleteReceivable', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    await ensureSettlementDetailTables();
+
+    const payload = req.body?.data || req.body || {};
+    const id = Number(payload.id || payload.ID || payload.Id);
+    if (!id) return res.send(utils.returnData({ code: -1, msg: '缺少id' }));
+    const sql = 'DELETE FROM `pt_cw_zjmxbsk` WHERE id=? AND user_id=?';
+    const vals = [id, userId];
+    await pools({ sql, val: vals, res, req });
+    res.send(utils.returnData({ msg: '应收删除成功' }));
+  } catch (error) {
+    console.error('deleteReceivable error:', error);
+    res.send(utils.returnData({ code: -1, msg: '应收删除失败', err: error?.message }));
   }
 });
 
