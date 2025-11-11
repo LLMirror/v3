@@ -1260,6 +1260,9 @@ onMounted(() => {
   --el-text-color-regular: var(--muted);
   --el-color-primary: var(--primary-from);
   --el-border-color: var(--border-color);
+  /* 让输入/选择控件在暗色主题下使用卡片背景 */
+  --el-fill-color-blank: var(--card-bg);
+  --el-bg-color-overlay: var(--card-bg);
   --el-table-bg-color: var(--card-bg);
   --el-table-header-bg-color: var(--card-bg);
   --el-table-header-text-color: var(--text);
@@ -1286,6 +1289,31 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 .filters { display: flex; align-items: center; }
+/* 过滤控件：输入框/下拉/日期 在主题下适配背景与文字颜色 */
+.cash-cockpit :deep(.filters .el-input__wrapper),
+.cash-cockpit :deep(.filters .el-select__wrapper),
+.cash-cockpit :deep(.filters .el-date-editor .el-input__wrapper),
+.cash-cockpit :deep(.filters .el-range-editor .el-input__wrapper) {
+  background-color: var(--card-bg) !important;
+  color: var(--text) !important;
+  box-shadow: 0 0 0 1px var(--el-table-border-color) inset !important;
+}
+/* 占位符颜色与悬浮/聚焦边框适配 */
+.cash-cockpit :deep(.filters .el-input__inner::placeholder) {
+  color: var(--muted) !important;
+}
+.cash-cockpit :deep(.filters .el-input__wrapper:hover),
+.cash-cockpit :deep(.filters .el-select__wrapper:hover),
+.cash-cockpit :deep(.filters .el-date-editor .el-input__wrapper:hover),
+.cash-cockpit :deep(.filters .el-range-editor .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px var(--border-color) inset !important;
+}
+.cash-cockpit :deep(.filters .el-input__wrapper.is-focus),
+.cash-cockpit :deep(.filters .el-select__wrapper.is-focus),
+.cash-cockpit :deep(.filters .el-date-editor .el-input__wrapper.is-focus),
+.cash-cockpit :deep(.filters .el-range-editor .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--border-color) inset !important;
+}
 .top-cards .card {
   background: var(--card-bg);
   border-radius: 10px;
