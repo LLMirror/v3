@@ -1658,6 +1658,71 @@ router.post("/getSettlementCompanyBank", async (req, res) => {
   res.send(utils.returnData({ data: result }));
 });
 
+// 获取唯一 系列/公司/银行（支持条件过滤）
+// 请求体兼容两种形式：
+// - { data: { series?, company? } }
+// - { series?, company? }
+// 返回：{ series: string[], companies: string[], banks: string[] }
+router.post('/getUniqueSeriesCompanyBank', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+
+    const payload = (req.body && req.body.data) ? req.body.data : (req.body || {});
+    const series = (payload.series || '').trim();
+    const company = (payload.company || '').trim();
+
+    // 基础 WHERE 子句（限定当前用户数据）
+    const baseWhere = [
+      `user_id = ${userId}`,
+      // 按需追加过滤条件（精确匹配）
+      series ? `系列 = '${series.replace(/'/g, "''")}'` : '',
+      company ? `公司 = '${company.replace(/'/g, "''")}'` : ''
+    ].filter(Boolean).join(' AND ');
+
+    const companiesSql = `SELECT DISTINCT 公司 AS company FROM \`pt_cw_zjmxb\` WHERE ${baseWhere} ORDER BY 公司`;
+    const banksSql = `SELECT DISTINCT 银行 AS bank FROM \`pt_cw_zjmxb\` WHERE ${baseWhere} ORDER BY 银行`;
+    // 系列通常全局唯一集合（不受公司过滤影响）
+    const seriesWhere = `user_id = ${userId}`;
+    const seriesSql = `SELECT DISTINCT 系列 AS series FROM \`pt_cw_zjmxb\` WHERE ${seriesWhere} AND 系列 IS NOT NULL AND 系列 <> '' ORDER BY 系列`;
+
+    // 根据传参决定查询范围：
+    // - 传 series + company：仅返回 banks（该系列-公司下唯一银行）
+    // - 仅传 series：返回 companies（该系列下唯一公司）与 banks（该系列下唯一银行）
+    // - 不传：返回全量 series/companies/banks
+    let companies = [];
+    let banks = [];
+    let seriesArr = [];
+
+    if (!series && !company) {
+      const [sRes, cRes, bRes] = await Promise.all([
+        pools({ sql: seriesSql, res, req }),
+        pools({ sql: `SELECT DISTINCT 公司 AS company FROM \`pt_cw_zjmxb\` WHERE ${seriesWhere} ORDER BY 公司`, res, req }),
+        pools({ sql: `SELECT DISTINCT 银行 AS bank FROM \`pt_cw_zjmxb\` WHERE ${seriesWhere} ORDER BY 银行`, res, req })
+      ]);
+      seriesArr = (sRes.result || []).map(r => r.series);
+      companies = (cRes.result || []).map(r => r.company);
+      banks = (bRes.result || []).map(r => r.bank);
+    } else if (series && !company) {
+      const [cRes, bRes] = await Promise.all([
+        pools({ sql: companiesSql, res, req }),
+        pools({ sql: banksSql, res, req })
+      ]);
+      companies = (cRes.result || []).map(r => r.company);
+      banks = (bRes.result || []).map(r => r.bank);
+    } else {
+      // series && company 都传：仅返回银行集合
+      const bRes = await pools({ sql: banksSql, res, req });
+      banks = (bRes.result || []).map(r => r.bank);
+    }
+
+    res.send(utils.returnData({ data: { series: seriesArr, companies, banks } }));
+  } catch (error) {
+    console.error('getUniqueSeriesCompanyBank error:', error);
+    res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
+  }
+});
+
 // 出纳表 - 新增单条记录
 router.post("/addSettlementData", async (req, res) => {
   console.log(req.body);

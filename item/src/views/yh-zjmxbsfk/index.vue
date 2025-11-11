@@ -24,15 +24,15 @@
             </el-col>
             <el-col :xs="24" :sm="12" :md="8">
               <el-form-item label="公司" prop="company">
-                <el-select v-model="payableForm.company" placeholder="请选择公司" filterable clearable>
-                  <el-option v-for="opt in companyOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                <el-select v-model="payableForm.company" placeholder="请选择公司" filterable clearable :disabled="!payableForm.series">
+                  <el-option v-for="opt in payableCompanyOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </el-select>
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="12" :md="8">
               <el-form-item label="账号" prop="account">
-                <el-select v-model="payableForm.account" placeholder="请选择账号" filterable clearable>
-                  <el-option v-for="opt in accountOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                <el-select v-model="payableForm.account" placeholder="请选择账号" filterable clearable :disabled="!payableForm.company">
+                  <el-option v-for="opt in payableAccountOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -156,15 +156,15 @@
             </el-col>
             <el-col :xs="24" :sm="12" :md="8">
               <el-form-item label="公司" prop="company">
-                <el-select v-model="receivableForm.company" placeholder="请选择公司" filterable clearable>
-                  <el-option v-for="opt in companyOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                <el-select v-model="receivableForm.company" placeholder="请选择公司" filterable clearable :disabled="!receivableForm.series">
+                  <el-option v-for="opt in receivableCompanyOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </el-select>
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="12" :md="8">
               <el-form-item label="账号" prop="account">
-                <el-select v-model="receivableForm.account" placeholder="请选择账号" filterable clearable>
-                  <el-option v-for="opt in accountOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                <el-select v-model="receivableForm.account" placeholder="请选择账号" filterable clearable :disabled="!receivableForm.company">
+                  <el-option v-for="opt in receivableAccountOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -255,9 +255,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getSeriesList, getSettlementCompanyBank, getSettlementData } from '@/api/system'
+import { getSeriesList, getSettlementCompanyBank, getUniqueSeriesCompanyBank } from '@/api/system'
 
 const activeTab = ref('payable')
 
@@ -274,29 +274,64 @@ async function loadSeriesOptions() {
   }
 }
 
-// 公司与账号下拉（来自 pt_cw_zjmxb）
-const companyOptions = ref([])
-const accountOptions = ref([])
-async function loadCompanyAccountOptions() {
-  // 公司列表：使用出纳接口返回的公司-银行映射，提取公司唯一值
+// 公司与账号下拉（联动：系列→公司→账号）
+const payableCompanyOptions = ref([])
+const payableAccountOptions = ref([])
+const receivableCompanyOptions = ref([])
+const receivableAccountOptions = ref([])
+
+async function fetchCompaniesBySeries(series) {
   try {
-    const res = await getSettlementCompanyBank({ data: { summary: '' } })
-    const raw = res?.data || []
-    const companies = Array.from(new Set(raw.map(r => r?.['公司']).filter(Boolean)))
-    companyOptions.value = companies.map(c => ({ label: c, value: c }))
+    const res = await getUniqueSeriesCompanyBank({ data: { series } })
+    const raw = res?.data
+    // 支持两种返回结构：
+    // 1) { companies: string[] } 形式
+    // 2) 原始行数组 rows，需要前端去重提取
+    let companiesArr = []
+    if (Array.isArray(raw?.companies)) {
+      companiesArr = raw.companies
+    } else {
+      const rows = Array.isArray(raw) ? raw : (raw?.data || [])
+      companiesArr = Array.from(new Set(
+        rows
+          .filter(r => !series || (r?.['系列'] || r?.series) === series)
+          .map(r => r?.['公司'] || r?.company)
+          .filter(Boolean)
+      ))
+    }
+    return companiesArr.map(c => ({ label: c, value: c }))
   } catch (e) {
-    console.warn('加载公司列表失败：', e?.message || e)
-    companyOptions.value = []
+    console.warn('按系列加载公司失败：', e?.message || e)
+    return []
   }
-  // 账号列表：直接从出纳明细数据里提取“账号”唯一值
+}
+
+async function fetchAccounts(series, company) {
   try {
-    const res2 = await getSettlementData({ data: { page: 1, size: 5000 } })
-    const rows = Array.isArray(res2?.data) ? res2.data : (res2?.data?.data || [])
-    const accounts = Array.from(new Set(rows.map(r => r?.['账号']).filter(Boolean)))
-    accountOptions.value = accounts.map(a => ({ label: a, value: a }))
+    const res = await getUniqueSeriesCompanyBank({ data: { series, company } })
+    const raw = res?.data
+    // 支持两种返回结构：
+    // 1) { banks: string[] } 或 { accounts: string[] } 形式
+    // 2) 原始行数组 rows，需要前端去重提取
+    let accArr = []
+    if (Array.isArray(raw?.banks)) {
+      accArr = raw.banks
+    } else if (Array.isArray(raw?.accounts)) {
+      accArr = raw.accounts
+    } else {
+      const rows = Array.isArray(raw) ? raw : (raw?.data || [])
+      accArr = Array.from(new Set(
+        rows
+          .filter(r => (!series || (r?.['系列'] || r?.series) === series) && (!company || (r?.['公司'] || r?.company) === company))
+          // 兼容不同字段：账号/account/bankAccount/银行/bank
+          .map(r => r?.['账号'] || r?.account || r?.bankAccount || r?.['银行'] || r?.bank)
+          .filter(Boolean)
+      ))
+    }
+    return accArr.map(a => ({ label: a, value: a }))
   } catch (e) {
-    console.warn('加载账号列表失败：', e?.message || e)
-    accountOptions.value = []
+    console.warn('按公司加载账号失败：', e?.message || e)
+    return []
   }
 }
 
@@ -369,7 +404,30 @@ function onResetReceivable() {
 
 onMounted(() => {
   loadSeriesOptions()
-  loadCompanyAccountOptions()
+})
+
+// 应付联动：系列→公司→账号
+watch(() => payableForm.series, async (s) => {
+  payableForm.company = ''
+  payableForm.account = ''
+  payableAccountOptions.value = []
+  payableCompanyOptions.value = s ? await fetchCompaniesBySeries(s) : []
+})
+watch(() => payableForm.company, async (c) => {
+  payableForm.account = ''
+  payableAccountOptions.value = (c && payableForm.series) ? await fetchAccounts(payableForm.series, c) : []
+})
+
+// 应收联动：系列→公司→账号
+watch(() => receivableForm.series, async (s) => {
+  receivableForm.company = ''
+  receivableForm.account = ''
+  receivableAccountOptions.value = []
+  receivableCompanyOptions.value = s ? await fetchCompaniesBySeries(s) : []
+})
+watch(() => receivableForm.company, async (c) => {
+  receivableForm.account = ''
+  receivableAccountOptions.value = (c && receivableForm.series) ? await fetchAccounts(receivableForm.series, c) : []
 })
 
 // 日期工具与“续签日期”计算

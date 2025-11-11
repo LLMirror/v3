@@ -337,6 +337,19 @@ export function getSettlementCompanyBank(params) {
   });
 }
 
+// 获取唯一系列/公司/银行（去重返回）
+// 约定：
+// - 不传参数：返回全量唯一集合
+// - 传 {series}: 仅该系列下的唯一公司与银行
+// - 传 {series, company}: 仅该系列与公司下的唯一银行
+export function getUniqueSeriesCompanyBank(params) {
+  return request({
+    url: "/system/getUniqueSeriesCompanyBank",
+    method: "post",
+    data: params
+  });
+}
+
 // 资金驾驶舱总览
 export function getCashOverview(params) {
   return request({
