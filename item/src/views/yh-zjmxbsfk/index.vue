@@ -379,7 +379,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getSeriesList, getSettlementCompanyBank, getUniqueSeriesCompanyBank, addPayable, addReceivable, getPayableList, getReceivableList, updatePayable, deletePayable, updateReceivable, deleteReceivable } from '@/api/system'
+import { getSeriesList, getSettlementCompanyBank, getUniqueSeriesCompanyBank, addPayable, addReceivable, getPayableList, getReceivableList, updatePayable, deletePayable, updateReceivable, deleteReceivable, getCashRecords } from '@/api/system'
 
 const activeTab = ref('payable')
 
@@ -596,6 +596,102 @@ function computeRowRenewDate(row) {
   const days = Number(row['赠送天数'])
   return addDays(end, days)
 }
+
+// ===== 自动计算：实收/实付金额（来源：出纳资金明细 pt_cw_zjmxb） =====
+function getMonthRangeFromYearMonth(ym) {
+  // ym: 'YYYY-MM'
+  if (!ym || typeof ym !== 'string' || ym.length < 7) return { from: '', to: '' }
+  const [yStr, mStr] = ym.split('-')
+  const y = Number(yStr)
+  const m = Number(mStr)
+  if (!y || !m) return { from: '', to: '' }
+  const lastDay = new Date(y, m, 0).getDate()
+  const mm = String(m).padStart(2, '0')
+  return { from: `${y}-${mm}-01`, to: `${y}-${mm}-${String(lastDay).padStart(2, '0')}` }
+}
+
+function getMonthRangeFromDate(dateStr) {
+  // dateStr: 'YYYY-MM-DD'
+  if (!dateStr || typeof dateStr !== 'string' || dateStr.length < 7) return { from: '', to: '' }
+  const ym = dateStr.slice(0, 7)
+  return getMonthRangeFromYearMonth(ym)
+}
+
+async function computeActualReceiveAmount() {
+  const series = (receivableForm.series || '').trim()
+  const company = (receivableForm.company || '').trim()
+  const bank = (receivableForm.account || '').trim()
+  const target = (receivableForm.targetCompanyName || '').trim()
+  const ym = (receivableForm.receivableMonth || '').trim()
+  if (!series || !company || !bank || !ym) return
+  const { from, to } = getMonthRangeFromYearMonth(ym)
+  try {
+    const res = await getCashRecords({
+      series,
+      company,
+      bank,
+      summary: target || undefined,
+      dateFrom: from,
+      dateTo: to,
+      page: 1,
+      size: 5000
+    })
+    const rows = Array.isArray(res?.data) ? res.data : []
+    const toNum = v => {
+      if (v === null || v === undefined || v === '') return 0
+      if (typeof v === 'string') return Number(v.replace(/,/g, '')) || 0
+      return Number(v) || 0
+    }
+    const sumIncome = rows.reduce((acc, r) => acc + toNum(r.income ?? r['收入']), 0)
+    receivableForm.actualReceiveAmount = Math.round(sumIncome * 100) / 100
+  } catch (e) {
+    console.warn('computeActualReceiveAmount error:', e?.message || e)
+  }
+}
+
+async function computeActualPayAmount() {
+  const series = (payableForm.series || '').trim()
+  const company = (payableForm.company || '').trim()
+  const bank = (payableForm.account || '').trim()
+  const target = (payableForm.targetCompanyName || '').trim()
+  const repayDate = (payableForm.repayDate || '').trim()
+  if (!series || !company || !bank || !repayDate) return
+  const { from, to } = getMonthRangeFromDate(repayDate)
+  try {
+    const res = await getCashRecords({
+      series,
+      company,
+      bank,
+      summary: target || undefined,
+      dateFrom: from,
+      dateTo: to,
+      page: 1,
+      size: 5000
+    })
+    const rows = Array.isArray(res?.data) ? res.data : []
+    const toNum = v => {
+      if (v === null || v === undefined || v === '') return 0
+      if (typeof v === 'string') return Number(v.replace(/,/g, '')) || 0
+      return Number(v) || 0
+    }
+    const sumExpense = rows.reduce((acc, r) => acc + toNum(r.expense ?? r['支出']), 0)
+    payableForm.actualPayAmount = Math.round(sumExpense * 100) / 100
+  } catch (e) {
+    console.warn('computeActualPayAmount error:', e?.message || e)
+  }
+}
+
+// 监听应收关键字段变化，自动计算“实收金额”
+watch(
+  () => [receivableForm.series, receivableForm.company, receivableForm.account, receivableForm.targetCompanyName, receivableForm.receivableMonth],
+  () => { computeActualReceiveAmount() }
+)
+
+// 监听应付关键字段变化，自动计算“实付金额”
+watch(
+  () => [payableForm.series, payableForm.company, payableForm.account, payableForm.targetCompanyName, payableForm.repayDate],
+  () => { computeActualPayAmount() }
+)
 // 编辑对话框：应付
 const editPayableVisible = ref(false)
 const editPayableForm = reactive({ id: null, amount: null, actualPayAmount: null, repayDate: '', targetCompanyName: '', category: '', plate: '', vin: '', policyCommercial: '', policyMandatory: '', mandatoryAmount: null, remark: '' })
@@ -790,6 +886,7 @@ async function loadPayableList() {
   try {
     const res = await getPayableList({ data: { series: payableForm.series, company: payableForm.company, account: payableForm.account } })
     payableList.value = res?.data || []
+    await enrichPayableListActuals()
   } catch (e) {
     console.warn('加载应付列表失败：', e?.message || e)
     payableList.value = []
@@ -799,9 +896,119 @@ async function loadReceivableList() {
   try {
     const res = await getReceivableList({ data: { series: receivableForm.series, company: receivableForm.company, account: receivableForm.account } })
     receivableList.value = res?.data || []
+    await enrichReceivableListActuals()
   } catch (e) {
     console.warn('加载应收列表失败：', e?.message || e)
     receivableList.value = []
+  }
+}
+
+// 列表自动填充：应收的“实收金额”按当月汇总出纳“收入”
+async function enrichReceivableListActuals() {
+  const rows = Array.isArray(receivableList.value) ? receivableList.value : []
+  if (!rows.length) return
+  const toNum = v => {
+    if (v === null || v === undefined || v === '') return 0
+    if (typeof v === 'string') return Number(v.replace(/,/g, '')) || 0
+    return Number(v) || 0
+  }
+  const tasks = new Map()
+  const makeKey = (r) => {
+    const series = (r['系列'] || '').trim()
+    const company = (r['公司'] || '').trim()
+    const bank = (r['账号'] || r['银行'] || '').trim()
+    const target = (r['对方公司名字'] || '').trim()
+    const ym = (r['应收月份'] || '').trim()
+    return `${series}||${company}||${bank}||${target}||${ym}`
+  }
+  const monthRange = (ym) => {
+    const { from, to } = getMonthRangeFromYearMonth(ym)
+    return { from, to }
+  }
+  for (const r of rows) {
+    const key = makeKey(r)
+    if (!tasks.has(key)) {
+      const series = (r['系列'] || '').trim()
+      const company = (r['公司'] || '').trim()
+      const bank = (r['账号'] || r['银行'] || '').trim()
+      const summary = (r['对方公司名字'] || '').trim() || undefined
+      const ym = (r['应收月份'] || '').trim()
+      if (!series || !company || !bank || !ym) continue
+      const { from, to } = monthRange(ym)
+      tasks.set(key, getCashRecords({ series, company, bank, summary, dateFrom: from, dateTo: to, page: 1, size: 5000 }))
+    }
+  }
+  const results = new Map()
+  for (const [key, p] of tasks.entries()) {
+    try {
+      const res = await p
+      const arr = Array.isArray(res?.data) ? res.data : []
+      const sumIncome = arr.reduce((acc, r) => acc + toNum(r.income ?? r['收入']), 0)
+      results.set(key, Math.round(sumIncome * 100) / 100)
+    } catch (e) {
+      results.set(key, undefined)
+      console.warn('应收列表自动汇总失败:', e?.message || e)
+    }
+  }
+  for (const r of rows) {
+    const key = makeKey(r)
+    const val = results.get(key)
+    if (val !== undefined) r['实收金额'] = val
+  }
+}
+
+// 列表自动填充：应付的“实付金额”按当月汇总出纳“支出”
+async function enrichPayableListActuals() {
+  const rows = Array.isArray(payableList.value) ? payableList.value : []
+  if (!rows.length) return
+  const toNum = v => {
+    if (v === null || v === undefined || v === '') return 0
+    if (typeof v === 'string') return Number(v.replace(/,/g, '')) || 0
+    return Number(v) || 0
+  }
+  const tasks = new Map()
+  const makeKey = (r) => {
+    const series = (r['系列'] || '').trim()
+    const company = (r['公司'] || '').trim()
+    const bank = (r['账号'] || r['银行'] || '').trim()
+    const target = (r['对方公司名字'] || '').trim()
+    const date = (r['还款日期'] || '').trim()
+    const ym = date ? date.slice(0, 7) : ''
+    return `${series}||${company}||${bank}||${target}||${ym}`
+  }
+  const monthRangeFromDate = (dateStr) => {
+    const { from, to } = getMonthRangeFromDate(dateStr)
+    return { from, to }
+  }
+  for (const r of rows) {
+    const key = makeKey(r)
+    if (!tasks.has(key)) {
+      const series = (r['系列'] || '').trim()
+      const company = (r['公司'] || '').trim()
+      const bank = (r['账号'] || r['银行'] || '').trim()
+      const summary = (r['对方公司名字'] || '').trim() || undefined
+      const date = (r['还款日期'] || '').trim()
+      if (!series || !company || !bank || !date) continue
+      const { from, to } = monthRangeFromDate(date)
+      tasks.set(key, getCashRecords({ series, company, bank, summary, dateFrom: from, dateTo: to, page: 1, size: 5000 }))
+    }
+  }
+  const results = new Map()
+  for (const [key, p] of tasks.entries()) {
+    try {
+      const res = await p
+      const arr = Array.isArray(res?.data) ? res.data : []
+      const sumExpense = arr.reduce((acc, r) => acc + toNum(r.expense ?? r['支出']), 0)
+      results.set(key, Math.round(sumExpense * 100) / 100)
+    } catch (e) {
+      results.set(key, undefined)
+      console.warn('应付列表自动汇总失败:', e?.message || e)
+    }
+  }
+  for (const r of rows) {
+    const key = makeKey(r)
+    const val = results.get(key)
+    if (val !== undefined) r['实付金额'] = val
   }
 }
 </script>
