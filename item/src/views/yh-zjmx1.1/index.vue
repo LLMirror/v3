@@ -116,20 +116,35 @@ const toolsRef = ref(null);
 const titleRef = ref(null);
 const paginationRef = ref(null);
 const tableHeight = ref(700);
+// 在 Windows 浏览器上，滚动高度计算容易出现几像素的误差，导致最后几行不可达
+const isWindows = typeof navigator !== 'undefined' && /windows/i.test(navigator.userAgent || '');
 const updateTableHeight = debounce(() => {
   nextTick(() => {
-    const wrap = wrapperRef.value;
-    if (!wrap) return;
-    const toolsH = toolsRef.value?.offsetHeight || 0;
-    const titleH = titleRef.value?.offsetHeight || 0;
+    const hot = hotTableRef.value?.hotInstance;
+    const rootEl = hot?.rootElement || hotTableRef.value?.$el;
     const pagH = paginationRef.value?.offsetHeight || 0;
-    const wrapH = wrap.clientHeight;
-    // 预留内边距与安全间距
-    const padding = 24;
-    const available = Math.max(300, wrapH - toolsH - titleH - pagH - padding);
+    // 计算 Handsontable 容器到视口底部的剩余空间，确保铺满到可视区域底部
+    let available = 700;
+    try {
+      const top = rootEl?.getBoundingClientRect?.().top || 0;
+      const viewportH = window.innerHeight;
+      // 预留底部安全距离（包含分页条和内边距）
+      const bottomPadding = 24 + pagH;
+      available = Math.max(300, viewportH - top - bottomPadding);
+      // Windows 上加一点渲染缓冲避免最后几行不可达（滚动条与像素取整差异）
+      if (isWindows) available = available + 6;
+    } catch (e) {
+      // 兜底：使用原有容器高度计算
+      const wrap = wrapperRef.value;
+      const toolsH = toolsRef.value?.offsetHeight || 0;
+      const titleH = titleRef.value?.offsetHeight || 0;
+      const wrapH = wrap?.clientHeight || 700;
+      const padding = 24;
+      available = Math.max(300, wrapH - toolsH - titleH - pagH - padding);
+    }
+
     tableHeight.value = available;
     hotSettings.height = available;
-    const hot = hotTableRef.value?.hotInstance;
     if (hot) hot.updateSettings({ height: available });
   });
 }, 100);
@@ -210,6 +225,8 @@ const hotSettings = reactive({
   height: tableHeight.value,
   // 许可证密钥 - 非商业和评估使用
   licenseKey: "non-commercial-and-evaluation",
+  // 视口渲染缓冲：为避免在不同系统上出现滚动边界误差，这里增加行渲染缓冲
+  viewportRowRenderingOffset: 6,
   // 启用日期选择器插件***********************************************************
   // plugins: [DatePicker],
   // 单元格验证失败时应用的CSS类名
