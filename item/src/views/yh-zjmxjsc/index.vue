@@ -1353,11 +1353,11 @@ onMounted(() => {
 
 /* 暗色主题下：为带 table-red-hover 的表格设置红色 hover/选中，仅在暗色生效 */
 .cash-cockpit.dark :deep(.table-red-hover .el-table__body tr:hover>td) {
-  background-color: #ff4d4f !important;
+  background-color: var(--primary-to) !important; /* 深色主图紫色 #7c3aed */
   color: #fff !important;
 }
 .cash-cockpit.dark :deep(.table-red-hover .el-table__body tr.current-row>td) {
-  background-color: #ff4d4f !important;
+  background-color: var(--primary-to) !important; /* 深色主图紫色 #7c3aed */
   color: #fff !important;
 }
 .cash-cockpit :deep(.el-table td),
