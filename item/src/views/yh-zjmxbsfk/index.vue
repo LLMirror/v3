@@ -24,12 +24,16 @@
             </el-col>
             <el-col :xs="24" :sm="12" :md="8">
               <el-form-item label="公司" prop="company">
-                <el-input v-model="payableForm.company" placeholder="请输入公司" clearable />
+                <el-select v-model="payableForm.company" placeholder="请选择公司" filterable clearable>
+                  <el-option v-for="opt in companyOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                </el-select>
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="12" :md="8">
               <el-form-item label="账号" prop="account">
-                <el-input v-model="payableForm.account" placeholder="请输入账号" clearable />
+                <el-select v-model="payableForm.account" placeholder="请选择账号" filterable clearable>
+                  <el-option v-for="opt in accountOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                </el-select>
               </el-form-item>
             </el-col>
 
@@ -152,12 +156,16 @@
             </el-col>
             <el-col :xs="24" :sm="12" :md="8">
               <el-form-item label="公司" prop="company">
-                <el-input v-model="receivableForm.company" placeholder="请输入公司" clearable />
+                <el-select v-model="receivableForm.company" placeholder="请选择公司" filterable clearable>
+                  <el-option v-for="opt in companyOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                </el-select>
               </el-form-item>
             </el-col>
             <el-col :xs="24" :sm="12" :md="8">
               <el-form-item label="账号" prop="account">
-                <el-input v-model="receivableForm.account" placeholder="请输入账号" clearable />
+                <el-select v-model="receivableForm.account" placeholder="请选择账号" filterable clearable>
+                  <el-option v-for="opt in accountOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+                </el-select>
               </el-form-item>
             </el-col>
 
@@ -249,7 +257,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getSeriesList } from '@/api/system'
+import { getSeriesList, getSettlementCompanyBank, getSettlementData } from '@/api/system'
 
 const activeTab = ref('payable')
 
@@ -266,6 +274,32 @@ async function loadSeriesOptions() {
   }
 }
 
+// 公司与账号下拉（来自 pt_cw_zjmxb）
+const companyOptions = ref([])
+const accountOptions = ref([])
+async function loadCompanyAccountOptions() {
+  // 公司列表：使用出纳接口返回的公司-银行映射，提取公司唯一值
+  try {
+    const res = await getSettlementCompanyBank({ data: { summary: '' } })
+    const raw = res?.data || []
+    const companies = Array.from(new Set(raw.map(r => r?.['公司']).filter(Boolean)))
+    companyOptions.value = companies.map(c => ({ label: c, value: c }))
+  } catch (e) {
+    console.warn('加载公司列表失败：', e?.message || e)
+    companyOptions.value = []
+  }
+  // 账号列表：直接从出纳明细数据里提取“账号”唯一值
+  try {
+    const res2 = await getSettlementData({ data: { page: 1, size: 5000 } })
+    const rows = Array.isArray(res2?.data) ? res2.data : (res2?.data?.data || [])
+    const accounts = Array.from(new Set(rows.map(r => r?.['账号']).filter(Boolean)))
+    accountOptions.value = accounts.map(a => ({ label: a, value: a }))
+  } catch (e) {
+    console.warn('加载账号列表失败：', e?.message || e)
+    accountOptions.value = []
+  }
+}
+
 // 应付表单
 const payableFormRef = ref()
 const payableForm = reactive({
@@ -276,8 +310,8 @@ const payableForm = reactive({
 })
 const payableRules = {
   series: [{ required: true, message: '请选择系列', trigger: 'change' }],
-  company: [{ required: true, message: '请输入公司', trigger: 'blur' }],
-  account: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+  company: [{ required: true, message: '请选择公司', trigger: 'change' }],
+  account: [{ required: true, message: '请选择账号', trigger: 'change' }],
   amount: [{ required: true, message: '请输入金额', trigger: 'change' }]
 }
 function onSubmitPayable() {
@@ -300,8 +334,8 @@ const receivableForm = reactive({
 })
 const receivableRules = {
   series: [{ required: true, message: '请选择系列', trigger: 'change' }],
-  company: [{ required: true, message: '请输入公司', trigger: 'blur' }],
-  account: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+  company: [{ required: true, message: '请选择公司', trigger: 'change' }],
+  account: [{ required: true, message: '请选择账号', trigger: 'change' }],
   amount: [{ required: true, message: '请输入金额', trigger: 'change' }],
   receivableMonth: [{ required: true, message: '请选择应收月份', trigger: 'change' }],
   leaseStartDate: [
@@ -335,6 +369,7 @@ function onResetReceivable() {
 
 onMounted(() => {
   loadSeriesOptions()
+  loadCompanyAccountOptions()
 })
 
 // 日期工具与“续签日期”计算

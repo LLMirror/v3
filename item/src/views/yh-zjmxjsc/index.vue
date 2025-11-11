@@ -107,7 +107,7 @@
       <div class="table-card" v-if="todayBankAggregates.length" style="margin-left: 20px;">
         <div class="chart-title">各银行当日汇总</div>
         <el-table :data="todayBankAggregates" border size="small" style="width: 100%">
-          <el-table-column prop="bank" label="银行" width="780" />
+          <el-table-column prop="bank" label="银行" width="380" />
           <el-table-column prop="income" label="当日收入" width="160">
             <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
           </el-table-column>
