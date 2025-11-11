@@ -378,7 +378,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSeriesList, getSettlementCompanyBank, getUniqueSeriesCompanyBank, addPayable, addReceivable, getPayableList, getReceivableList, updatePayable, deletePayable, updateReceivable, deleteReceivable } from '@/api/system'
 
 const activeTab = ref('payable')
