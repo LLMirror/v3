@@ -237,12 +237,28 @@ router.post("/delRoles", async (req, res) => {
 function getThemeDefaultSql(){
     return "SELECT menu_bg AS menuBg,menu_sub_bg AS menuSubBg,menu_text AS menuText,menu_active_text AS menuActiveText,menu_sub_active_text AS menuSubActiveText,menu_hover_bg AS menuHoverBg FROM theme_default WHERE id=1"
 }
+// 动态确保 user 表存在部门ID与员工userID列
+async function ensureUserDeptEmployeeColumns(res, req) {
+    try {
+        const { result } = await pools({ sql: "SHOW COLUMNS FROM `user`", res, req });
+        const cols = Array.isArray(result) ? result.map(c => c.Field) : [];
+        if (!cols.includes("department_id")) {
+            await pools({ sql: "ALTER TABLE `user` ADD COLUMN `department_id` INT DEFAULT NULL COMMENT '部门ID' AFTER more_id", res, req, run: false });
+        }
+        if (!cols.includes("employee_user_id")) {
+            await pools({ sql: "ALTER TABLE `user` ADD COLUMN `employee_user_id` INT DEFAULT NULL COMMENT '员工userID' AFTER department_id", res, req, run: false });
+        }
+    } catch (e) {
+        console.error('ensureUserDeptEmployeeColumns error:', e?.message || e);
+    }
+}
 //添加用户
 router.post("/addUser", async (req, res) => {
     await utils.checkPermi({req,res,role:[systemSettings.user.userAdd]});
-    let sql = "INSERT INTO user(name,status,roles_id,remark,pwd,more_id,url) VALUES (?,?,?,?,?,?,?)", obj = req.body;
+    await ensureUserDeptEmployeeColumns(res, req);
+    let sql = "INSERT INTO user(name,status,roles_id,remark,pwd,more_id,url,department_id,employee_user_id) VALUES (?,?,?,?,?,?,?,?,?)", obj = req.body;
     await utils.existName({sql: "SELECT id FROM user WHERE  name=?", name: obj.name,res,msg:"用户名已被使用！",req});
-    let {result}=await pools({sql,val:[obj.name, obj.status,obj.rolesId, obj.remark, obj.pwd, obj.moreId,obj.url||""],res,req});
+    let {result}=await pools({sql,val:[obj.name, obj.status,obj.rolesId, obj.remark, obj.pwd, obj.moreId,obj.url||"", (obj.departmentId ?? obj.department_id ?? null), (obj.employeeUserId ?? obj.employee_user_id ?? null)],res,req});
     const themeDefault=await pools({sql:getThemeDefaultSql(),res,req,run:true});
     const themeData=themeDefault.result[0];
     let themeSql="INSERT INTO theme(user_id,menu_bg,menu_sub_bg,menu_text,menu_active_text,menu_sub_active_text,menu_hover_bg,el_bg,el_text) VALUES (?,?,?,?,?,?,?,?,?)";
@@ -257,7 +273,8 @@ router.post("/getTheme", async (req, res) => {
 router.post("/getUser", async (req, res) => {
     await utils.checkPermi({req,res,role:[systemSettings.user.userQuery]});
     let obj=req.body;
-    let sql = `SELECT a.id AS id,name,status,roles_id AS rolesId,remark,admin,more_id AS moreId,url,a.update_time AS updateTime,a.create_time AS createTime,b.menu_bg AS menuBg,b.menu_sub_bg AS menuSubBg,b.menu_text AS menuText,b.menu_active_text AS menuActiveText,b.menu_sub_active_text AS menuSubActiveText,b.menu_hover_bg AS menuHoverBg,b.el_theme AS elTheme,b.el_bg AS elBg,b.el_text AS elText FROM user AS a LEFT JOIN theme b ON a.id=b.user_id WHERE 1=1`;
+    await ensureUserDeptEmployeeColumns(res, req);
+    let sql = `SELECT a.id AS id,name,status,roles_id AS rolesId,remark,admin,more_id AS moreId,url,department_id AS departmentId,employee_user_id AS employeeUserId,a.update_time AS updateTime,a.create_time AS createTime,b.menu_bg AS menuBg,b.menu_sub_bg AS menuSubBg,b.menu_text AS menuText,b.menu_active_text AS menuActiveText,b.menu_sub_active_text AS menuSubActiveText,b.menu_hover_bg AS menuHoverBg,b.el_theme AS elTheme,b.el_bg AS elBg,b.el_text AS elText FROM user AS a LEFT JOIN theme b ON a.id=b.user_id WHERE 1=1`;
     sql=utils.setLike(sql,"name",obj.name);
     sql=utils.setAssign(sql,"more_id",obj.moreId);
     sql=utils.setAssign(sql,"status",obj.status);
@@ -280,12 +297,13 @@ router.post("/upTheme", async (req, res) => {
 //修改用户
 router.post("/upUser", async (req, res) => {
     await utils.checkPermi({req,res,role:[systemSettings.user.userUp]});
-    let sql = "UPDATE  user SET name=?,status=?,roles_id=?,remark=?,more_id=?,url=? WHERE id=?", obj = req.body;
+    await ensureUserDeptEmployeeColumns(res, req);
+    let sql = "UPDATE  user SET name=?,status=?,roles_id=?,remark=?,more_id=?,url=?,department_id=?,employee_user_id=? WHERE id=?", obj = req.body;
     //总管理不能操作
     await utils.upAdmin({req,res,id:obj.id});
     let judgeUserNameRes = await utils.judgeUserName({sql:"SELECT name FROM user WHERE  id=?",name:obj.name,id:obj.id,req,res});
     if (judgeUserNameRes === 1) await utils.existName({sql: "SELECT id FROM user WHERE  name=?", name: obj.name,res,msg:"用户名已被使用！",req});
-    await pools({sql,val:[obj.name, obj.status,obj.rolesId, obj.remark, obj.moreId, obj.url,obj.id],res,req,run:false});
+    await pools({sql,val:[obj.name, obj.status,obj.rolesId, obj.remark, obj.moreId, obj.url,(obj.departmentId ?? obj.department_id ?? null),(obj.employeeUserId ?? obj.employee_user_id ?? null),obj.id],res,req,run:false});
 });
 
 //修改我的信息

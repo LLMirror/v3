@@ -5,10 +5,13 @@
     <el-table :data="dataList" style="width: 100%" v-loading="tableLoading">
       <el-table-column label="编号" align="center" prop="id" />
       <el-table-column label="用户名称" align="center" prop="name">
+        
         <template #default="scope">
           {{scope.row.name}} <el-tag v-if="scope.row.admin===1" size="small" effect="dark">超级管理员</el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="部门ID" align="center" prop="departmentId" />
+      <el-table-column label="员工userID" align="center" prop="employeeUserId" />
       <el-table-column label="用户头像" align="center" prop="url" width="120">
         <template #default="scope">
           <el-image
@@ -50,6 +53,12 @@
       <el-form class="demo-form-inline" label-width="80px" :model="form" :rules="rules" ref="ruleForm">
         <el-form-item label="用户名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入用户名称" />
+        </el-form-item>
+        <el-form-item label="部门ID" prop="departmentId">
+          <el-input v-model="form.departmentId" placeholder="请输入部门ID" />
+        </el-form-item>
+        <el-form-item label="员工userID" prop="employeeUserId">
+          <el-input v-model="form.employeeUserId" placeholder="请输入员工userID" />
         </el-form-item>
 
         <el-form-item label="用户密码" prop="pwd" v-if="!form.id">
