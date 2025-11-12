@@ -77,6 +77,7 @@ async function getApprovalNumber(instanceId,token) {
 
 // 测试 token 是否有效（调用钉钉流程编码接口）
 async function getProcessCodeByName(token, remark) {
+  console.log("remark------ **********:", remark,token);
   try {
     const url = `https://api.dingtalk.com/v1.0/workflow/processCentres/schemaNames/processCodes`;
     const res = await axios.get(url, {
@@ -89,6 +90,7 @@ async function getProcessCodeByName(token, remark) {
     return { ok: true, data: res.data };
   } catch (error) {
     const errData = error.response?.data || {};
+    console.log("errData------ **********:", errData);
     // 失败时返回统一结构，便于上层判断是否为 token 失效
     return { ok: false, error: errData };
   }
@@ -138,18 +140,17 @@ router.post("/getDingTalkToken", async (req, res) => {
     };
 
     if (!currentToken) {
+      console.log("!currentToken------ **********:", currentToken);
       await ensureFreshToken();
     } else {
       const check = await getProcessCodeByName(currentToken, remark);
-      let data= await startDingTalkProcess(check.data.result.processCode,user,moreRows[0],req.body.payload)
-      if (!check.ok) {
+         if (!check.ok) {
         // 兼容 errcode 或 code 的返回格式，40001 为 token 失效
-        const errcode = check.error?.errcode ?? check.error?.code;
-        if (String(errcode) === '40001') {
+        console.log("!check.ok------ **********:", check);
           await ensureFreshToken();
-        }
       }
-    return res.send(utils.returnData(data));
+      let data= await startDingTalkProcess(check.data.result.processCode,user,moreRows[0],req.body.payload)
+      return res.send(utils.returnData(data));
     }
 
     // 3) 返回统一结构（包含是否刷新）
@@ -199,7 +200,9 @@ router.post("/getDingTalkToken", async (req, res) => {
       },
     });
 
-    return { msg: '发起审批成功', data: dtRes.data };
+   let code = await getApprovalNumber(dtRes.data.instanceId,user.ddtk);
+
+    return { msg: '发起审批成功', data: {instanceId:dtRes.data.instanceId,code} };
   } catch (error) {
     const errmsg = error.response?.data?.message || error.response?.data?.errmsg || error.message || '未知错误';
      return { code: -1, msg: `发起审批失败：${errmsg}` };
