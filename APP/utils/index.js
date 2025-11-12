@@ -85,7 +85,7 @@ export default {
             res.send(this.returnData({code: 203,req}));
             return Promise.reject(false);
         }
-        let sql = "SELECT id,name,status,roles_id AS rolesId,admin,more_id AS moreId,url,ddtk FROM user WHERE id=?";
+        let sql = "SELECT id,name,status,roles_id AS rolesId,admin,more_id AS moreId,url,ddtk,department_id AS departmentId,employee_user_id AS employeeUserId FROM user WHERE id=?";
         let {result}=await pools({sql,val:[user.uid],res,req});
         if (result.length === 0) {
             res.send(this.returnData({code: -1, msg: "用户不存在！",req}));

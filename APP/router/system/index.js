@@ -10,6 +10,7 @@ import PDFDocument from 'pdfkit';
 import dayjs from 'dayjs';
 import crypto from 'crypto';
 import axios from 'axios';
+import COS from 'cos-nodejs-sdk-v5';
 
 
 const router = express.Router();
@@ -35,8 +36,10 @@ async function getProcessCodeByName(token, remark) {
 }
 // 获取流程编码code
 router.post("/getDingTalkToken", async (req, res) => {
+  console.log("req.body------9999999 **********:", req.body.payload);
   try {
     const user = await utils.getUserInfo({ req, res });
+    // console.log("user------*********************:", user);
     await utils.checkPermi({ req, res, role: [systemSettings.user.userQuery] });
 
     // 1) 读取 appKey/appSecret 与流程名（remark）
@@ -46,6 +49,7 @@ router.post("/getDingTalkToken", async (req, res) => {
     if (!moreRows || !moreRows.length) {
       return res.send(utils.returnData({ code: -1, msg: "未找到当前 moreId 的配置信息" }));
     }
+    // console.log("moreRows------ **********:", moreRows);
     const appKey = moreRows[0].appKey;
     const appSecret = moreRows[0].appSecret;
     const remark = moreRows[0].remark; // 用作流程名称
@@ -79,6 +83,9 @@ router.post("/getDingTalkToken", async (req, res) => {
       await ensureFreshToken();
     } else {
       const check = await getProcessCodeByName(currentToken, remark);
+      // console.log("check------ **********:", check);
+      let data= await startDingTalkProcess(check.data.result.processCode,user,moreRows[0],req.body.payload)
+      // console.log("data------ **********:", data);  
       if (!check.ok) {
         // 兼容 errcode 或 code 的返回格式，40001 为 token 失效
         const errcode = check.error?.errcode ?? check.error?.code;
@@ -89,12 +96,66 @@ router.post("/getDingTalkToken", async (req, res) => {
     }
 
     // 3) 返回统一结构（包含是否刷新）
-    return res.send(utils.returnData({ code: 1, msg: refreshed ? "已刷新钉钉token" : "钉钉token有效", data: { ddtk: currentToken, refreshed } }));
+
+    // return res.send(utils.returnData({ code: 1, msg: refreshed ? "已刷新钉钉token" : "钉钉token有效", data: { ddtk: currentToken, refreshed } }));
+
   } catch (error) {
     console.error("获取钉钉token异常：", error);
     return res.send(utils.returnData({ code: -1, msg: "获取钉钉token异常" }));
   }
 })
+// 调用 钉钉流程发起审批
+ async function startDingTalkProcess  (startDingTalkProcess,user,moreRows,payload) {
+  // console.log("user------ **********:", user);
+  // console.log("moreRows123------ **********:", moreRows);
+  // console.log("startDingTalkProcess------ **********:", startDingTalkProcess);
+
+  try {
+
+    // 读取 more 表获取 appKey/appSecret 以及 remark(流程名称)
+    let moreSql = `SELECT id, name, remark, app_key AS appKey, app_secret AS appSecret FROM more WHERE 1=1`;
+    moreSql = utils.setAssign(moreSql, 'id', user.more_id);
+    if (!moreRows ) {
+      return { code: -1, msg: '未找到当前 moreId 的配置信息' };
+    }
+    const appKey = moreRows.appKey;
+    const appSecret = moreRows.appSecret;
+    if (!appKey || !appSecret) {
+      return { code: -1, msg: '未配置钉钉 appKey 或 appSecret' };
+    }
+
+    // 校验/确保可用 token
+    const originatorUserId = user.employeeUserId;
+    const deptId = user.departmentId;
+    let processCode = startDingTalkProcess;
+    let formComponentValues =  payload;
+
+
+    if (!originatorUserId || !deptId || !processCode) {
+      return { code: -1, msg: '缺少必要参数：originatorUserId/deptId/processCode' };
+    }
+
+    const url = 'https://api.dingtalk.com/v1.0/workflow/processInstances';
+    const dtRes = await axios.post(url, {
+      processCode,
+      originatorUserId,
+      deptId,
+      formComponentValues,
+    }, {
+      headers: {
+        'x-acs-dingtalk-access-token': user.ddtk,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return { code: 0, msg: '发起审批成功', data: dtRes.data };
+  } catch (error) {
+    const errmsg = error.response?.data?.message || error.response?.data?.errmsg || error.message || '未知错误';
+     return { code: -1, msg: `发起审批失败：${errmsg}` };
+
+  }
+}
+
 
 // ------------------------------钉钉相关------------------------------
 

@@ -517,3 +517,12 @@ export function getDingTalkToken(params) {
     data: params
   });
 }
+
+// 启动钉钉流程
+export function startDingTalkProcess(params) {
+  return request({
+    url: "/system/startDingTalkProcess",
+    method: "post",
+    data: params
+  });
+}
