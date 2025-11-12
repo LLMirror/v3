@@ -9,6 +9,8 @@
           {{scope.row.name}}
         </template>
       </el-table-column>
+      <el-table-column label="AppKey" align="center" prop="app_key" />
+      <el-table-column label="AppSecret" align="center" prop="app_secret" />
       <el-table-column label="备注" align="center" prop="remark" />
       <el-table-column label="创建时间" align="center" prop="createTime"  />
       <el-table-column align="center" label="操作">
@@ -33,6 +35,12 @@
         </el-form-item>
         <el-form-item label="备注说明">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
+        </el-form-item>
+        <el-form-item label="AppKey">
+          <el-input v-model="form.app_key" placeholder="请输入 AppKey" />
+        </el-form-item>
+        <el-form-item label="AppSecret">
+          <el-input v-model="form.app_secret" placeholder="请输入 AppSecret" />
         </el-form-item>
       </el-form>
 
