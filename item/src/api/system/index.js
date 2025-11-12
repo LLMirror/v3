@@ -508,3 +508,12 @@ export function saveIdcardInfo(params) {
     data: params
   });
 }
+
+// 获取钉钉token
+export function getDingTalkToken(params) {
+  return request({
+    url: "/system/getDingTalkToken",
+    method: "post",
+    data: params
+  });
+}

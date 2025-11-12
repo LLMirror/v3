@@ -9,10 +9,89 @@ import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import dayjs from 'dayjs';
 import crypto from 'crypto';
-
+import axios from 'axios';
 
 
 const router = express.Router();
+// ------------------------------钉钉相关------------------------------
+
+// 测试 token 是否有效
+async function getProcessCodeByName(token,remark) {
+    console.log("token------:", token,remark);
+
+    try {
+        const url = `https://api.dingtalk.com/v1.0/workflow/processCentres/schemaNames/processCodes`;
+        const res = await axios.get(url, {
+            params: { name: remark },
+            headers: {
+                'x-acs-dingtalk-access-token': token
+            }
+        });
+
+        return res.data;  // 返回完整响应数据
+    } catch (error) {
+      return res.send(utils.returnData({ code: -1, msg: `调用钉钉获取流程编码接口失败：${error.response?.data?.errmsg || '未知错误'}` }));
+    }
+}
+// 获取流程编码code
+router.post("/getDingTalkToken", async (req, res) => {
+  try {
+    const user = await utils.getUserInfo({ req, res });
+   
+
+    // 根据登录用户的 moreId 查询 more 表，获取钉钉 appKey/appSecret
+    let sql = `SELECT id,name,remark,app_key AS appKey, app_secret AS appSecret, update_time AS updateTime, create_time AS createTime,remark FROM more WHERE 1=1`;
+    sql = utils.setAssign(sql, "id", user.moreId);
+    let { result } = await pools({ sql, res, req });
+
+    if (!result || !result.length) {
+      return res.send(utils.returnData({ code: -1, msg: "未找到当前 moreId 的配置信息" }));
+    }
+
+    const appKey = result[0].appKey;
+    const appSecret = result[0].appSecret;
+    if (!appKey || !appSecret) {
+      return res.send(utils.returnData({ code: -1, msg: "未配置钉钉 appKey 或 appSecret" }));
+    }
+
+
+    if(!user.ddtk){
+      return res.send(utils.returnData({ code: -1, msg: "未配置钉钉 token" }));
+    }else{
+ const processCode = await getProcessCodeByName(user.ddtk,result[0].remark);
+    }
+
+// 如果 token 失效没有成功 则重新调用 token 更新到 ddtk
+      if(processCode?.errcode === 40001){
+        // 调用 token 更新到 ddtk
+        const dtRes = await axios.get('https://oapi.dingtalk.com/gettoken', {
+          params: {
+            appkey: appKey,
+            appsecret: appSecret,
+          },
+        });
+
+        if(dtRes.data.errcode === 0){
+        // 调用 sql 储存到 user 表的 ddtk
+        let sql = `UPDATE user SET ddtk=?, update_time=? WHERE id=?`;
+        let { result } = await pools({ sql, val: [dtRes.data.access_token, moment().format('YYYY-MM-DD HH:mm:ss'), user.id], res, req });
+        if (!result || result.affectedRows === 0) {
+          return res.send(utils.returnData({ code: -1, msg: "更新用户钉钉token失败" }));
+        }
+
+        return res.send(utils.returnData({ code: 1, msg: "获取钉钉token成功", data: { ddtk: dtRes.data.access_token } }));
+      }else{
+        return res.send(utils.returnData({ code: -1, msg: `钉钉获取token失败：${dtRes?.data?.errmsg || '未知错误'}` }));
+      }
+    }
+
+  } catch (error) {
+    console.error("获取钉钉token异常：", error);
+    return res.send(utils.returnData({ code: -1, msg: "获取钉钉token异常" }));
+  }
+})
+
+// ------------------------------钉钉相关------------------------------
 
 //获取图形二维码
 router.post("/getCaptcha", async (req, res) => {
