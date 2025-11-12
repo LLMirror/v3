@@ -15,76 +15,81 @@ import axios from 'axios';
 const router = express.Router();
 // ------------------------------钉钉相关------------------------------
 
-// 测试 token 是否有效
-async function getProcessCodeByName(token,remark) {
-    console.log("token------:", token,remark);
-
-    try {
-        const url = `https://api.dingtalk.com/v1.0/workflow/processCentres/schemaNames/processCodes`;
-        const res = await axios.get(url, {
-            params: { name: remark },
-            headers: {
-                'x-acs-dingtalk-access-token': token
-            }
-        });
-
-        return res.data;  // 返回完整响应数据
-    } catch (error) {
-      return res.send(utils.returnData({ code: -1, msg: `调用钉钉获取流程编码接口失败：${error.response?.data?.errmsg || '未知错误'}` }));
-    }
+// 测试 token 是否有效（调用钉钉流程编码接口）
+async function getProcessCodeByName(token, remark) {
+  try {
+    const url = `https://api.dingtalk.com/v1.0/workflow/processCentres/schemaNames/processCodes`;
+    const res = await axios.get(url, {
+      params: { name: remark },
+      headers: {
+        'x-acs-dingtalk-access-token': token
+      }
+    });
+    // 成功直接返回数据结构
+    return { ok: true, data: res.data };
+  } catch (error) {
+    const errData = error.response?.data || {};
+    // 失败时返回统一结构，便于上层判断是否为 token 失效
+    return { ok: false, error: errData };
+  }
 }
 // 获取流程编码code
 router.post("/getDingTalkToken", async (req, res) => {
   try {
     const user = await utils.getUserInfo({ req, res });
-   
+    await utils.checkPermi({ req, res, role: [systemSettings.user.userQuery] });
 
-    // 根据登录用户的 moreId 查询 more 表，获取钉钉 appKey/appSecret
-    let sql = `SELECT id,name,remark,app_key AS appKey, app_secret AS appSecret, update_time AS updateTime, create_time AS createTime,remark FROM more WHERE 1=1`;
-    sql = utils.setAssign(sql, "id", user.moreId);
-    let { result } = await pools({ sql, res, req });
-
-    if (!result || !result.length) {
+    // 1) 读取 appKey/appSecret 与流程名（remark）
+    let moreSql = `SELECT id, name, remark, app_key AS appKey, app_secret AS appSecret, update_time AS updateTime, create_time AS createTime FROM more WHERE 1=1`;
+    moreSql = utils.setAssign(moreSql, "id", user.moreId);
+    let { result: moreRows } = await pools({ sql: moreSql, res, req });
+    if (!moreRows || !moreRows.length) {
       return res.send(utils.returnData({ code: -1, msg: "未找到当前 moreId 的配置信息" }));
     }
-
-    const appKey = result[0].appKey;
-    const appSecret = result[0].appSecret;
+    const appKey = moreRows[0].appKey;
+    const appSecret = moreRows[0].appSecret;
+    const remark = moreRows[0].remark; // 用作流程名称
     if (!appKey || !appSecret) {
       return res.send(utils.returnData({ code: -1, msg: "未配置钉钉 appKey 或 appSecret" }));
     }
 
+    // 2) 如果已有 ddtk，则先校验 token 是否有效；否则申请新的 token
+    let currentToken = user.ddtk;
+    let refreshed = false;
 
-    if(!user.ddtk){
-      return res.send(utils.returnData({ code: -1, msg: "未配置钉钉 token" }));
-    }else{
- const processCode = await getProcessCodeByName(user.ddtk,result[0].remark);
-    }
-
-// 如果 token 失效没有成功 则重新调用 token 更新到 ddtk
-      if(processCode?.errcode === 40001){
-        // 调用 token 更新到 ddtk
-        const dtRes = await axios.get('https://oapi.dingtalk.com/gettoken', {
-          params: {
-            appkey: appKey,
-            appsecret: appSecret,
-          },
-        });
-
-        if(dtRes.data.errcode === 0){
-        // 调用 sql 储存到 user 表的 ddtk
-        let sql = `UPDATE user SET ddtk=?, update_time=? WHERE id=?`;
-        let { result } = await pools({ sql, val: [dtRes.data.access_token, moment().format('YYYY-MM-DD HH:mm:ss'), user.id], res, req });
-        if (!result || result.affectedRows === 0) {
+    const ensureFreshToken = async () => {
+      const dtRes = await axios.get('https://oapi.dingtalk.com/gettoken', {
+        params: { appkey: appKey, appsecret: appSecret },
+      });
+      if (dtRes.data?.errcode === 0) {
+        currentToken = dtRes.data.access_token;
+        // 落库更新用户 ddtk
+        const updateSql = `UPDATE user SET ddtk=?, update_time=? WHERE id=?`;
+        const { result: updateResult } = await pools({ sql: updateSql, val: [currentToken, moment().format('YYYY-MM-DD HH:mm:ss'), user.id], res, req });
+        if (!updateResult || updateResult.affectedRows === 0) {
           return res.send(utils.returnData({ code: -1, msg: "更新用户钉钉token失败" }));
         }
-
-        return res.send(utils.returnData({ code: 1, msg: "获取钉钉token成功", data: { ddtk: dtRes.data.access_token } }));
-      }else{
+        refreshed = true;
+      } else {
         return res.send(utils.returnData({ code: -1, msg: `钉钉获取token失败：${dtRes?.data?.errmsg || '未知错误'}` }));
+      }
+    };
+
+    if (!currentToken) {
+      await ensureFreshToken();
+    } else {
+      const check = await getProcessCodeByName(currentToken, remark);
+      if (!check.ok) {
+        // 兼容 errcode 或 code 的返回格式，40001 为 token 失效
+        const errcode = check.error?.errcode ?? check.error?.code;
+        if (String(errcode) === '40001') {
+          await ensureFreshToken();
+        }
       }
     }
 
+    // 3) 返回统一结构（包含是否刷新）
+    return res.send(utils.returnData({ code: 1, msg: refreshed ? "已刷新钉钉token" : "钉钉token有效", data: { ddtk: currentToken, refreshed } }));
   } catch (error) {
     console.error("获取钉钉token异常：", error);
     return res.send(utils.returnData({ code: -1, msg: "获取钉钉token异常" }));
