@@ -33,15 +33,16 @@
         <el-form-item label="账号名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入账号名称" />
         </el-form-item>
-        <el-form-item label="备注说明">
-          <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
-        </el-form-item>
         <el-form-item label="AppKey">
           <el-input v-model="form.app_key" placeholder="请输入 AppKey" />
         </el-form-item>
         <el-form-item label="AppSecret">
           <el-input v-model="form.app_secret" placeholder="请输入 AppSecret" />
         </el-form-item>
+        <el-form-item label="备注说明">
+          <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
+        </el-form-item>
+        
       </el-form>
 
       <template #footer>
