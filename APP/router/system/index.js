@@ -11,10 +11,69 @@ import dayjs from 'dayjs';
 import crypto from 'crypto';
 import axios from 'axios';
 import COS from 'cos-nodejs-sdk-v5';
+import schedule from 'node-schedule';
+
+// ================================
+// 🕐 启动时加载定时任务
+function startCheckDateJob() {
+  console.log("定时任务启动中：每天凌晨 1:30 自动执行测试逻辑");
+
+  // 每天凌晨  1:30 执行
+ schedule.scheduleJob('37 1 * * *', async () => {
+  try {
+    const defaultDate = '2025-11-21'; // 目标日期
+    const defaultDays = 7;            // 提前天数
+
+    const today = new Date();
+    const inputDate = new Date(defaultDate);
+
+    // 计算剩余天数（正数代表还剩几天）
+    const diffDays = Math.round((inputDate - today) / (1000 * 60 * 60 * 24));
+
+    // 判断是否在目标日期前 7 天以内
+    const isWithin = diffDays >= 0 && diffDays <= defaultDays;
+
+    console.log(`[定时任务] 每天凌晨1:30执行测试：`, {
+      today: today.toISOString().slice(0, 10),
+      target: defaultDate,
+      diffDays,
+      isWithin
+    });
+  } catch (err) {
+    console.error(`[定时任务错误]`, err);
+  }
+});
+}
+
+// 调用函数，启动任务
+startCheckDateJob();
+// ================================
+
+
 
 
 const router = express.Router();
 // ------------------------------钉钉相关------------------------------
+
+// 获取钉钉的审批
+async function getApprovalNumber(instanceId,token) {
+    try {
+        const url = `https://api.dingtalk.com/v1.0/workflow/processInstances`;
+        const res = await axios.get(url, {
+            params: { processInstanceId: instanceId },
+            headers: {
+                'x-acs-dingtalk-access-token': token
+            }, timeout: 30000
+        });
+        console.log(res.data.result.businessId)
+        return res.data.result.businessId;  // 返回完整响应数据
+    } catch (error) {
+        console.error('调用钉钉获取审批接口失败：', error.response?.data || error);
+        throw error;
+    }
+}
+// 查询审批编号
+
 
 // 测试 token 是否有效（调用钉钉流程编码接口）
 async function getProcessCodeByName(token, remark) {
