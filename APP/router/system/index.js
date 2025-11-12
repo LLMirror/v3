@@ -97,7 +97,7 @@ router.post("/getDingTalkToken", async (req, res) => {
 
     // 3) 返回统一结构（包含是否刷新）
 
-    // return res.send(utils.returnData({ code: 1, msg: refreshed ? "已刷新钉钉token" : "钉钉token有效", data: { ddtk: currentToken, refreshed } }));
+    return res.send(utils.returnData({ code: 1, msg: refreshed ? "已刷新钉钉token" : "钉钉token有效", data: { ddtk: currentToken, refreshed } }));
 
   } catch (error) {
     console.error("获取钉钉token异常：", error);
