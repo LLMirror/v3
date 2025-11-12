@@ -3,15 +3,7 @@
     <div class="cockpit-header">
       <h2>资金明细驾驶舱</h2>
       <div class="filters">
-        <el-select
-          v-model="selectedCompany"
-          placeholder="选择公司"
-          clearable
-          filterable
-          style="width: 220px; margin-right: 12px;"
-        >
-          <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
-        </el-select>
+        <!-- 先选择“系列”，再选择该系列下的“公司” -->
         <el-select
           v-model="selectedSeries"
           placeholder="选择系列"
@@ -20,6 +12,16 @@
           style="width: 220px; margin-right: 12px;"
         >
           <el-option v-for="s in seriesOptions" :key="s.value" :label="s.label" :value="s.value" />
+        </el-select>
+        <el-select
+          v-model="selectedCompany"
+          :disabled="!selectedSeries"
+          :placeholder="selectedSeries ? '选择公司（当前系列）' : '请先选择系列'"
+          clearable
+          filterable
+          style="width: 220px; margin-right: 12px;"
+        >
+          <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
         </el-select>
         <el-date-picker
           v-model="dateRange"
@@ -316,7 +318,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue';
+import { ref, onMounted, nextTick, watch } from 'vue';
 import * as echarts from 'echarts';
 import { ElMessage } from 'element-plus';
 import { getCashOverview, getCompanyList, getCashRecords, getSeriesList, getReceivableList, getPayableList } from '@/api/system';
@@ -391,7 +393,9 @@ const isLoadingOverview = ref(false);
 function buildOverviewPayload() {
   const [dateFrom, dateTo] = dateRange.value || [];
   const payload = { dateFrom, dateTo };
-  if (selectedCompany.value) payload.company = selectedCompany.value;
+  if (selectedCompany.value && (companyOptions.value || []).includes(selectedCompany.value)) {
+    payload.company = selectedCompany.value;
+  }
   if (selectedSeries.value) payload.series = selectedSeries.value;
   return payload;
 }
@@ -486,7 +490,9 @@ async function loadDayDetails(day) {
     const dateTo = `${day} 23:59:59`;
     // 注意：API 封装会自动将入参作为 body.data 发送，这里不要再包一层 data
     const params = { dateFrom, dateTo, page: 1, size: 200 };
-    if (selectedCompany.value) params.company = selectedCompany.value;
+    if (selectedCompany.value && (companyOptions.value || []).includes(selectedCompany.value)) {
+      params.company = selectedCompany.value;
+    }
     if (selectedSeries.value) params.series = selectedSeries.value;
     const res = await getCashRecords(params);
     selectedDayDetails.value = res?.data || [];
@@ -630,7 +636,9 @@ function isMonthInRange(month, range) {
 async function loadReceivablePayableMonthly() {
   try {
     const params = {};
-    if (selectedCompany.value) params.company = selectedCompany.value;
+    if (selectedCompany.value && (companyOptions.value || []).includes(selectedCompany.value)) {
+      params.company = selectedCompany.value;
+    }
     if (selectedSeries.value) params.series = selectedSeries.value;
 
     // 获取应收列表
@@ -690,7 +698,9 @@ async function loadReceivableCompanyAgg() {
   try {
     const params = {};
     // 保持与页面筛选一致：按系列/公司过滤
-    if (selectedCompany.value) params.company = selectedCompany.value;
+    if (selectedCompany.value && (companyOptions.value || []).includes(selectedCompany.value)) {
+      params.company = selectedCompany.value;
+    }
     if (selectedSeries.value) params.series = selectedSeries.value;
     const recRes = await getReceivableList(params);
     const recList = recRes?.data || [];
@@ -865,7 +875,9 @@ function initPayableChart() {
 async function loadPayableCompanyAgg() {
   try {
     const params = {};
-    if (selectedCompany.value) params.company = selectedCompany.value;
+    if (selectedCompany.value && (companyOptions.value || []).includes(selectedCompany.value)) {
+      params.company = selectedCompany.value;
+    }
     if (selectedSeries.value) params.series = selectedSeries.value;
     const payRes = await getPayableList(params);
     const payList = payRes?.data || [];
@@ -1216,11 +1228,8 @@ function initTopSummaryChart() {
 
 onMounted(() => {
   // 加载公司选项
-  getCompanyList({}).then(res => {
-    companyOptions.value = res?.data || [];
-  }).finally(() => {
-    initOverviewDefaultRange();
-  });
+  // 初次不加载全部公司，等待选中系列后再加载对应公司
+  initOverviewDefaultRange();
   // 加载系列选项
   loadSeriesOptions();
   // 统一绑定一次 resize 事件
@@ -1239,6 +1248,27 @@ onMounted(() => {
     };
     window.addEventListener('resize', resizeHandler);
   }
+});
+
+// 根据所选“系列”加载该系列下的公司选项
+async function loadCompaniesForSeries(series) {
+  try {
+    if (!series) {
+      companyOptions.value = [];
+      return;
+    }
+    const res = await getCompanyList({ series });
+    companyOptions.value = res?.data || [];
+  } catch (e) {
+    console.error(e);
+    companyOptions.value = [];
+  }
+}
+
+// 联动：系列变化时重置公司并加载公司选项，确保公司只能属于当前系列
+watch(selectedSeries, (val) => {
+  selectedCompany.value = '';
+  loadCompaniesForSeries(val);
 });
 </script>
 
