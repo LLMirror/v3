@@ -36,7 +36,6 @@ async function getProcessCodeByName(token, remark) {
 }
 // 获取流程编码code
 router.post("/getDingTalkToken", async (req, res) => {
-  console.log("req.body------9999999 **********:", req.body.payload);
   try {
     const user = await utils.getUserInfo({ req, res });
     // console.log("user------*********************:", user);
@@ -83,9 +82,7 @@ router.post("/getDingTalkToken", async (req, res) => {
       await ensureFreshToken();
     } else {
       const check = await getProcessCodeByName(currentToken, remark);
-      // console.log("check------ **********:", check);
       let data= await startDingTalkProcess(check.data.result.processCode,user,moreRows[0],req.body.payload)
-      // console.log("data------ **********:", data);  
       if (!check.ok) {
         // 兼容 errcode 或 code 的返回格式，40001 为 token 失效
         const errcode = check.error?.errcode ?? check.error?.code;
@@ -93,12 +90,10 @@ router.post("/getDingTalkToken", async (req, res) => {
           await ensureFreshToken();
         }
       }
+    return res.send(utils.returnData(data));
     }
 
     // 3) 返回统一结构（包含是否刷新）
-
-    return res.send(utils.returnData({ code: 1, msg: refreshed ? "已刷新钉钉token" : "钉钉token有效", data: { ddtk: currentToken, refreshed } }));
-
   } catch (error) {
     console.error("获取钉钉token异常：", error);
     return res.send(utils.returnData({ code: -1, msg: "获取钉钉token异常" }));
@@ -106,9 +101,6 @@ router.post("/getDingTalkToken", async (req, res) => {
 })
 // 调用 钉钉流程发起审批
  async function startDingTalkProcess  (startDingTalkProcess,user,moreRows,payload) {
-  // console.log("user------ **********:", user);
-  // console.log("moreRows123------ **********:", moreRows);
-  // console.log("startDingTalkProcess------ **********:", startDingTalkProcess);
 
   try {
 
@@ -148,7 +140,7 @@ router.post("/getDingTalkToken", async (req, res) => {
       },
     });
 
-    return { code: 0, msg: '发起审批成功', data: dtRes.data };
+    return { msg: '发起审批成功', data: dtRes.data };
   } catch (error) {
     const errmsg = error.response?.data?.message || error.response?.data?.errmsg || error.message || '未知错误';
      return { code: -1, msg: `发起审批失败：${errmsg}` };
