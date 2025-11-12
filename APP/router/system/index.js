@@ -241,12 +241,19 @@ function getThemeDefaultSql(){
 async function ensureUserDeptEmployeeColumns(res, req) {
     try {
         const { result } = await pools({ sql: "SHOW COLUMNS FROM `user`", res, req });
-        const cols = Array.isArray(result) ? result.map(c => c.Field) : [];
-        if (!cols.includes("department_id")) {
+        const colTypes = new Map(Array.isArray(result) ? result.map(c => [c.Field, (c.Type || '').toLowerCase()]) : []);
+        // department_id: 数值型即可
+        if (!colTypes.has("department_id")) {
             await pools({ sql: "ALTER TABLE `user` ADD COLUMN `department_id` INT DEFAULT NULL COMMENT '部门ID' AFTER more_id", res, req, run: false });
         }
-        if (!cols.includes("employee_user_id")) {
-            await pools({ sql: "ALTER TABLE `user` ADD COLUMN `employee_user_id` INT DEFAULT NULL COMMENT '员工userID' AFTER department_id", res, req, run: false });
+        // employee_user_id: 可能包含前导0或超出INT范围，使用VARCHAR保留原始值
+        if (!colTypes.has("employee_user_id")) {
+            await pools({ sql: "ALTER TABLE `user` ADD COLUMN `employee_user_id` VARCHAR(64) DEFAULT NULL COMMENT '员工userID' AFTER department_id", res, req, run: false });
+        } else {
+            const t = colTypes.get("employee_user_id") || "";
+            if (t.includes("int")) {
+                await pools({ sql: "ALTER TABLE `user` MODIFY COLUMN `employee_user_id` VARCHAR(64) DEFAULT NULL COMMENT '员工userID' AFTER department_id", res, req, run: false });
+            }
         }
     } catch (e) {
         console.error('ensureUserDeptEmployeeColumns error:', e?.message || e);
