@@ -71,13 +71,21 @@ const onStartProcess = async () => {
     }
     console.log("payload------ **********:", payload.formComponentValues);
     const res = await getDingTalkToken({ payload: payload.formComponentValues })
-    const ok = (res && res.code === 0) || (res && res.data && res.data.code === 0)
-    if (ok) {
-      ElMessage.success('发起审批成功')
-    } else {
-      ElMessage.error(res?.msg || res?.data?.msg || '发起审批失败')
-    }
+    const ok = res && (res.code === 0 || res.code === 1)
+
+
+  if (ok) {
+    ElMessage({
+    showClose: true,
+    message: `发起审批成功，审批编号：${res?.data?.code || ''}`,
+    type: 'success',
+  })
+} else {
+  ElMessage.error(res?.msg || '审批发起失败')
+}
+
   } catch (e) {
+    console.log("e------ *****1111*****:", e);
     ElMessage.error('发起审批异常')
   }
 }
