@@ -1217,10 +1217,24 @@ router.post('/dashboard/cashOverview', async (req, res) => {
 
 /** 获取公司列表 */
 router.post('/getCompanyList', async (req, res) => {
-    const sql = `SELECT DISTINCT 公司 AS company FROM pt_cw_zjmxb ORDER BY 公司`;
-    const { result } = await pools({ sql, res, req });
-    const data = result.map(r => r.company);
+  try {
+    console.log('getCompanyList', req.body);
+    let sql = `SELECT DISTINCT 公司 AS company FROM pt_cw_zjmxb WHERE 公司 IS NOT NULL AND 公司 <> ''`;
+    const params = [];
+    const body = req.body || {};
+    const seriesRaw = body.series;
+    const series = seriesRaw ? String(seriesRaw).trim() : '';
+    if (series) {
+      sql += ` AND 系列 = ?`;
+      params.push(series);
+    }
+    sql += ` ORDER BY 公司`;
+    const { result } = await pools({ sql, val: params, res, req });
+    const data = (result || []).map(r => r.company);
     res.send(utils.returnData({ data }));
+  } catch (err) {
+    utils.err(err, res);
+  }
 });
 
 /** 获取银行列表 */
@@ -1271,7 +1285,7 @@ router.post('/getCashSummaryList', async (req, res) => {
 
     sql += ` LIMIT 100`; // 排序并限制 100 条
 
-    console.log('SQL:', sql, 'params:', params);
+    // console.log('SQL:', sql, 'params:', params);
 
     // ⚠️ pools 返回结果统一处理成 rows
    const rows = await pools({ sql, val: params, res, req });
@@ -1879,7 +1893,7 @@ router.post("/getSettlementData", async (req, res) => {
 router.post("/getSettlementCompanyBank", async (req, res) => {
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
-  const sql = `SELECT DISTINCT 公司,银行 FROM \`pt_cw_zjmxb\` where user_id = ${userId} `;
+  const sql = `SELECT DISTINCT 公司,银行 FROM \`pt_cw_zjmxb\` where user_id = ${userId} AND 公司 IS NOT NULL AND 公司 <> '' AND 银行 IS NOT NULL AND 银行 <> ''`;
   // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
