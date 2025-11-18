@@ -215,6 +215,7 @@ router.post("/getDingTalkToken", async (req, res) => {
 
 //获取图形二维码
 router.post("/getCaptcha", async (req, res) => {
+  console.log("req.body------ **********:", req.body);
     const captcha = svgCaptcha.create({
         inverse: false, // 翻转颜色
         fontSize: 48, // 字体大小
