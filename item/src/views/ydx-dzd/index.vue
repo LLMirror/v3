@@ -249,6 +249,11 @@ watch([currentPage, pageSize, () => tableData.value.length], () => updateTableHe
 :deep(.handsontable .htCore td) {
   white-space: nowrap !important;
 }
+/* 所有内容居中（表头与单元格） */
+:deep(.handsontable .htCore th),
+:deep(.handsontable .htCore td) {
+  text-align: center !important;
+}
 </style>
 
 
