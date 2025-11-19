@@ -9,6 +9,19 @@
       licenseKey="non-commercial-and-evaluation"
       class="excel-table"
     />
+
+    <div class="pagination-bar">
+      <el-pagination
+        background
+        layout="prev, pager, next, sizes, total, jumper"
+        :total="total"
+        :current-page="currentPage"
+        :page-size="pageSize"
+        :page-sizes="[20, 50, 100, 200, 500, 1000]"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </div>
   </div>
 </template>
 
@@ -24,6 +37,10 @@ import { hyGetSettlementData } from "@/api/system/index.js";
 const tableData = ref([]);
 const colHeaders = ref([]);
 const columns = ref([]);
+// 分页参数
+const currentPage = ref(1);
+const pageSize = ref(50);
+const total = ref(0);
 
 // Handsontable 设置（响应式）
 const hotSettings = reactive({
@@ -68,6 +85,9 @@ function initTableFromObjects(rows = []) {
       cfg.dateFormat = "YYYY-MM-DD";
       cfg.correctFormat = true;
     }
+    if (k === "id") {
+      cfg.width = 1;
+    }
     return cfg;
   });
   hotSettings.colHeaders = colHeaders.value;
@@ -86,21 +106,40 @@ function loadIntoHotTable(data) {
 // 组件引用
 const hotTableRef = ref(null);
 
-// 页面挂载后获取并渲染数据
-onMounted(async () => {
-  const res = await hyGetSettlementData({});
+// 按页请求数据并渲染
+async function fetchPage() {
+  const res = await hyGetSettlementData({
+    data: { page: currentPage.value, size: pageSize.value }
+  });
   const list = Array.isArray(res?.data) ? res.data : [];
-  // 初始化结构并绑定数据
-  initTableFromObjects(list);
+  total.value = Number(res?.total) || list.length;
+  if (columns.value.length === 0) {
+    initTableFromObjects(list);
+  }
   tableData.value = list;
   loadIntoHotTable(tableData.value);
-});
+}
+
+// 事件：页码变化
+async function handleCurrentChange(page) {
+  currentPage.value = page;
+  await fetchPage();
+}
+// 事件：每页数量变化
+async function handleSizeChange(size) {
+  pageSize.value = size;
+  currentPage.value = 1;
+  await fetchPage();
+}
+
+// 页面挂载后获取并渲染数据
+onMounted(fetchPage);
 
 
 </script>
 
 <style scoped>
-
+.pagination-bar { margin-top: 12px; }
 </style>
 
 

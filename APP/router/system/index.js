@@ -2633,6 +2633,280 @@ router.post("/upSettlementData", async (req, res) => {
   }
 });
 
+// 环亚---------------------------------------------------------
+// 出纳表 - 批量同步数据（保留原功能）
+router.post("/hy-upSettlementData", async (req, res) => {
+  try {
+    // 获取登录用户信息
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+    
+    const { tableName, data } = req.body;
+    
+    if (!tableName || !Array.isArray(data) || data.length === 0) {
+      return res.send(utils.returnData({ code: 400, msg: "❌ 缺少参数或数据为空" }));
+    }
+    
+    // 1. 获取所有唯一键
+    const importedUniqueKeys = data.map(item => item.unique_key);
+    
+    // 2. 批量查询现有数据
+    const existingDataQuery = `SELECT unique_key, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号 FROM \`${tableName}\` WHERE user_id = ? AND unique_key IN (?)`;
+    const queryResult = await pools({ 
+      sql: existingDataQuery, 
+      val: [userId, importedUniqueKeys], 
+      isReturn: true 
+    });
+    
+    // 确保existingData是数组类型
+    const existingData = queryResult && Array.isArray(queryResult) ? queryResult : 
+                       (queryResult && Array.isArray(queryResult.result) ? queryResult.result : []);
+    
+    // 3. 创建数据映射以便快速查找
+    const existingDataMap = new Map();
+    existingData.forEach(row => {
+      if (row && row.unique_key) {
+        existingDataMap.set(row.unique_key, row);
+      }
+    });
+    
+    // 4. 初始化计数器
+    let insertedCount = 0;
+    let updatedCount = 0;
+    
+    // 5. 处理每条记录
+    for (const rowData of data) {
+      const uniqueKey = rowData.unique_key;
+      const existingRow = existingDataMap.get(uniqueKey);
+      
+      // 准备更新字段
+      const updateFields = {
+        '日期': rowData['日期'],
+        '公司': rowData['公司'],
+        '银行': rowData['银行'],
+        '摘要': rowData['摘要'],
+        '收入': rowData['收入'],
+        '支出': rowData['支出'],
+        '余额': rowData['余额'],
+        '备注': rowData['备注'],
+        '发票': rowData['发票'],
+        '序号': rowData['序号']
+      };
+      
+      if (!existingRow) {
+        // 不存在则新增
+        const insertSQL = `INSERT INTO \`${tableName}\` (user_id, unique_key, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        await pools({ 
+          sql: insertSQL, 
+          val: [
+            userId, 
+            uniqueKey, 
+            rowData['日期'],
+            rowData['公司'],
+            rowData['银行'],
+            rowData['摘要'],
+            rowData['收入'],
+            rowData['支出'],
+            rowData['余额'],
+            rowData['备注'],
+            rowData['发票'],
+            rowData['序号']
+          ], 
+          isReturn: true 
+        });
+        insertedCount++;
+      } else {
+        // 存在则比较数据是否一致
+        let hasChanges = false;
+        for (const [field, value] of Object.entries(updateFields)) {
+          if (existingRow[field] !== value) {
+            hasChanges = true;
+            break;
+          }
+        }
+        
+        if (hasChanges) {
+          // 数据有变动才更新
+          const updateSQL = `UPDATE \`${tableName}\` SET 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ? WHERE user_id = ? AND unique_key = ?`;
+          await pools({ 
+            sql: updateSQL, 
+            val: [
+              rowData['日期'],
+              rowData['公司'],
+              rowData['银行'],
+              rowData['摘要'],
+              rowData['收入'],
+              rowData['支出'],
+              rowData['余额'],
+              rowData['备注'],
+              rowData['发票'],
+              rowData['序号'],
+              userId,
+              uniqueKey
+            ], 
+            isReturn: true 
+          });
+          updatedCount++;
+        }
+      }
+    }
+    
+    // 6. 执行删除操作：删除数据库中存在但不在导入数据中的记录
+    let deletedCount = 0;
+    if (importedUniqueKeys.length > 0) {
+      const countDeletedSQL = `SELECT COUNT(*) as count FROM \`${tableName}\` WHERE user_id = ? AND unique_key NOT IN (?)`;
+      const deletedCountQueryResult = await pools({ 
+        sql: countDeletedSQL, 
+        val: [userId, importedUniqueKeys], 
+        isReturn: true 
+      });
+      // 确保正确获取删除记录数
+      const deletedCountResult = deletedCountQueryResult && Array.isArray(deletedCountQueryResult) ? deletedCountQueryResult : 
+                                (deletedCountQueryResult && Array.isArray(deletedCountQueryResult.result) ? deletedCountQueryResult.result : []);
+      deletedCount = deletedCountResult[0]?.count || 0;
+      
+      const deleteSQL = `DELETE FROM \`${tableName}\` WHERE user_id = ? AND unique_key NOT IN (?)`;
+      await pools({ 
+        sql: deleteSQL, 
+        val: [userId, importedUniqueKeys], 
+        isReturn: true 
+      });
+    }
+    
+    // 7. 返回结果
+    res.send(utils.returnData({
+      code: 1,
+      msg: `✅ 数据同步完成：新增 ${insertedCount} 条，更新 ${updatedCount} 条，删除 ${deletedCount} 条`,
+      data: { 
+        inserted: insertedCount, 
+        updated: updatedCount, 
+        deleted: deletedCount,
+        total: data.length 
+      }
+    }));
+  } catch (err) {
+    console.error("❌ 同步数据出错:", err);
+    if (!res.headersSent) {
+      res.send(utils.returnData({ 
+        code: 500, 
+        msg: `❌ 数据同步失败: ${err.message || '未知错误'}` 
+      }));
+    }
+  }
+});
+
+// 获取出纳结算数据
+router.post("/hy-getSettlementData", async (req, res) => {
+  // 参考 getCashRecords 的过滤与分页模式
+  console.log("getSettlementData", req.body);
+  const obj = req.body || {};
+
+  // 登录用户
+  const user = await utils.getUserRole(req, res);
+  const userId = user.user.id;
+
+  // 兼容两种前端传参形式：selectedCompanyBank/dateRange 与 data 结构
+  const selectedCompanyBank = obj.selectedCompanyBank || [];
+  const dateRange = obj.dateRange || [];
+  const data = obj.data || {};
+
+  const company = data.company ?? selectedCompanyBank[0];
+  const bank = data.bank ?? selectedCompanyBank[1];
+  const summary = data.summary ?? undefined;
+  const dateFrom = data.dateFrom ?? dateRange[0];
+  const dateTo = data.dateTo ?? dateRange[1];
+
+  // 基础查询
+  let sql = `SELECT * FROM \`hy-cw-ql\` WHERE user_id = ${userId}`;
+  // 模糊匹配
+  sql = utils.setLike(sql, '公司', company);
+  sql = utils.setLike(sql, '银行', bank);
+  sql = utils.setLike(sql, '摘要', summary);
+  // 日期区间
+  if (dateFrom) sql += ` AND 日期 >= '${dayjs(dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
+  if (dateTo) sql += ` AND 日期 <= '${dayjs(dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
+
+  // 排序 + 分页
+  sql += ' ORDER BY id ASC';
+  const page = Number(data.page) || 1;
+  const size = Number(data.size) || 1000;
+  // 统计总数：传入正确的表名（包含反引号，避免连字符导致的解析错误）
+  let { total } = await utils.getSum({ sql, name: '`hy-cw-ql`', res, req });
+  sql = utils.pageSize(sql, page, size);
+
+  const { result } = await pools({ sql, res, req });
+  // 保持前端兼容：返回 data 为数组
+  res.send(utils.returnData({ data: result, total }));
+});
+
+// 获取出纳表公司、银行
+router.post("/hy-getSettlementCompanyBank", async (req, res) => {
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+  const sql = `SELECT DISTINCT 公司,银行 FROM \`pt_cw_zjmxb\` where user_id = ${userId} AND 公司 IS NOT NULL AND 公司 <> '' AND 银行 IS NOT NULL AND 银行 <> ''`;
+  // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
+  const { result } = await pools({ sql, res });
+  res.send(utils.returnData({ data: result }));
+});
+
+// 出纳表 - 更新单条记录
+router.post("/hy-updateSettlementData", async (req, res) => {
+    console.log(req.body);
+  try {
+    // 获取登录用户信息
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+
+    const { tableName, data } = req.body;
+    
+    if (!tableName || !data || !data.id) {
+      return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
+    }
+    
+    // 执行更新
+    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ? WHERE user_id = ? AND id = ?`;
+    await pools({ 
+      sql: updateSQL, 
+      val: [
+        data['unique_key'] || '',
+        data['日期'] || '',
+        data['公司'] || '',
+        data['银行'] || '',
+        data['摘要'] || '',
+        data['收入'] || 0,
+        data['支出'] || 0,
+        data['余额'] || 0,
+        data['备注'] || '',
+        data['发票'] || '',
+        data['序号'] || '',
+        userId,
+        data.id || ''
+
+      ], 
+      isReturn: true 
+    });
+    
+    res.send(utils.returnData({ code: 1, msg: "✅ 更新成功" }));
+  } catch (err) {
+    console.error("❌ 更新数据出错:", err);
+    res.send(utils.returnData({ code: 500, msg: err.message }));
+  }
+});
+
+// 获取最大 id
+router.post("/hy-getMaxId", async (req, res) => {
+    try {
+      const tableName = req.body.tableName || 'pt-cw-zjmxb';
+      const sql = `SELECT MAX(id) AS maxId FROM \`${tableName}\``;
+      const data = await pools({ sql, isReturn: true });
+      res.send(utils.returnData({ code: 1, msg: "✅ 获取成功", data: data.result[0].maxId+1 || 0 }));
+    } catch (err) {
+      res.send(utils.returnData({ code: 500, msg: `❌ 获取失败: ${err.message || '未知错误'}` }));
+    }
+});
+
+
 
 
 export default router;
+  

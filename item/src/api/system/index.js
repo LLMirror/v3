@@ -526,3 +526,12 @@ export function startDingTalkProcess(params) {
     data: params
   });
 }
+
+// 启动钉钉流程
+export function hyGetSettlementData(params) {
+  return request({
+    url: "/system/hy-getSettlementData",
+    method: "post",
+    data: params
+  });
+}
