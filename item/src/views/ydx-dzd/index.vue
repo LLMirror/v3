@@ -59,7 +59,7 @@ function initTableFromObjects(rows = []) {
   colHeaders.value = ordered;
   columns.value = ordered.map(k => {
     const cfg = { data: k };
-    if (["收入","支出","余额","id"].includes(k)) {
+    if (["收入","支出","余额"].includes(k)) {
       cfg.type = "numeric";
       cfg.numericFormat = { pattern: "0,0.00" };
     }
