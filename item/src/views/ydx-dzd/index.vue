@@ -10,7 +10,7 @@
       class="excel-table"
     />
 
-    <div class="pagination-bar">
+    <div class="pagination-bar" ref="paginationRef">
       <el-pagination
         background
         layout="prev, pager, next, sizes, total, jumper"
@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, nextTick, computed, onMounted } from "vue";
+import { ref, reactive, nextTick, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import { HotTable } from "@handsontable/vue3";
 import "handsontable/dist/handsontable.full.min.css";
 import "handsontable/languages/zh-CN"; // 汉化
@@ -37,6 +37,11 @@ import { hyGetSettlementData } from "@/api/system/index.js";
 const tableData = ref([]);
 const colHeaders = ref([]);
 const columns = ref([]);
+// 自适应高度相关
+const wrapperRef = ref(null);
+const titleRef = ref(null);
+const paginationRef = ref(null);
+const tableHeight = ref(600);
 // 分页参数
 const currentPage = ref(1);
 const pageSize = ref(50);
@@ -49,7 +54,7 @@ const hotSettings = reactive({
   columns: columns.value,
   stretchH: "all",
   language: "zh-CN",
-  height: 600,
+  height: tableHeight.value,
   licenseKey: "non-commercial-and-evaluation",
   contextMenu: true,
   filters: true,
@@ -58,6 +63,27 @@ const hotSettings = reactive({
   manualRowResize: true,
   autoColumnSize: true,
 });
+
+// 计算可用高度：视口高度 - 表格距离顶部 - 分页与底部间距
+const updateTableHeight = () => {
+  nextTick(() => {
+    try {
+      const hot = hotTableRef.value?.hotInstance;
+      const rootEl = hot?.rootElement || hotTableRef.value?.$el;
+      const pagH = paginationRef.value?.offsetHeight || 0;
+      const top = rootEl?.getBoundingClientRect?.().top || 0;
+      const viewportH = window.innerHeight || 800;
+      const bottomPadding = 24 + pagH; // 预留底部间距
+      const available = Math.max(300, viewportH - top - bottomPadding);
+      tableHeight.value = available;
+      hotSettings.height = available;
+      if (hot) hot.updateSettings({ height: available });
+    } catch (e) {
+      // 兜底：保持原高度
+      console.warn('updateTableHeight fallback', e);
+    }
+  });
+};
 
 // 根据对象数组初始化表头与列定义
 function initTableFromObjects(rows = []) {
@@ -118,6 +144,7 @@ async function fetchPage() {
   }
   tableData.value = list;
   loadIntoHotTable(tableData.value);
+  updateTableHeight();
 }
 
 // 事件：页码变化
@@ -134,6 +161,16 @@ async function handleSizeChange(size) {
 
 // 页面挂载后获取并渲染数据
 onMounted(fetchPage);
+
+// 窗口尺寸变化时重算高度
+onMounted(() => {
+  window.addEventListener('resize', updateTableHeight);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateTableHeight);
+});
+// 数据量或分页变化时也尝试更新高度
+watch([currentPage, pageSize, () => tableData.value.length], () => updateTableHeight());
 
 
 </script>
