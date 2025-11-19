@@ -3,7 +3,7 @@
 <template>
   <div class="page-wrap p-4" ref="wrapperRef">
     <h2 class="text-xl" ref="titleRef">订单明细表</h2>
-    <div class="mb-3 flex gap-2 flex-wrap items-center tool-bar" ref="toolsRef">
+    <!-- <div class="mb-3 flex gap-2 flex-wrap items-center tool-bar" ref="toolsRef">
          <el-cascader
         v-model="selectedCompanyBank"
         :options="companyBankOptions"
@@ -35,8 +35,8 @@
       <el-button @click="addRow">➕ 添加行</el-button>
       <el-button @click="loadFromDB" type="primary">查询</el-button>
 
-      <!-- <el-button type="info" @click="saveChanges" :loading="saving">💾 保存编辑</el-button>  -->
-    </div>
+      <el-button type="info" @click="saveChanges" :loading="saving">💾 保存编辑</el-button> 
+    </div> -->
 
     <HotTable
       ref="hotTableRef"

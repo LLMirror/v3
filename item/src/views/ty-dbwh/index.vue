@@ -292,8 +292,17 @@ function excelNumberToDate(excelNum) {
 // 检查是否可能是Excel日期格式的数字
 function isPossibleExcelDate(value) {
   // Excel日期范围通常在2000-2050年之间，对应数字范围约为36526-54789
-  // 允许一定的范围，也考虑小数（时间部分）
-  return typeof value === 'number' && value > 20000 && value < 60000;
+  // 支持数字字符串（如 "45931.0098263889"）
+  let num = null;
+  if (typeof value === 'number') {
+    num = value;
+  } else if (typeof value === 'string') {
+    const s = value.trim();
+    if (/^\d+(\.\d+)?$/.test(s)) {
+      num = parseFloat(s);
+    }
+  }
+  return Number.isFinite(num) && num > 20000 && num < 60000;
 }
 
 // 检测列是否可能是日期列
@@ -383,7 +392,9 @@ function initTableFromObjects(objArray) {
     // 转换日期列中的Excel数字格式
     dateColumns.forEach(col => {
       if (isPossibleExcelDate(processedRow[col])) {
-        processedRow[col] = excelNumberToDate(processedRow[col]);
+        const v = processedRow[col];
+        const num = typeof v === 'number' ? v : parseFloat(String(v).trim());
+        processedRow[col] = excelNumberToDate(num);
       }
     });
     
