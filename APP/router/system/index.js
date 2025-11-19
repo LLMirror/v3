@@ -2816,8 +2816,12 @@ router.post("/hy-getSettlementData", async (req, res) => {
   const dateFrom = data.dateFrom ?? dateRange[0];
   const dateTo = data.dateTo ?? dateRange[1];
 
-  // 基础查询
-  let sql = `SELECT * FROM \`hy-cw-ql\` WHERE user_id = ${userId}`;
+  // 基础查询：使用 LEFT JOIN 标注美团对账状态，避免模板字符串中的反引号造成解析问题
+  let sql = 'SELECT q.*, ' +
+    "CASE WHEN mt.`sp订单号` IS NOT NULL THEN '美团˙已对账' ELSE NULL END AS `对账状态` " +
+    'FROM `hy-cw-gl` q ' +
+    'LEFT JOIN `hy-cw-mt` mt ON mt.`sp订单号` = q.`运力主单ID` ' +
+    'WHERE q.user_id = ' + userId;
   // 模糊匹配
   sql = utils.setLike(sql, '公司', company);
   sql = utils.setLike(sql, '银行', bank);
@@ -2827,11 +2831,11 @@ router.post("/hy-getSettlementData", async (req, res) => {
   if (dateTo) sql += ` AND 日期 <= '${dayjs(dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
 
   // 排序 + 分页
-  sql += ' ORDER BY id ASC';
+  sql += ' ORDER BY q.id ASC';
   const page = Number(data.page) || 1;
   const size = Number(data.size) || 1000;
   // 统计总数：传入正确的表名（包含反引号，避免连字符导致的解析错误）
-  let { total } = await utils.getSum({ sql, name: '`hy-cw-ql`', res, req });
+  let { total } = await utils.getSum({ sql: sql.replace(/\bq\./g, ''), name: '`hy-cw-gl`', res, req });
   sql = utils.pageSize(sql, page, size);
 
   const { result } = await pools({ sql, res, req });

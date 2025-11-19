@@ -3,7 +3,7 @@
 <template>
   <div class="page-wrap p-4" ref="wrapperRef">
     <h2 class="text-xl" ref="titleRef">迪波QL</h2>
-    <div class="tool-bar">
+    <!-- <div class="tool-bar">
       <el-select
         v-model="orderStatus"
         placeholder="订单状态"
@@ -18,7 +18,7 @@
           :value="opt"
         />
       </el-select>
-    </div>
+    </div> -->
     <HotTable
       ref="hotTableRef"
       :settings="hotSettings"
