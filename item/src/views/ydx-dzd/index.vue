@@ -85,6 +85,8 @@ const hotSettings = reactive({
   autoColumnSize: true,
   // 固定最左侧一列，配合初始化时将“序号”置于首列
   fixedColumnsLeft: 1,
+  // 关闭单元格自动换行
+  wordWrap: false,
   // 根据订单状态为整行着色：订单已完成 -> 浅绿色
   cells(row, col) {
     const cellProperties = {};
@@ -242,6 +244,11 @@ watch([currentPage, pageSize, () => tableData.value.length], () => updateTableHe
 :deep(.row-reconciled-red) { background-color: #fdecea !important; }
 .handsontable td.row-reconciled-red { background-color: #fdecea !important; }
 .htCore td.row-reconciled-red { background-color: #fdecea !important; }
+/* 禁止所有表格内容换行（表头与单元格） */
+:deep(.handsontable .htCore th),
+:deep(.handsontable .htCore td) {
+  white-space: nowrap !important;
+}
 </style>
 
 
