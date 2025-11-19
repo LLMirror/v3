@@ -73,7 +73,7 @@ const updateTableHeight = () => {
       const pagH = paginationRef.value?.offsetHeight || 0;
       const top = rootEl?.getBoundingClientRect?.().top || 0;
       const viewportH = window.innerHeight || 800;
-      const bottomPadding = 24 + pagH; // 预留底部间距
+      const bottomPadding = 24 + pagH + 16; // 预留底部间距 + 额外安全边距
       const available = Math.max(300, viewportH - top - bottomPadding);
       tableHeight.value = available;
       hotSettings.height = available;
@@ -176,7 +176,7 @@ watch([currentPage, pageSize, () => tableData.value.length], () => updateTableHe
 </script>
 
 <style scoped>
-.pagination-bar { margin-top: 12px; }
+.pagination-bar { margin-top: 12px; margin-bottom: 16px; }
 </style>
 
 
