@@ -3,6 +3,22 @@
 <template>
   <div class="page-wrap p-4" ref="wrapperRef">
     <h2 class="text-xl" ref="titleRef">迪波QL</h2>
+    <div class="tool-bar">
+      <el-select
+        v-model="orderStatus"
+        placeholder="订单状态"
+        size="small"
+        class="mr-2"
+        @change="handleStatusChange"
+      >
+        <el-option
+          v-for="opt in statusOptions"
+          :key="opt"
+          :label="opt"
+          :value="opt"
+        />
+      </el-select>
+    </div>
     <HotTable
       ref="hotTableRef"
       :settings="hotSettings"
@@ -37,6 +53,11 @@ import { hyGetSettlementData } from "@/api/system/index.js";
 const tableData = ref([]);
 const colHeaders = ref([]);
 const columns = ref([]);
+// 顶部订单状态筛选
+const orderStatus = ref('全部');
+const statusOptions = [
+  '全部', '待处理', '处理中', '已完成', '已取消'
+];
 // 自适应高度相关
 const wrapperRef = ref(null);
 const titleRef = ref(null);
@@ -62,6 +83,22 @@ const hotSettings = reactive({
   manualColumnResize: true,
   manualRowResize: true,
   autoColumnSize: true,
+  // 根据订单状态为整行着色：订单已完成 -> 浅绿色
+  cells(row, col) {
+    const cellProperties = {};
+    const rowData = tableData.value?.[row];
+    if (rowData) {
+      // 常见字段名兼容：订单状态/状态/status/摘要/summary；并兜底扫描整行包含“订单已完成”
+      const statusVal = rowData["订单状态"] ?? rowData["状态"] ?? rowData["status"] ?? rowData["摘要"] ?? rowData["summary"] ?? "";
+      const strVal = String(statusVal);
+      const isCompleted = /订单已完成|已完成/.test(strVal) ||
+        Object.values(rowData).some(v => /订单已完成/.test(String(v)));
+      if (isCompleted) {
+        cellProperties.className = (cellProperties.className ? cellProperties.className + " " : "") + "row-completed";
+      }
+    }
+    return cellProperties;
+  },
 });
 
 // 计算可用高度：视口高度 - 表格距离顶部 - 分页与底部间距
@@ -134,9 +171,12 @@ const hotTableRef = ref(null);
 
 // 按页请求数据并渲染
 async function fetchPage() {
-  const res = await hyGetSettlementData({
-    data: { page: currentPage.value, size: pageSize.value }
-  });
+  const dataParams = { page: currentPage.value, size: pageSize.value };
+  // 将订单状态映射到摘要筛选（后端支持 summary LIKE）
+  if (orderStatus.value && orderStatus.value !== '全部') {
+    dataParams.summary = orderStatus.value;
+  }
+  const res = await hyGetSettlementData({ data: dataParams });
   const list = Array.isArray(res?.data) ? res.data : [];
   total.value = Number(res?.total) || list.length;
   if (columns.value.length === 0) {
@@ -159,6 +199,12 @@ async function handleSizeChange(size) {
   await fetchPage();
 }
 
+// 订单状态变化
+async function handleStatusChange() {
+  currentPage.value = 1;
+  await fetchPage();
+}
+
 // 页面挂载后获取并渲染数据
 onMounted(fetchPage);
 
@@ -176,7 +222,14 @@ watch([currentPage, pageSize, () => tableData.value.length], () => updateTableHe
 </script>
 
 <style scoped>
+
+.page-wrap{padding-left: 16px;padding-right: 16px;}
+.mr-2 { margin-right: 8px; }
 .pagination-bar { margin-top: 12px; margin-bottom: 16px; }
+/* 完成订单整行浅绿色背景 */
+:deep(.row-completed) { background-color: #e8f5e9 !important; }
+.handsontable td.row-completed { background-color: #e8f5e9 !important; }
+.htCore td.row-completed { background-color: #e8f5e9 !important; }
 </style>
 
 
