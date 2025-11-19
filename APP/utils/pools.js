@@ -11,7 +11,7 @@ import utils from './index.js';
 export default function pools({sql,val=[],msg,run=true,res,req}={}){
     return new Promise((resolve)=>{
         pool.query(sql, val,(err, result) => {
-            console.log(err, result);
+            // console.log(err, result);
             if (err) return res.send(utils.returnData({code: -1, msg,err,req}));
             if(run) return resolve({result});
             return res.send(utils.returnData({ data: result }));

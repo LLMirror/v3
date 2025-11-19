@@ -1890,6 +1890,238 @@ router.post("/getSettlementData", async (req, res) => {
   res.send(utils.returnData({ data: result, total }));
 });
 
+// 导出出纳结算数据为 Excel
+router.post("/hy-exportSettlementExcel", async (req, res) => {
+  try {
+    // 读取参数，兼容与 hy-getSettlementData 相同的结构
+    const obj = req.body || {};
+    const selectedCompanyBank = obj.selectedCompanyBank || [];
+    const dateRange = obj.dateRange || [];
+    const data = obj.data || {};
+
+    // 登录用户
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+
+    // 条件参数
+    const company = data.company ?? selectedCompanyBank[0];
+    const bank = data.bank ?? selectedCompanyBank[1];
+    const summary = data.summary ?? undefined; // 前端将订单状态映射到摘要
+    const dateFrom = data.dateFrom ?? dateRange[0];
+    const dateTo = data.dateTo ?? dateRange[1];
+
+    // 基础查询（不分页），复用 hy-getSettlementData 的过滤逻辑
+    let baseSql = 'SELECT q.*, ' +
+      "CASE WHEN mt.`sp订单号` IS NOT NULL THEN '美团˙已对账' ELSE NULL END AS `对账状态` " +
+      'FROM `hy-cw-gl` q ' +
+      'LEFT JOIN `hy-cw-mt` mt ON mt.`sp订单号` = q.`运力主单ID` ' +
+      'WHERE q.user_id = ' + userId;
+    baseSql = utils.setLike(baseSql, '公司', company);
+    baseSql = utils.setLike(baseSql, '银行', bank);
+    baseSql = utils.setLike(baseSql, '摘要', summary);
+    if (dateFrom) baseSql += ` AND 日期 >= '${dayjs(dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
+    if (dateTo) baseSql += ` AND 日期 <= '${dayjs(dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
+    baseSql += ' ORDER BY q.id ASC';
+
+    // 统计总数（传入正确的表名，避免连字符导致的解析错误）
+    const { total } = await utils.getSum({ sql: baseSql.replace(/\bq\./g, ''), name: '`hy-cw-gl`', res, req });
+
+    // 响应头：流式下载
+    const fileName = encodeURIComponent('GL结算.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    // 使用 ExcelJS 流式写入，避免大数据占用内存导致超时
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+      stream: res,
+      useSharedStrings: true,
+      useStyles: false,
+    });
+    const worksheet = workbook.addWorksheet('GL结算');
+
+    // 先获取一行用于确定列顺序
+    const headSql = baseSql + ' LIMIT 1';
+    const { result: headRows } = await pools({ sql: headSql, res, req });
+    const keys = Array.isArray(headRows) && headRows.length ? Object.keys(headRows[0]) : [];
+    const ordered = keys.includes('序号') ? ['序号', ...keys.filter(k => k !== '序号')] : keys;
+
+    // 写入表头
+    if (ordered.length === 0) {
+      worksheet.addRow(['无数据']).commit();
+    } else {
+      worksheet.addRow(ordered).commit();
+      // 分块查询，逐行写入
+      const chunkSize = 5000; // 每次提取 5000 行
+      let offset = 0;
+      while (offset < total) {
+        const chunkSql = `${baseSql} LIMIT ${chunkSize} OFFSET ${offset}`;
+        const { result: chunk } = await pools({ sql: chunkSql, res, req });
+        for (const row of (chunk || [])) {
+          worksheet.addRow(ordered.map(k => row[k])).commit();
+        }
+        offset += chunkSize;
+      }
+    }
+
+    // 结束写入（这将结束响应流）
+    await worksheet.commit();
+    await workbook.commit();
+  } catch (err) {
+    console.error('❌ 导出失败:', err);
+    try {
+      // 如果尚未开始写入，则返回错误 JSON
+      if (!res.headersSent) {
+        res.send(utils.returnData({ code: 500, msg: `导出失败: ${err.message || '未知错误'}` }));
+      } else {
+        // 已开始写入流，安全结束连接
+        res.end();
+      }
+    } catch (_) {
+      // 忽略
+    }
+  }
+});
+
+// 进度存储（内存级，按 jobId 记录）
+const exportProgress = Object.create(null);
+
+// CSV 导出：按 10 万/页分页下载，节省资源
+router.post('/hy-exportSettlementCsv', async (req, res) => {
+  try {
+    const obj = req.body || {};
+    const selectedCompanyBank = obj.selectedCompanyBank || [];
+    const dateRange = obj.dateRange || [];
+    const data = obj.data || {};
+
+    // 登录用户
+    const user = await utils.getUserRole(req, res);
+    const userId = user.user.id;
+
+    // 过滤参数（与 hy-getSettlementData 一致）
+    const company = data.company ?? selectedCompanyBank[0];
+    const bank = data.bank ?? selectedCompanyBank[1];
+    const summary = data.summary ?? undefined;
+    const dateFrom = data.dateFrom ?? dateRange[0];
+    const dateTo = data.dateTo ?? dateRange[1];
+
+    // 基础查询
+    let baseSql = 'SELECT q.*, ' +
+      "CASE WHEN mt.`sp订单号` IS NOT NULL THEN '美团˙已对账' ELSE NULL END AS `对账状态` " +
+      'FROM `hy-cw-gl` q ' +
+      'LEFT JOIN `hy-cw-mt` mt ON mt.`sp订单号` = q.`运力主单ID` ' +
+      'WHERE q.user_id = ' + userId;
+    baseSql = utils.setLike(baseSql, '公司', company);
+    baseSql = utils.setLike(baseSql, '银行', bank);
+    baseSql = utils.setLike(baseSql, '摘要', summary);
+    if (dateFrom) baseSql += ` AND 日期 >= '${dayjs(dateFrom).format('YYYY-MM-DD HH:mm:ss')}'`;
+    if (dateTo) baseSql += ` AND 日期 <= '${dayjs(dateTo).format('YYYY-MM-DD HH:mm:ss')}'`;
+    baseSql += ' ORDER BY q.id ASC';
+
+    // 总数
+    const { total } = await utils.getSum({ sql: baseSql.replace(/\bq\./g, ''), name: '`hy-cw-gl`', res, req });
+
+    // 分页参数：默认每页 100000
+    const pageSize = Math.max(1, Number(data.pageSize) || 100000);
+    const page = Math.max(1, Number(data.page) || 1);
+    const offset = (page - 1) * pageSize;
+    const remain = Math.max(0, total - offset);
+    const pageCount = Math.min(pageSize, remain);
+
+    // 进度：为本次导出生成/使用 jobId，并初始化进度
+    const jobId = data.jobId || uuidv4();
+    exportProgress[jobId] = {
+      total: pageCount,
+      processed: 0,
+      percent: 0,
+      status: 'running',
+      page,
+      pageSize,
+      updatedAt: Date.now(),
+    };
+
+    // 响应头
+    const fileName = encodeURIComponent(`GL结算_p${page}.csv`);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+
+    // 写入 UTF-8 BOM，便于 Excel 正确识别中文
+    res.write('\ufeff');
+
+    // 确定表头顺序
+    const headSql = baseSql + ' LIMIT 1';
+    const { result: headRows } = await pools({ sql: headSql, res, req });
+    const keys = Array.isArray(headRows) && headRows.length ? Object.keys(headRows[0]) : [];
+    const ordered = keys.includes('序号') ? ['序号', ...keys.filter(k => k !== '序号')] : keys;
+
+    // CSV 转义
+    const esc = (v) => {
+      const s = v === null || v === undefined ? '' : String(v);
+      const needQuote = /[",\n\r]/.test(s);
+      const inner = s.replace(/"/g, '""');
+      return needQuote ? `"${inner}"` : inner;
+    };
+
+    if (ordered.length === 0 || pageCount <= 0) {
+      res.write('无数据\n');
+      return res.end();
+    }
+
+    // 写表头
+    res.write(ordered.map(esc).join(',') + '\n');
+
+    // 分块查询当前页数据并写入，同时更新进度
+    const chunkSize = 5000;
+    let fetched = 0;
+    while (fetched < pageCount) {
+      const size = Math.min(chunkSize, pageCount - fetched);
+      const chunkSql = `${baseSql} LIMIT ${size} OFFSET ${offset + fetched}`;
+      const { result: chunk } = await pools({ sql: chunkSql, res, req });
+      for (const row of (chunk || [])) {
+        const line = ordered.map(k => esc(row[k])).join(',');
+        res.write(line + '\n');
+      }
+      fetched += size;
+      const prog = exportProgress[jobId];
+      if (prog) {
+        prog.processed = fetched;
+        prog.percent = pageCount ? Math.round((prog.processed / pageCount) * 100) : 100;
+        prog.updatedAt = Date.now();
+      }
+    }
+
+    // 完成：更新进度并结束响应
+    const prog = exportProgress[jobId];
+    if (prog) {
+      prog.processed = pageCount;
+      prog.percent = 100;
+      prog.status = 'done';
+      prog.updatedAt = Date.now();
+    }
+    res.end();
+    // 清理进度（5分钟后）
+    setTimeout(() => { delete exportProgress[jobId]; }, 5 * 60 * 1000);
+  } catch (err) {
+    console.error('❌ CSV 导出失败:', err);
+    if (!res.headersSent) {
+      res.send(utils.returnData({ code: 500, msg: `导出失败: ${err.message || '未知错误'}` }));
+    } else {
+      res.end();
+    }
+  }
+});
+
+// 查询 CSV 导出进度
+router.post('/hy-exportSettlementCsvProgress', async (req, res) => {
+  try {
+    const jobId = req.body?.jobId;
+    const prog = jobId ? exportProgress[jobId] : null;
+    res.send(utils.returnData({ data: prog || { status: 'not_found', total: 0, processed: 0, percent: 0 } }));
+  } catch (err) {
+    res.send(utils.returnData({ code: 500, msg: `进度查询失败: ${err.message || '未知错误'}` }));
+  }
+});
+
 // 获取出纳表公司、银行
 router.post("/getSettlementCompanyBank", async (req, res) => {
     const user = await utils.getUserRole(req, res);

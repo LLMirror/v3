@@ -2,7 +2,41 @@
 
 <template>
   <div class="page-wrap p-4" ref="wrapperRef">
-    <h2 class="text-xl" ref="titleRef">迪波QL</h2>
+    <div class="header-bar">
+      <h2 class="page-title" ref="titleRef">迪波GL账单</h2>
+      <div class="actions">
+        <el-button type="primary" size="small" :loading="exporting" :disabled="exporting || exportingCsv" @click="exportExcel">导出Excel</el-button>
+        <el-button class="ml-2" type="success" size="small" :loading="exportingCsv" :disabled="exporting || exportingCsv" @click="exportCsv">导出CSV(10万/页)</el-button>
+      </div>
+    </div>
+    <div class="progress-info" v-if="exportingCsv">
+      已导出 {{ csvProgressCount }} 条（{{ csvProgressPercent }}%）
+    </div>
+
+    <!-- 导出进度模态框 -->
+    <el-dialog
+      v-model="showProgressModal"
+      title="导出进度"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      width="420px"
+    >
+      <div class="modal-row">
+        <span>当前页：</span>
+        <span>{{ currentPageForCsv }} / {{ totalPagesForCsv }}</span>
+      </div>
+      <div class="modal-row">
+        <span>已导出条数：</span>
+        <span>{{ csvProgressCount }} / {{ grandTotalForCsv }}</span>
+      </div>
+      <div class="modal-row">
+        <span>进度：</span>
+        <el-progress :percentage="csvProgressPercent" :status="csvProgressPercent===100 ? 'success' : undefined"></el-progress>
+      </div>
+      <template #footer>
+        <el-button size="small" @click="showProgressModal=false" :disabled="exportingCsv">隐藏</el-button>
+      </template>
+    </el-dialog>
     <!-- <div class="tool-bar">
       <el-select
         v-model="orderStatus"
@@ -48,6 +82,8 @@ import "handsontable/dist/handsontable.full.min.css";
 import "handsontable/languages/zh-CN"; // 汉化
 
 import { hyGetSettlementData } from "@/api/system/index.js";
+import service from "@/utils/request";
+import { downFile } from "@/utils/ruoyi";
 
 // 基础数据模型
 const tableData = ref([]);
@@ -67,6 +103,16 @@ const tableHeight = ref(600);
 const currentPage = ref(1);
 const pageSize = ref(50);
 const total = ref(0);
+// 导出加载状态
+const exporting = ref(false);
+const exportingCsv = ref(false);
+const csvProgressCount = ref(0);
+const csvProgressPercent = ref(0);
+let csvProgressTimer = null;
+const showProgressModal = ref(false);
+const grandTotalForCsv = ref(0);
+const currentPageForCsv = ref(0);
+const totalPagesForCsv = ref(0);
 
 // Handsontable 设置（响应式）
 const hotSettings = reactive({
@@ -228,14 +274,107 @@ onBeforeUnmount(() => {
 // 数据量或分页变化时也尝试更新高度
 watch([currentPage, pageSize, () => tableData.value.length], () => updateTableHeight());
 
+// 导出当前筛选的数据为 Excel
+async function exportExcel() {
+  try {
+    exporting.value = true;
+    const params = { data: {} };
+    // 订单状态映射到摘要筛选
+    if (orderStatus.value && orderStatus.value !== '全部') {
+      params.data.summary = orderStatus.value;
+    }
+    // 直接请求 blob，并使用 Content-Disposition 作为文件名
+    const res = await service.post('/system/hy-exportSettlementExcel', params, { responseType: 'blob', timeout: 600000 });
+    downFile(res, 'content-disposition');
+  } catch (e) {
+    console.error('导出失败', e);
+  } finally {
+    exporting.value = false;
+  }
+}
+
+// 导出 CSV（每页 10 万，自动分页下载）
+async function exportCsv() {
+  try {
+    exportingCsv.value = true;
+    showProgressModal.value = true;
+    const filter = { data: { page: 1, size: 1 } };
+    if (orderStatus.value && orderStatus.value !== '全部') {
+      filter.data.summary = orderStatus.value;
+    }
+    // 先获取总数
+    const resTotal = await hyGetSettlementData(filter);
+    const grandTotal = Number(resTotal?.total) || 0;
+    if (!grandTotal) return;
+    const pageSize = 100000;
+    const pages = Math.ceil(grandTotal / pageSize);
+    let completed = 0;
+    grandTotalForCsv.value = grandTotal;
+    totalPagesForCsv.value = pages;
+    for (let p = 1; p <= pages; p++) {
+      const jobId = Math.random().toString(36).slice(2);
+      const payload = { data: { page: p, pageSize, jobId } };
+      if (orderStatus.value && orderStatus.value !== '全部') {
+        payload.data.summary = orderStatus.value;
+      }
+      currentPageForCsv.value = p;
+      // 启动进度轮询（每秒查询一次该页进度）
+      if (csvProgressTimer) clearInterval(csvProgressTimer);
+      csvProgressTimer = setInterval(async () => {
+        try {
+          const resp = await service.post('/system/hy-exportSettlementCsvProgress', { jobId });
+          const prog = resp?.data || {};
+          const pageProcessed = Number(prog?.processed || 0);
+          const overallProcessed = completed + pageProcessed;
+          csvProgressCount.value = Math.min(grandTotal, overallProcessed);
+          csvProgressPercent.value = grandTotal ? Math.floor((csvProgressCount.value / grandTotal) * 100) : 0;
+          if (prog?.status === 'done') {
+            clearInterval(csvProgressTimer);
+            csvProgressTimer = null;
+          }
+        } catch (e) {
+          // 忽略查询错误
+        }
+      }, 1000);
+      const resp = await service.post('/system/hy-exportSettlementCsv', payload, { responseType: 'blob', timeout: 600000 });
+      // 文件名来自服务端 Content-Disposition（GL结算_p{page}.csv）
+      downFile(resp, 'content-disposition');
+      // 完成该页
+      completed += Math.min(pageSize, grandTotal - (p - 1) * pageSize);
+      csvProgressCount.value = completed;
+      csvProgressPercent.value = grandTotal ? Math.floor((csvProgressCount.value / grandTotal) * 100) : 0;
+      if (csvProgressTimer) {
+        clearInterval(csvProgressTimer);
+        csvProgressTimer = null;
+      }
+    }
+  } catch (e) {
+    console.error('CSV 导出失败', e);
+  } finally {
+    exportingCsv.value = false;
+    if (csvProgressTimer) {
+      clearInterval(csvProgressTimer);
+      csvProgressTimer = null;
+    }
+    // 导出结束自动隐藏
+    showProgressModal.value = false;
+  }
+}
+
 
 </script>
 
 <style scoped>
 
 .page-wrap{padding-left: 16px;padding-right: 16px;}
+.header-bar { position: relative; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
+.page-title { font-size: 18px; font-weight: 600; text-align: center; }
+.actions { position: absolute; right: 0; top: 50%; transform: translateY(-50%); }
 .mr-2 { margin-right: 8px; }
+.ml-2 { margin-left: 8px; }
 .pagination-bar { margin-top: 12px; margin-bottom: 16px; }
+.progress-info { font-size: 12px; color: #666; margin-bottom: 8px; text-align: right; }
+.modal-row { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
 /* 完成订单整行浅绿色背景 */
 :deep(.row-completed) { background-color: #e8f5e9 !important; }
 .handsontable td.row-completed { background-color: #e8f5e9 !important; }
