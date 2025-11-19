@@ -83,6 +83,8 @@ const hotSettings = reactive({
   manualColumnResize: true,
   manualRowResize: true,
   autoColumnSize: true,
+  // 固定最左侧一列，配合初始化时将“序号”置于首列
+  fixedColumnsLeft: 1,
   // 根据订单状态为整行着色：订单已完成 -> 浅绿色
   cells(row, col) {
     const cellProperties = {};
