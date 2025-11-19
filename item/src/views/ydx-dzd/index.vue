@@ -96,6 +96,12 @@ const hotSettings = reactive({
       if (isCompleted) {
         cellProperties.className = (cellProperties.className ? cellProperties.className + " " : "") + "row-completed";
       }
+      // 条件着色：对账状态为“美团˙已对账”且订单状态不为“订单已完成” -> 浅红色
+      const reconcileVal = rowData["对账状态"] ?? rowData["对账"] ?? rowData["reconcileStatus"] ?? "";
+      const isReconciled = String(reconcileVal).includes("美团˙已对账");
+      if (isReconciled && !isCompleted) {
+        cellProperties.className = (cellProperties.className ? cellProperties.className + " " : "") + "row-reconciled-red";
+      }
     }
     return cellProperties;
   },
@@ -230,6 +236,10 @@ watch([currentPage, pageSize, () => tableData.value.length], () => updateTableHe
 :deep(.row-completed) { background-color: #e8f5e9 !important; }
 .handsontable td.row-completed { background-color: #e8f5e9 !important; }
 .htCore td.row-completed { background-color: #e8f5e9 !important; }
+/* 对账为美团˙已对账且订单未完成 -> 整行浅红色背景 */
+:deep(.row-reconciled-red) { background-color: #fdecea !important; }
+.handsontable td.row-reconciled-red { background-color: #fdecea !important; }
+.htCore td.row-reconciled-red { background-color: #fdecea !important; }
 </style>
 
 
