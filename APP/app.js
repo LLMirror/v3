@@ -13,9 +13,7 @@ import { errLog } from './utils/err.js';
 import logs from './utils/logs.js';
 
 
-wsService.init({
-  port: config.socketPort,
-})
+// WebSocket 改为挂载到 HTTPS 同端口（WSS），在 HTTPS 服务创建后初始化
 
 const server = express();
 server.use(express.json({ limit: '50mb' }));
@@ -67,15 +65,19 @@ server.listen(config.apiPort, () => {
 const keyPath = config.httpsKeyPath;
 const certPath = config.httpsCertPath;
 const httpsPort = config.httpsPort || (config.apiPort + 1);
+let httpsServer;
 
 try {
   const httpsOptions = {
     key: fs.readFileSync(keyPath),
     cert: fs.readFileSync(certPath)
   };
-  https.createServer(httpsOptions, server).listen(httpsPort, () => {
+  httpsServer = https.createServer(httpsOptions, server);
+  httpsServer.listen(httpsPort, () => {
     console.log(`后端 HTTPS 接口启动成功，端口：${httpsPort}`);
   });
+  // 初始化 WSS，使用同一个 HTTPS Server，并指定路径
+  wsService.init({ server: httpsServer, path: '/ws' });
 } catch (e) {
   errLog({ err: e, code: 500, msg: `HTTPS证书读取失败，跳过 HTTPS 启动。请设置 HTTPS_KEY_PATH/HTTPS_CERT_PATH 或确保默认路径存在。`, funName: 'https-init' });
 }

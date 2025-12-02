@@ -28,7 +28,7 @@ export default defineConfig(({ mode, command }) => {
     // vite 相关配置
     server: {
       port: 8080,
-      host: 'xn--2br465g.com',
+      host: true,
       https: {
         key: fs.readFileSync(path.resolve(__dirname, '../APP/certs/刘磊.com.key')),
         cert: fs.readFileSync(path.resolve(__dirname, '../APP/certs/刘磊.com_bundle.pem'))

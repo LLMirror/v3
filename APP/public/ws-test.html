@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WSS 本地握手自测</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", sans-serif; margin: 24px; }
+    .row { margin-bottom: 12px; }
+    .btn { padding: 6px 12px; margin-right: 8px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; background: #f7f7f7; }
+    .btn:active { transform: translateY(1px); }
+    #status { font-weight: 600; }
+    #logs { white-space: pre-wrap; background: #fafafa; border: 1px solid #eee; padding: 12px; border-radius: 6px; height: 280px; overflow-y: auto; }
+    code { background: #f0f0f0; padding: 2px 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h2>WSS 本地握手自测</h2>
+  <div class="row">目标地址：<code id="url">wss://xn--2br465g.com/ws</code></div>
+  <div class="row">当前状态：<span id="status">未连接</span> | UUID：<code id="uuid"></code></div>
+
+  <div class="row">
+    <button class="btn" id="btn-connect">连接</button>
+    <button class="btn" id="btn-close" disabled>关闭</button>
+    <button class="btn" id="btn-init" disabled>发送初始化(code:205)</button>
+    <button class="btn" id="btn-ping" disabled>心跳 Ping(code:206)</button>
+    <button class="btn" id="btn-msg" disabled>发送普通消息(code:1)</button>
+  </div>
+
+  <div id="logs" aria-live="polite"></div>
+
+  <script>
+    const url = 'wss://xn--2br465g.com/ws';
+    const statusEl = document.getElementById('status');
+    const logsEl = document.getElementById('logs');
+    const uuidEl = document.getElementById('uuid');
+    const btnConnect = document.getElementById('btn-connect');
+    const btnClose = document.getElementById('btn-close');
+    const btnInit = document.getElementById('btn-init');
+    const btnPing = document.getElementById('btn-ping');
+    const btnMsg = document.getElementById('btn-msg');
+
+    let ws = null;
+    let uuid = null;
+
+    function generateUUID() {
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0; const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    function log(msg) {
+      const time = new Date().toLocaleTimeString();
+      logsEl.textContent += `[${time}] ${msg}\n`;
+      logsEl.scrollTop = logsEl.scrollHeight;
+    }
+
+    function setButtons(connected) {
+      btnConnect.disabled = connected;
+      btnClose.disabled = !connected;
+      btnInit.disabled = !connected;
+      btnPing.disabled = !connected;
+      btnMsg.disabled = !connected;
+    }
+
+    function prepare(data) {
+      return JSON.stringify({ code: 1, uuid, timestamp: Date.now(), ...data });
+    }
+
+    btnConnect.onclick = function() {
+      if (ws && ws.readyState === WebSocket.OPEN) return;
+      uuid = uuid || generateUUID();
+      uuidEl.textContent = uuid;
+      log(`开始连接 -> ${url}`);
+      statusEl.textContent = '连接中…';
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        statusEl.textContent = '已连接';
+        log('握手成功 (101 Switching Protocols)');
+        setButtons(true);
+      };
+
+      ws.onmessage = (e) => {
+        log(`收到消息: ${e.data}`);
+      };
+
+      ws.onerror = (e) => {
+        statusEl.textContent = '错误';
+        log('连接错误：可能是证书未信任、域名未解析到本机或后端未启动');
+        setButtons(false);
+      };
+
+      ws.onclose = () => {
+        statusEl.textContent = '已关闭';
+        log('连接已关闭');
+        setButtons(false);
+      };
+    };
+
+    btnClose.onclick = function() {
+      if (ws) ws.close();
+    };
+
+    btnInit.onclick = function() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const msg = prepare({ code: 205 });
+      ws.send(msg);
+      log(`发送初始化: ${msg}`);
+    };
+
+    btnPing.onclick = function() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const msg = prepare({ code: 206, ping: 'ping' });
+      ws.send(msg);
+      log(`发送心跳: ${msg}`);
+    };
+
+    btnMsg.onclick = function() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      const msg = prepare({ code: 1, msg: 'Hello from ws-test.html' });
+      ws.send(msg);
+      log(`发送普通消息: ${msg}`);
+    };
+
+    // 页面加载后自动尝试一次连接
+    window.addEventListener('load', () => {
+      btnConnect.click();
+    });
+  </script>
+</body>
+</html>
+
