@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv } from 'vite'
+import fs from 'fs'
 import path from 'path'
 import createVitePlugins from './vite/plugins'
 import postCssPxToRem from "postcss-pxtorem"
@@ -27,7 +28,11 @@ export default defineConfig(({ mode, command }) => {
     // vite 相关配置
     server: {
       port: 8080,
-      host: true,
+      host: 'xn--2br465g.com',
+      https: {
+        key: fs.readFileSync(path.resolve(__dirname, '../APP/certs/刘磊.com.key')),
+        cert: fs.readFileSync(path.resolve(__dirname, '../APP/certs/刘磊.com_bundle.pem'))
+      },
       open: true,
       proxy: {
         // https://cn.vitejs.dev/config/#server-proxy

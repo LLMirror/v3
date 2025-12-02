@@ -5,8 +5,8 @@
     <div class="header-bar">
       <h2 class="page-title" ref="titleRef">迪波GL账单</h2>
       <div class="actions">
-        <el-button type="primary" size="small" :loading="exporting" :disabled="exporting || exportingCsv" @click="exportExcel">导出Excel</el-button>
-        <el-button class="ml-2" type="success" size="small" :loading="exportingCsv" :disabled="exporting || exportingCsv" @click="exportCsv">导出CSV(10万/页)</el-button>
+        <!-- <el-button type="primary" size="small" :loading="exporting" :disabled="exporting || exportingCsv" @click="exportExcel">导出Excel</el-button> -->
+        <!-- <el-button class="ml-2" type="success" size="small" :loading="exportingCsv" :disabled="exporting || exportingCsv" @click="exportCsv">导出CSV(10万/页)</el-button> -->
       </div>
     </div>
     <div class="progress-info" v-if="exportingCsv">

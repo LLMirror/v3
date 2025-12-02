@@ -1,6 +1,9 @@
 import express from 'express';
 import bodyparser from 'body-parser';
 import cors from 'cors';
+import fs from 'fs';
+import http from 'http';
+import https from 'https';
 import utils from './utils/index.js';
 import config from '././utils/config.js';
 import wsService from './utils/webSocket.js';
@@ -54,6 +57,25 @@ server.use('/file', fileRouter);
 server.use("/tests", testsRouter);
 server.use("/components", componentsRouter);
 
+// 并行启动 HTTP 与 HTTPS 服务
+// 1) HTTP 保持使用 config.apiPort，确保兼容现有客户端
 server.listen(config.apiPort, () => {
-  console.log(`后端接口启动成功，端口：${config.apiPort}`);
+  console.log(`后端 HTTP 接口启动成功，端口：${config.apiPort}`);
 });
+
+// 2) HTTPS 证书配置（支持环境变量覆盖）
+const keyPath = config.httpsKeyPath;
+const certPath = config.httpsCertPath;
+const httpsPort = config.httpsPort || (config.apiPort + 1);
+
+try {
+  const httpsOptions = {
+    key: fs.readFileSync(keyPath),
+    cert: fs.readFileSync(certPath)
+  };
+  https.createServer(httpsOptions, server).listen(httpsPort, () => {
+    console.log(`后端 HTTPS 接口启动成功，端口：${httpsPort}`);
+  });
+} catch (e) {
+  errLog({ err: e, code: 500, msg: `HTTPS证书读取失败，跳过 HTTPS 启动。请设置 HTTPS_KEY_PATH/HTTPS_CERT_PATH 或确保默认路径存在。`, funName: 'https-init' });
+}
