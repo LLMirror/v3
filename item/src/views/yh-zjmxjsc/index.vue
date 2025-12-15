@@ -39,7 +39,7 @@
     </div>
 
     <!-- 分析预警卡 -->
-    <el-row :gutter="16" class="top-cards">
+    <!-- <el-row :gutter="16" class="top-cards">
       <el-col :span="12">
         <div class="card" :class="{ warn: analytics.runwayWarning }">
           <div class="card-title">现金跑道（天）</div>
@@ -60,7 +60,7 @@
           </div>
         </div>
       </el-col>
-    </el-row>
+    </el-row> -->
 
     <!-- 洞察指标扩展 -->
     <!-- <el-row :gutter="16" class="insight-cards">
@@ -158,7 +158,7 @@
       
     </div>
     <!-- 异常波动列表（近30天） -->
-      <div class="table-card" >
+      <!-- <div class="table-card" >
         <div class="chart-title">异常波动（近30天）</div>
         <el-table :data="analytics.anomalies || []" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
           <el-table-column prop="date" label="日期" width="140" />
@@ -172,7 +172,7 @@
             </template>
           </el-table-column>
         </el-table>
-      </div>
+      </div> -->
 
     <!-- 选定日收付明细 -->
     <div class="table-card" v-if="selectedDayDetails.length" style="margin-bottom: 20px;">
@@ -252,7 +252,7 @@
     </el-row>
 
     <!-- 占比与洞察 -->
-    <el-row :gutter="16" class="charts-row">
+    <!-- <el-row :gutter="16" class="charts-row">
       <el-col :span="12">
         <div class="chart-card">
           <div class="chart-title">公司净额占比（Top）</div>
@@ -265,7 +265,7 @@
           <div ref="bankPieChartRef" class="chart"></div>
         </div>
       </el-col>
-    </el-row>
+    </el-row> -->
     <!-- <el-row :gutter="16" class="charts-row">
       <el-col :span="24">
         <div class="chart-card">
@@ -276,7 +276,7 @@
     </el-row> -->
 
     <!-- 当日收付情况 -->
-    <el-row :gutter="16" class="today-row">
+    <el-row :gutter="16" class="today-row" style="margin-top: 10px;">
       <el-col :span="8">
         <div class="card">
           <div class="card-title">今日收入</div>
@@ -289,7 +289,7 @@
           <div class="card-value expense">{{ formatMoney(todaySummary.expense || 0) }}</div>
         </div>
       </el-col>
-      <el-col :span="8">
+      <el-col :span="8" >
         <div class="card highlight today-net" :class="{ up: (todaySummary.net || 0) >= 0, down: (todaySummary.net || 0) < 0 }">
           <div class="card-title">今日净额</div>
           <div class="card-value">
