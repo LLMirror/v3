@@ -63,7 +63,7 @@
     </el-row>
 
     <!-- 洞察指标扩展 -->
-    <el-row :gutter="16" class="insight-cards">
+    <!-- <el-row :gutter="16" class="insight-cards">
       <el-col :span="6">
         <div class="card">
           <div class="card-title">应收回款率</div>
@@ -92,7 +92,7 @@
           <div class="card-sub">近{{ dailyTrend.length }}天（标准差/均值）</div>
         </div>
       </el-col>
-    </el-row>
+    </el-row> -->
 
     <!-- 顶部总览卡片 -->
     <el-row :gutter="16" class="top-cards">
@@ -206,7 +206,7 @@
     </el-row>
 
     <!-- 应收/应付（按月） -->
-    <el-row :gutter="16" class="charts-row">
+    <!-- <el-row :gutter="16" class="charts-row">
       <el-col :span="12">
         <div class="chart-card">
           <div class="chart-title">应收/实收（按月）</div>
@@ -219,27 +219,27 @@
           <div ref="payableChartRef" class="chart"></div>
         </div>
       </el-col>
-    </el-row>
+    </el-row> -->
 
     <!-- 应收/实收（公司维度） -->
-    <el-row :gutter="16" class="charts-row">
+    <!-- <el-row :gutter="16" class="charts-row">
       <el-col :span="24">
         <div class="chart-card">
           <div class="chart-title">应收/实收（公司维度）</div>
           <div ref="receivableCompanyChartRef" class="chart large"></div>
         </div>
       </el-col>
-    </el-row>
+    </el-row> -->
 
     <!-- 应付/实付（公司维度） -->
-    <el-row :gutter="16" class="charts-row">
+    <!-- <el-row :gutter="16" class="charts-row">
       <el-col :span="24">
         <div class="chart-card">
           <div class="chart-title">应付/实付（公司维度）</div>
           <div ref="payableCompanyChartRef" class="chart large"></div>
         </div>
       </el-col>
-    </el-row>
+    </el-row> -->
 
     <!-- 每天收入支出趋势 -->
     <el-row :gutter="16" class="charts-row">
@@ -266,14 +266,14 @@
         </div>
       </el-col>
     </el-row>
-    <el-row :gutter="16" class="charts-row">
+    <!-- <el-row :gutter="16" class="charts-row">
       <el-col :span="24">
         <div class="chart-card">
           <div class="chart-title">Top摘要频次</div>
           <div ref="topSummaryChartRef" class="chart"></div>
         </div>
       </el-col>
-    </el-row>
+    </el-row> -->
 
     <!-- 当日收付情况 -->
     <el-row :gutter="16" class="today-row">
@@ -290,9 +290,13 @@
         </div>
       </el-col>
       <el-col :span="8">
-        <div class="card highlight">
+        <div class="card highlight today-net" :class="{ up: (todaySummary.net || 0) >= 0, down: (todaySummary.net || 0) < 0 }">
           <div class="card-title">今日净额</div>
-          <div class="card-value">{{ formatMoney(todaySummary.net || 0) }}</div>
+          <div class="card-value">
+            <span class="arrow" v-if="(todaySummary.net || 0) >= 0">▲</span>
+            <span class="arrow" v-else>▼</span>
+            {{ formatMoney(todaySummary.net || 0) }}
+          </div>
         </div>
       </el-col>
     </el-row>
@@ -1435,6 +1439,38 @@ watch(selectedSeries, (val) => {
 .insight-cards .card { background: var(--card-bg); border-radius: 10px; padding: 16px; box-shadow: var(--shadow); }
 .aggregates-row { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
 .aggregates-row > .table-card { flex: 1 1 500px; min-width: 420px; }
+
+/* 当日收付情况卡片优化 */
+.today-row .card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 18px 16px;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  min-height: 110px;
+}
+.today-row .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+.today-row .card .card-title {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+.today-row .card .card-value {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.today-row .card .income { color: #16a34a; }
+.today-row .card .expense { color: #ef4444; }
+
+/* 今日净额高亮（随涨跌变色） */
+.today-row .card.today-net { border-left: 3px solid var(--primary-from); background: var(--card-bg); }
+.today-row .card.today-net .arrow { margin-right: 6px; font-size: 16px; vertical-align: middle; }
+.today-row .card.today-net.up .card-value { color: #16a34a; }
+.today-row .card.today-net.down .card-value { color: #ef4444; }
 
 @media (max-width: 1024px) {
   .chart { height: 280px; }

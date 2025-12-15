@@ -71,10 +71,10 @@ import './utils/schedule.js';
 import { errLog } from './utils/err.js';
 import logs from './utils/logs.js';
 
-// 初始化 WebSocket
-wsService.init({
-  port: config.socketPort,
-})
+// 注释掉独立端口的 WS 初始化，改为挂载到 HTTPS 同端口路径
+// wsService.init({
+//   port: config.socketPort,
+// })
 
 const server = express();
 
@@ -124,7 +124,16 @@ const httpsOptions = {
   cert: fs.readFileSync('/www/server/panel/vhost/cert/114.132.176.234/fullchain.pem')
 };
 
-// 启动 HTTPS 服务
-https.createServer(httpsOptions, server).listen(config.apiPort, () => {
+// 启动 HTTPS 服务并挂载 WSS 到同端口的 '/ws' 路径
+const httpsServer = https.createServer(httpsOptions, server);
+
+// 将 WebSocket 挂载到 HTTPS 服务的同端口、指定路径
+wsService.init({
+  server: httpsServer,
+  path: '/ws',
+});
+
+httpsServer.listen(config.apiPort, () => {
   console.log(`后端 HTTPS 接口启动成功，端口：${config.apiPort}`);
+  console.log(`WebSocket 挂载成功：wss://<your-domain>:${config.apiPort}/ws`);
 });

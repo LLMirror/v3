@@ -33,11 +33,11 @@ export default defineConfig(({ mode, command }) => {
         key: fs.readFileSync(path.resolve(__dirname, '../APP/certs/刘磊.com.key')),
         cert: fs.readFileSync(path.resolve(__dirname, '../APP/certs/刘磊.com_bundle.pem'))
       },
-      open: true,
+      open: false,
       proxy: {
         // https://cn.vitejs.dev/config/#server-proxy
         '/dev-api': {
-          target: 'http://localhost:8081',
+          target: 'https://xn--2br465g.com:443',
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/dev-api/, '')
         }
