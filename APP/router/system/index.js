@@ -1869,7 +1869,7 @@ router.post("/getSettlementData", async (req, res) => {
   const dateTo = data.dateTo ?? dateRange[1];
 
   // 基础查询
-  let sql = `SELECT id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票 FROM \`pt_cw_zjmxb\` WHERE user_id = ${userId}`;
+  let sql = `SELECT id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\` WHERE user_id = ${userId}`;
   // 模糊匹配
   sql = utils.setLike(sql, '公司', company);
   sql = utils.setLike(sql, '银行', bank);
@@ -2649,7 +2649,7 @@ router.post("/updateSettlementData", async (req, res) => {
     }
     
     // 执行更新
-    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ? WHERE user_id = ? AND id = ?`;
+    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?,标签 = ?,  发票 = ?, 序号 = ? WHERE user_id = ? AND id = ?`;
     await pools({ 
       sql: updateSQL, 
       val: [
@@ -2662,6 +2662,7 @@ router.post("/updateSettlementData", async (req, res) => {
         data['支出'] || 0,
         data['余额'] || 0,
         data['备注'] || '',
+        data['标签'] || '',
         data['发票'] || '',
         data['序号'] || '',
         userId,

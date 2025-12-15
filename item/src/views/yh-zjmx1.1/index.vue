@@ -95,6 +95,10 @@ registerCellType("autocomplete", AutocompleteCellType);
 
 // 常用摘要关键词，用于输入联想（从API获取）
 const commonKeywords = ref([]);
+// 标签下拉选项（默认值 + 动态汇总）
+const tagOptions = ref([
+  '未设置', '期初', '工资', '报销', '税费', '利息', '还款', '转账', '其他'
+]);
 // 摘要关键词筛选
 const summaryKeyword = ref('');
 // 日期区间筛选
@@ -231,6 +235,30 @@ const hotSettings = reactive({
   // plugins: [DatePicker],
   // 单元格验证失败时应用的CSS类名
   invalidCellClassName: "htInvalid",
+  // 禁止“标签”列的手动打字，仅允许通过下拉选择
+  beforeKeyDown: (e) => {
+    try {
+      const hot = hotTableRef.value?.hotInstance;
+      if (!hot) return;
+      const sel = hot.getSelectedLast?.();
+      if (!Array.isArray(sel)) return;
+      const viewCol = sel[1];
+      const prop = columns.value?.[viewCol]?.data;
+      if (prop === '标签') {
+        const allowed = new Set(['Enter', 'Tab', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+        const isPrintable = e?.key && e.key.length === 1;
+        const blockedKeys = ['Backspace', 'Delete', 'Home', 'End'];
+        const shouldBlock = isPrintable || blockedKeys.includes(e.key);
+        if (shouldBlock && !allowed.has(e.key)) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+        }
+      }
+    } catch (err) {
+      console.warn('beforeKeyDown 处理失败:', err);
+    }
+  },
   
   // 单元格数据变化后的回调函数
   afterChange: async (changes, source) => {
@@ -564,6 +592,7 @@ async function update_SettlementData(rowData) {
         '支出': rowData['支出'] || 0,
         '余额': rowData['余额'] || 0,
         '备注': rowData['备注'] || '',
+        '标签': rowData['标签'] || '',
         '发票': rowData['发票'] || '',
         '序号': rowData['序号'] || '',
         'id': rowData['id'] || 0
@@ -866,6 +895,18 @@ function initTableFromObjects(objArray) {
     
     return processedRow;
   });
+
+  // 动态汇总“标签”列的可选项（与默认值合并去重）
+  try {
+    const existingTags = Array.from(new Set((objArray || [])
+      .map(r => r && r['标签'])
+      .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
+      .map(v => String(v).trim())));
+    const merged = Array.from(new Set([...(tagOptions.value || []), ...existingTags]));
+    tagOptions.value = merged;
+  } catch (e) {
+    console.warn('汇总标签选项失败:', e);
+  }
   
   // 确保序号列在最前面
   // const keys = Object.keys(objArray[0]);
@@ -887,6 +928,16 @@ function initTableFromObjects(objArray) {
       type: dateColumns.has(k) ? "date" : (textColumns.has(k) ? "text" : (isNum || k === "收入" || k === "支出" || k === "余额" ? "numeric" : (k === "摘要" ? "autocomplete" : "text"))),
       allowInvalid: true,
     };
+
+    // 为“标签”列设置下拉选择
+    if (k === '标签') {
+      columnConfig.type = 'dropdown';
+      columnConfig.source = tagOptions.value;
+      columnConfig.strict = true; // 限制只能选择下拉项
+      columnConfig.allowInvalid = false;
+      columnConfig.trimDropdown = false;
+      columnConfig.width = 160;
+    }
     
     // 为日期列配置日期选择器并设置为只读
     if (dateColumns.has(k)) {
@@ -1514,5 +1565,3 @@ justify-content: flex-end;
 }
 
 </style>
-
-
