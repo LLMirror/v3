@@ -37,7 +37,9 @@ export default defineConfig(({ mode, command }) => {
       proxy: {
         // https://cn.vitejs.dev/config/#server-proxy
         '/dev-api': {
-          target: 'https://xn--2br465g.com:443',
+          // target: 'https://xn--2br465g.com:443',
+          // 改成本地
+          target:`http://192.168.77.30:3131`,
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/dev-api/, '')
         }

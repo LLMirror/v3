@@ -2581,20 +2581,21 @@ router.post("/addSettlementData", async (req, res) => {
     
     // 检查是否已存在
     const checkSQL = `SELECT id FROM \`${tableName}\` WHERE user_id = ? AND id = ?`;
-    const checkResult = await pools({ 
-      sql: checkSQL, 
-      val: [userId, data.id], 
-      isReturn: true 
+    const { result: checkResult } = await pools({
+      sql: checkSQL,
+      val: [userId, data.id],
+      res,
+      req
     });
     
-    if (checkResult && checkResult.length > 0) {
+    if (Array.isArray(checkResult) && checkResult.length > 0) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 记录已存在" }));
     }
     
     // 执行新增
     const insertSQL = `INSERT INTO \`${tableName}\` (user_id,日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号, 录入人, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    await pools({ 
-      sql: insertSQL, 
+    await pools({
+      sql: insertSQL,
       val: [
         userId, 
         data['日期'] || '',
@@ -2609,8 +2610,9 @@ router.post("/addSettlementData", async (req, res) => {
         data['序号'] || '',
         userName || '',
         data.id || ''
-      ], 
-      isReturn: true 
+      ],
+      res,
+      req
     });
     
     res.send(utils.returnData({ code: 1, msg: "✅ 新增成功" }));
@@ -2622,10 +2624,11 @@ router.post("/addSettlementData", async (req, res) => {
 
   router.post("/getMaxId", async (req, res) => {
     try {
-      const tableName = req.body.tableName || 'pt-cw-zjmxb';
+      const tableName = req.body.tableName || 'pt_cw_zjmxb';
       const sql = `SELECT MAX(id) AS maxId FROM \`${tableName}\``;
-      const data = await pools({ sql, isReturn: true });
-      res.send(utils.returnData({ code: 1, msg: "✅ 获取成功", data: data.result[0].maxId+1 || 0 }));
+      const { result } = await pools({ sql, res, req });
+      const nextId = (result && result[0] && Number(result[0].maxId) + 1) || 0;
+      res.send(utils.returnData({ code: 1, msg: "✅ 获取成功", data: nextId }));
     } catch (err) {
       res.send(utils.returnData({ code: 500, msg: `❌ 获取失败: ${err.message || '未知错误'}` }));
     }
