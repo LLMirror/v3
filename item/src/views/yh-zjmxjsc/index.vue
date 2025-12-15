@@ -9,7 +9,7 @@
           placeholder="选择系列"
           clearable
           filterable
-          style="width: 220px; margin-right: 12px;"
+          style="width: 220px; margin-right: 12px; "
         >
           <el-option v-for="s in seriesOptions" :key="s.value" :label="s.label" :value="s.value" />
         </el-select>
@@ -128,14 +128,14 @@
       <div class="table-card" v-if="todayCompanyAggregates.length">
         <div class="chart-title">各公司{{ selectedDay ? '选定日' : '当日' }}汇总{{ selectedDay ? `（${selectedDay}）` : '' }}</div>
         <el-table :data="todayCompanyAggregates" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
-          <el-table-column prop="company" label="公司" width="350" />
-          <el-table-column prop="income" label="当日收入" width="160">
+          <el-table-column prop="company" label="公司" width="325" />
+          <el-table-column prop="income" label="当日收入" width="120">
             <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
           </el-table-column>
-          <el-table-column prop="expense" label="当日支出" width="160">
+          <el-table-column prop="expense" label="当日支出" width="120">
             <template #default="scope">{{ formatMoney(scope.row.expense) }}</template>
           </el-table-column>
-          <el-table-column prop="balance" label="当前实时余额" width="180">
+          <el-table-column prop="balance" label="当前实时余额" width="120">
             <template #default="scope">{{ formatMoney(scope.row.balance) }}</template>
           </el-table-column>
         </el-table>
@@ -145,14 +145,14 @@
       <div class="table-card" v-if="todayBankAggregates.length" style="margin-left: 20px;">
         <div class="chart-title">各银行{{ selectedDay ? '选定日' : '当日' }}汇总{{ selectedDay ? `（${selectedDay}）` : '' }}</div>
         <el-table :data="todayBankAggregates" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
-          <el-table-column prop="bank" label="银行" width="550" />
-          <el-table-column prop="income" label="当日收入" width="160">
+          <el-table-column prop="bank" label="银行" width="325" />
+          <el-table-column prop="income" label="当日收入" width="120">
             <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
           </el-table-column>
-          <el-table-column prop="expense" label="当日支出" width="160">
+          <el-table-column prop="expense" label="当日支出" width="120">
             <template #default="scope">{{ formatMoney(scope.row.expense) }}</template>
           </el-table-column>
-          <el-table-column prop="balance" label="当前实时余额" width="180">
+          <el-table-column prop="balance" label="当前实时余额" width="120">
             <template #default="scope">{{ formatMoney(scope.row.balance) }}</template>
           </el-table-column>
         </el-table>
@@ -310,8 +310,8 @@
       <div class="chart-title">当日收付明细</div>
       <el-table :data="todayDetails" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
         <el-table-column prop="date" label="日期" width="140" />
-        <el-table-column prop="company" label="公司" width="140" />
-        <el-table-column prop="bank" label="银行" width="140" />
+        <el-table-column prop="company" label="公司" width="240" />
+        <el-table-column prop="bank" label="银行" width="320" />
         <el-table-column prop="summary" label="摘要" />
         <el-table-column prop="income" label="收入" width="120" />
         <el-table-column prop="expense" label="支出" width="120" />
@@ -1111,11 +1111,15 @@ function initDailyChart() {
   if (!el) return;
   const chart = getOrInitChart(el);
   dailyChart.value = chart;
-  const dates = dailyTrend.value.map(i => i.date);
-  const incomes = dailyTrend.value.map(i => Number(i.income || 0));
-  const expenses = dailyTrend.value.map(i => Number(i.expense || 0));
+  // 仅展示当月数据
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const monthlyTrend = (dailyTrend.value || []).filter(i => String(i?.date || '').startsWith(ym));
+  const dates = monthlyTrend.map(i => i.date);
+  const incomes = monthlyTrend.map(i => Number(i.income || 0));
+  const expenses = monthlyTrend.map(i => Number(i.expense || 0));
   // 每日实时余额（后端已提供每日日终余额）
-  const balances = dailyTrend.value.map(i => Number(i.balance ?? 0));
+  const balances = monthlyTrend.map(i => Number(i.balance ?? 0));
   chart.clear();
   chart.setOption({
     tooltip: { trigger: 'axis' },
@@ -1381,7 +1385,7 @@ watch(selectedSeries, (val) => {
   align-items: center;
   margin-bottom: 12px;
 }
-.filters { display: flex; align-items: center; }
+.filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px;  }
 /* 过滤控件：输入框/下拉/日期 在主题下适配背景与文字颜色 */
 .cash-cockpit :deep(.filters .el-input__wrapper),
 .cash-cockpit :deep(.filters .el-select__wrapper),
