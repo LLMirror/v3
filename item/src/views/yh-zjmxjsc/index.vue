@@ -1,5 +1,5 @@
 <template>
-  <div class="cash-cockpit" :class="{ dark: isDark }" v-loading="isLoadingOverview">
+  <div ref="cockpitRef" class="cash-cockpit" :class="{ dark: isDark }" v-loading="isLoadingOverview">
     <div class="cockpit-header">
       <h2>资金明细驾驶舱</h2>
       <div class="filters">
@@ -33,6 +33,8 @@
           style="width: 320px; margin-right: 12px;"
         />
         <el-button type="primary" @click="loadOverview">查询</el-button>
+        <el-divider direction="vertical" style="margin: 0 12px" />
+        <el-button type="success" :icon="Camera" @click="downloadScreenshot">截图</el-button>
         <el-divider direction="vertical" style="margin: 0 12px" />
         <el-switch v-model="isDark" inline-prompt active-text="深色" inactive-text="浅色" />
       </div>
@@ -126,7 +128,7 @@
       <div class="table-card" v-if="todayCompanyAggregates.length">
         <div class="chart-title">各公司{{ selectedDay ? '选定日' : '当日' }}汇总{{ selectedDay ? `（${selectedDay}）` : '' }}</div>
         <el-table :data="todayCompanyAggregates" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
-          <el-table-column prop="company" label="公司" width="550" />
+          <el-table-column prop="company" label="公司" width="350" />
           <el-table-column prop="income" label="当日收入" width="160">
             <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
           </el-table-column>
@@ -326,6 +328,7 @@ import { ref, onMounted, nextTick, watch } from 'vue';
 import * as echarts from 'echarts';
 import { ElMessage } from 'element-plus';
 import { getCashOverview, getCompanyList, getCashRecords, getSeriesList, getReceivableList, getPayableList } from '@/api/system';
+import { Camera } from '@element-plus/icons-vue';
 
 // 页面外观
 const isDark = ref(false);
@@ -393,6 +396,62 @@ const payableCompanyAgg = ref({ names: [], paid: [], unpaid: [] });
 
 // 请求去重与并发保护
 const isLoadingOverview = ref(false);
+
+const cockpitRef = ref(null);
+// 首选本地依赖（无网络也可用），必要时可扩展回退到 CDN
+async function ensureHtml2Canvas() {
+  if (window.html2canvas) return window.html2canvas;
+  try {
+    const mod = await import('html2canvas');
+    return mod.default || mod;
+  } catch (e) {
+    console.error('Failed to import html2canvas locally:', e);
+    throw e;
+  }
+}
+
+function formatToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getSeriesLabel() {
+  const val = selectedSeries.value;
+  const found = (seriesOptions.value || []).find(s => s.value === val);
+  return found?.label || val || '未选择系列';
+}
+
+async function downloadScreenshot() {
+  try {
+    const el = cockpitRef.value;
+    if (!el) return ElMessage.error('页面尚未渲染完成');
+    const html2canvas = await ensureHtml2Canvas();
+    // 尝试使用主题背景色，避免透明背景
+    const bg = getComputedStyle(el).getPropertyValue('--bg').trim() || '#ffffff';
+    const canvas = await html2canvas(el, {
+      backgroundColor: bg,
+      useCORS: true,
+      scale: Math.max(window.devicePixelRatio || 2, 2),
+      windowWidth: document.documentElement.scrollWidth,
+      windowHeight: document.documentElement.scrollHeight,
+    });
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    const filename = `${getSeriesLabel()}_${formatToday()}.jpg`;
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    ElMessage.success('截图已下载');
+  } catch (e) {
+    console.error(e);
+    ElMessage.error('截图失败，请稍后重试');
+  }
+}
 
 function buildOverviewPayload() {
   const [dateFrom, dateTo] = dateRange.value || [];
