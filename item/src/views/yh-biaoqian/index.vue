@@ -32,7 +32,11 @@
     <el-card class="table-card" shadow="never">
       <el-table :data="list" border style="width: 100%">
         <!-- <el-table-column prop="id" label="ID" width="90" align="center" /> -->
-        <el-table-column prop="rolesId" label="公司" width="120" align="center" />
+        <el-table-column prop="rolesId" label="公司" width="160" align="center">
+          <template #default="{ row }">
+            {{ formatMoreName(row.rolesId) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="parent" label="大类" align="center" />
         <el-table-column prop="child" label="子类" align="center" />
         <el-table-column prop="remark" label="备注" align="center" />
@@ -177,6 +181,12 @@ async function handleDelete(row) {
   await delBiaoqian({ id: row.id })
   ElMessage.success('删除成功')
   loadData()
+}
+
+function formatMoreName(id){
+  if(id===null || id===undefined || id==='') return '—'
+  const item = moreOptions.value.find(m=> m.id == id)
+  return item ? item.name : '—'
 }
 
 function downloadTemplate() {
