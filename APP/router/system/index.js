@@ -2808,7 +2808,9 @@ router.post("/updateSettlementData", async (req, res) => {
     
     if (checkResult && checkResult.length > 0) {
       const recordUserId = checkResult[0].user_id;
-      if (recordUserId != userId) {
+      // moreId为1,2,3则是超级管理员，可以修改所有；否则只能修改自己的
+      const isSuper = [1, 2, 3].includes(Number(rolesId));
+      if (!isSuper && recordUserId != userId) {
         return res.send(utils.returnData({ code: -1, msg: "请联系录入人员修改" }));
       }
     } else {
