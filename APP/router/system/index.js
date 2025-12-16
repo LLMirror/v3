@@ -1309,6 +1309,105 @@ router.post('/getCashSummaryList', async (req, res) => {
 
 // ---------------------------------------------------------------------------------出纳结束----------------------------------------------
 
+// ==================== 标签维护(pt_biaoqian) ====================
+
+/** 新增标签 */
+router.post('/biaoqian/add', async (req, res) => {
+  try {
+    const payload = (req.body && req.body.data) ? req.body.data : req.body || {};
+    const rolesId = payload.roles_id ?? payload.rolesId ?? '';
+    const parent = payload['大类'] ?? payload.parent ?? '';
+    const child = payload['子类'] ?? payload.child ?? '';
+    const remark = payload['备注'] ?? payload.remark ?? '';
+
+    if (!String(parent).trim() || !String(child).trim()) {
+      return res.send(utils.returnData({ code: -1, msg: '大类/子类不能为空', req }));
+    }
+
+    // 重复校验：同 roles_id + 大类 + 子类 不允许重复
+    const dupSql = `SELECT id FROM pt_biaoqian WHERE 1=1`;
+    let checkSql = dupSql;
+    const params = [];
+    if (rolesId !== '') { checkSql += ` AND roles_id = ?`; params.push(rolesId); }
+    checkSql += ` AND 大类 = ? AND 子类 = ?`;
+    params.push(String(parent).trim(), String(child).trim());
+    const dup = await pools({ sql: checkSql, val: params, res, req });
+    if (dup.result && dup.result.length) {
+      return res.send(utils.returnData({ code: -1, msg: '该标签已存在', req }));
+    }
+
+    const insertSql = `INSERT INTO pt_biaoqian (roles_id, 大类, 子类, 备注) VALUES (?,?,?,?)`;
+    const insertVal = [rolesId || null, String(parent).trim(), String(child).trim(), remark || null];
+    await pools({ sql: insertSql, val: insertVal, res, req });
+    res.send(utils.returnData({ msg: '新增成功' }));
+  } catch (error) {
+    console.error('biaoqian/add error:', error);
+    res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
+  }
+});
+
+/** 查询标签列表（支持分页、模糊查询） */
+router.post('/biaoqian/get', async (req, res) => {
+  try {
+    const obj = (req.body && req.body.data) ? req.body.data : req.body || {};
+    let sql = `SELECT id, roles_id AS rolesId, 大类 AS parent, 子类 AS child, 备注 AS remark FROM pt_biaoqian WHERE 1=1`;
+    // 过滤条件
+    if (obj.roles_id !== undefined) sql = utils.setAssign(sql, 'roles_id', obj.roles_id);
+    sql = utils.setLike(sql, '大类', obj.parent ?? obj['大类']);
+    sql = utils.setLike(sql, '子类', obj.child ?? obj['子类']);
+    sql = utils.setLike(sql, '备注', obj.remark ?? obj['备注']);
+
+    // 统计总数
+    const { total } = await utils.getSum({ sql, name: 'pt_biaoqian', res, req });
+    // 排序 + 分页
+    sql += ` ORDER BY id DESC`;
+    sql = utils.pageSize(sql, obj.page, obj.size);
+    const { result } = await pools({ sql, res, req });
+    res.send(utils.returnData({ data: result, total }));
+  } catch (error) {
+    console.error('biaoqian/get error:', error);
+    res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
+  }
+});
+
+/** 更新标签 */
+router.post('/biaoqian/up', async (req, res) => {
+  try {
+    const payload = (req.body && req.body.data) ? req.body.data : req.body || {};
+    const id = payload.id;
+    if (!id) return res.send(utils.returnData({ code: -1, msg: '缺少 id', req }));
+
+    const rolesId = payload.roles_id ?? payload.rolesId ?? '';
+    const parent = payload['大类'] ?? payload.parent ?? '';
+    const child = payload['子类'] ?? payload.child ?? '';
+    const remark = payload['备注'] ?? payload.remark ?? '';
+
+    const upSql = `UPDATE pt_biaoqian SET roles_id = ?, 大类 = ?, 子类 = ?, 备注 = ? WHERE id = ?`;
+    const upVal = [rolesId || null, String(parent).trim(), String(child).trim(), remark || null, id];
+    await pools({ sql: upSql, val: upVal, res, req });
+    res.send(utils.returnData({ msg: '修改成功' }));
+  } catch (error) {
+    console.error('biaoqian/up error:', error);
+    res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
+  }
+});
+
+/** 删除标签 */
+router.post('/biaoqian/del', async (req, res) => {
+  try {
+    const payload = (req.body && req.body.data) ? req.body.data : req.body || {};
+    const id = payload.id;
+    if (!id) return res.send(utils.returnData({ code: -1, msg: '缺少 id', req }));
+
+    const delSql = `DELETE FROM pt_biaoqian WHERE id = ?`;
+    await pools({ sql: delSql, val: [id], res, req });
+    res.send(utils.returnData({ msg: '删除成功' }));
+  } catch (error) {
+    console.error('biaoqian/del error:', error);
+    res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
+  }
+});
+
 
 // ==================== 数据库管理系统(ty-dbwh)相关 API ====================
 

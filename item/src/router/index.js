@@ -77,6 +77,19 @@ export const constantRoutes = [
       }
     ]
   }
+  ,
+  {
+    path: '/yh-biaoqian',
+    component: Layout,
+    children: [
+      {
+        path: '/yh-biaoqian',
+        component: () => import('@/views/yh-biaoqian/index.vue'),
+        name: 'YhBiaoqian',
+        meta: { title: '标签维护', icon: 'collection-tag' }
+      }
+    ]
+  }
 ]
 
 // 动态路由，基于用户权限动态去加载
