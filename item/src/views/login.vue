@@ -39,8 +39,8 @@ const route = useRoute();
 const router = useRouter();
 const {proxy} = getCurrentInstance();
 const loginForm = ref({
-  name: "admin",
-  pwd: "666666",
+  name: "",
+  pwd: "",
   captcha: ""
 });
 
