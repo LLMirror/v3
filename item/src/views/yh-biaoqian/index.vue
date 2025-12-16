@@ -32,7 +32,7 @@
     <el-card class="table-card" shadow="never">
       <el-table :data="list" border style="width: 100%">
         <!-- <el-table-column prop="id" label="ID" width="90" align="center" /> -->
-        <el-table-column prop="rolesId" label="公司" width="160" align="center">
+        <el-table-column prop="rolesId" label="公司" width="290" align="center">
           <template #default="{ row }">
             {{ formatMoreName(row.rolesId) }}
           </template>
