@@ -1411,24 +1411,21 @@ router.post('/biaoqian/del', async (req, res) => {
 
 /** 获取当前登录公司标签（按用户 roles_id 限制） */
 router.post('/biaoqian/tagsByUser', async (req, res) => {
-  console.log("-------------------/biaoqian/tagsByUser------------------------")
   try {
     const user = await utils.getUserInfo({ req, res });
-    console.log(user.moreId,user.rolesId)
     if (!user) return; // 已在内部返回错误
     // 先判断 roles_id 是否包含 1/2/3（超管）；否则根据 roles_id（可能多值）筛选
     const rolesStr = String(user.rolesId || '').trim();
     const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
     const showAll = rolesArr.some(v => [1, 2, 3].includes(v));
     const sql = showAll
-      ? `SELECT DISTINCT 大类 AS tag FROM pt_biaoqian ORDER BY 大类 ASC`
-      : `SELECT DISTINCT 大类 AS tag FROM pt_biaoqian WHERE FIND_IN_SET(roles_id, ?) ORDER BY 大类 ASC`;
+      ? `SELECT DISTINCT 子类 AS tag FROM pt_biaoqian ORDER BY 子类 ASC`
+      : `SELECT DISTINCT 子类 AS tag FROM pt_biaoqian WHERE FIND_IN_SET(roles_id, ?) ORDER BY 子类 ASC`;
     const { result } = showAll
       ? await pools({ sql, res, req })
       : await pools({ sql, val: [user.moreId], res, req });
     const tags = (result || []).map(r => r.tag).filter(t => t !== null && t !== undefined && String(t).trim() !== '');
     res.send(utils.returnData({ data: tags }));
-    console.log(tags)
   } catch (error) {
     console.error('biaoqian/tagsByUser error:', error);
     res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
@@ -2262,7 +2259,21 @@ router.post('/hy-exportSettlementCsvProgress', async (req, res) => {
 router.post("/getSettlementCompanyBank", async (req, res) => {
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
-  const sql = `SELECT DISTINCT 公司,银行 FROM \`pt_cw_zjmxb\` where user_id = ${userId} AND 公司 IS NOT NULL AND 公司 <> '' AND 银行 IS NOT NULL AND 银行 <> ''`;
+    
+    // 逻辑对齐：先判断 roles_id 是否包含 1/2/3（超管）；否则根据 more_id 筛选
+    const rolesStr = String(user.user?.rolesId || '').trim();
+    const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+    const isSuper = rolesArr.some(v => [1, 2, 3].includes(v));
+
+    let sql = `SELECT DISTINCT 公司,银行 FROM \`pt_cw_zjmxb\` WHERE 1=1`;
+    
+    if (!isSuper) {
+      const moreIdNum = Number(user.user?.moreId);
+      if (!Number.isNaN(moreIdNum)) sql += ` AND more_id = ${moreIdNum}`;
+    }
+    
+    sql += ` AND 公司 IS NOT NULL AND 公司 <> '' AND 银行 IS NOT NULL AND 银行 <> ''`;
+
   // const sql = `SELECT * FROM \`${tableName}\` ORDER BY id ASC LIMIT 5000`;
   const { result } = await pools({ sql, res });
   res.send(utils.returnData({ data: result }));
