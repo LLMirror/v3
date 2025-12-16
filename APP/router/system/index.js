@@ -1409,6 +1409,28 @@ router.post('/biaoqian/del', async (req, res) => {
   }
 });
 
+/** 获取当前登录公司标签（按用户 roles_id 限制） */
+router.post('/biaoqian/tagsByUser', async (req, res) => {
+  try {
+    const user = await utils.getUserInfo({ req, res });
+    if (!user) return; // 已在内部返回错误
+
+    const rolesIdNum = Number(user.rolesId);
+    const showAll = [1, 2, 3].includes(rolesIdNum);
+    const sql = showAll
+      ? `SELECT DISTINCT 大类 AS tag FROM pt_biaoqian ORDER BY 大类 ASC`
+      : `SELECT DISTINCT 大类 AS tag FROM pt_biaoqian WHERE roles_id = ? ORDER BY 大类 ASC`;
+    const { result } = showAll
+      ? await pools({ sql, res, req })
+      : await pools({ sql, val: [user.rolesId], res, req });
+    const tags = (result || []).map(r => r.tag).filter(t => t !== null && t !== undefined && String(t).trim() !== '');
+    res.send(utils.returnData({ data: tags }));
+  } catch (error) {
+    console.error('biaoqian/tagsByUser error:', error);
+    res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
+  }
+});
+
 
 // ==================== 数据库管理系统(ty-dbwh)相关 API ====================
 

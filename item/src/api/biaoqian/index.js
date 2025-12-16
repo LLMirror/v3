@@ -28,3 +28,9 @@ export function delBiaoqian(data) {
   });
 }
 
+export function getBiaoqianTagsByUser(data) {
+  return request({
+    url: '/system/biaoqian/tagsByUser',
+    data,
+  });
+}

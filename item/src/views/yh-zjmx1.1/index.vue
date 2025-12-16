@@ -87,6 +87,7 @@ import { ElMessage } from "element-plus";
 import useUserStore from '@/store/modules/user'
 
 import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList,addSettlementData,updateSettlementData,deleteSettlementData,getMaxId } from "@/api/system/index.js";
+import { getBiaoqianTagsByUser } from '@/api/biaoqian/index.js'
 
 // 注册 numeric 类型和日期选择器插件
 import { registerCellType, NumericCellType, AutocompleteCellType } from "handsontable/cellTypes";
@@ -113,6 +114,19 @@ const saving = ref(false);
 const batchSize = ref(1000);
 const userStore = useUserStore();
 const loadingKeywords = ref(false);
+
+// 加载当前登录公司标签选项（后端按 roles_id 限制）
+async function loadCompanyTags() {
+  try {
+    const res = await getBiaoqianTagsByUser();
+    console.log(res)
+    const serverTags = Array.isArray(res?.data) ? res.data : [];
+    // 去重并覆盖默认，确保只使用公司标签
+    tagOptions.value = Array.from(new Set(serverTags.map(s => String(s).trim()).filter(s => s)));
+  } catch (e) {
+    console.warn('获取公司标签失败，继续使用默认标签', e);
+  }
+}
 
 // 自适应高度相关
 const wrapperRef = ref(null);
@@ -707,6 +721,8 @@ const getHistorySummaries = async () => {
 
 /* ====== 初始化示例 ====== */
 onMounted(async () => {
+  // 优先加载公司标签选项
+  await loadCompanyTags();
   // 获取公司、银行
   const res = await getSettlementCompanyBank({
     username: userStore.name,
