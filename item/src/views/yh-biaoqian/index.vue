@@ -2,8 +2,10 @@
   <div class="biaoqian-page">
     <el-card class="filter-card" shadow="never">
       <el-form :inline="true" :model="query" @submit.prevent>
-        <el-form-item label="公司ID">
-          <el-input v-model="query.roles_id" placeholder="输入 roles_id" clearable />
+        <el-form-item label="公司">
+          <el-select v-model="query.roles_id" placeholder="选择账号" clearable filterable style="width: 200px">
+            <el-option v-for="m in moreOptions" :key="m.id" :label="m.name" :value="m.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="大类">
           <el-input v-model="query.parent" placeholder="输入大类" clearable />
@@ -53,8 +55,10 @@
 
     <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? '编辑标签' : '新增标签'" width="520px">
       <el-form :model="form" label-width="80px">
-        <el-form-item label="角色ID">
-          <el-input v-model="form.roles_id" placeholder="可选" />
+        <el-form-item label="公司">
+          <el-select v-model="form.roles_id" placeholder="选择账号" clearable filterable style="width: 200px">
+            <el-option v-for="m in moreOptions" :key="m.id" :label="m.name" :value="m.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="大类" required>
           <el-input v-model="form.parent" placeholder="必填" />
@@ -78,9 +82,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { getBiaoqian, addBiaoqian, upBiaoqian, delBiaoqian } from '@/api/biaoqian'
+import { getMoreAll } from '@/api/system'
 
 const list = ref([])
 const total = ref(0)
+const moreOptions = ref([])
 
 const query = reactive({
   roles_id: '',
@@ -114,6 +120,11 @@ async function loadData() {
   })
   list.value = data || []
   total.value = t || 0
+}
+
+async function loadMoreOptions() {
+  const { data } = await getMoreAll()
+  moreOptions.value = Array.isArray(data) ? data : []
 }
 
 function openAdd() {
@@ -164,6 +175,7 @@ async function handleDelete(row) {
 }
 
 onMounted(loadData)
+onMounted(loadMoreOptions)
 </script>
 
 <style scoped>
@@ -179,4 +191,3 @@ onMounted(loadData)
   justify-content: flex-end;
 }
 </style>
-
