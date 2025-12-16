@@ -117,10 +117,8 @@ const loadingKeywords = ref(false);
 
 // 加载当前登录公司标签选项（后端按 roles_id 限制）
 async function loadCompanyTags() {
-  console.log("************************")
   try {
     const res = await getBiaoqianTagsByUser();
-    console.log(res)
     const serverTags = Array.isArray(res?.data) ? res.data : [];
     // 去重并覆盖默认，确保只使用公司标签
     tagOptions.value = Array.from(new Set(serverTags.map(s => String(s).trim()).filter(s => s)));
