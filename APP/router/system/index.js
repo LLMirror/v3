@@ -1351,7 +1351,7 @@ router.post('/biaoqian/add', async (req, res) => {
 router.post('/biaoqian/get', async (req, res) => {
   try {
     const obj = (req.body && req.body.data) ? req.body.data : req.body || {};
-    let sql = `SELECT  roles_id AS rolesId, 大类 AS parent, 子类 AS child, 备注 AS remark FROM pt_biaoqian WHERE 1=1`;
+    let sql = `SELECT id, roles_id AS rolesId, 大类 AS parent, 子类 AS child, 备注 AS remark FROM pt_biaoqian WHERE 1=1`;
     // 过滤条件
     if (obj.roles_id !== undefined) sql = utils.setAssign(sql, 'roles_id', obj.roles_id);
     sql = utils.setLike(sql, '大类', obj.parent ?? obj['大类']);

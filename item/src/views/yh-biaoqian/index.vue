@@ -28,8 +28,8 @@
 
     <el-card class="table-card" shadow="never">
       <el-table :data="list" border style="width: 100%">
-        <el-table-column prop="id" label="ID" width="90" />
-        <el-table-column prop="rolesId" label="角色ID" width="120" />
+        <!-- <el-table-column prop="id" label="ID" width="90" /> -->
+        <el-table-column prop="rolesId" label="公司" width="120" />
         <el-table-column prop="parent" label="大类" />
         <el-table-column prop="child" label="子类" />
         <el-table-column prop="remark" label="备注" />
