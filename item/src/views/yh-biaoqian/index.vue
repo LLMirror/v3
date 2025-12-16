@@ -22,13 +22,16 @@
         </el-form-item>
         <el-form-item>
           <el-button type="success" @click="openAdd">新增标签</el-button>
+          <el-button type="warning" @click="downloadTemplate">下载导入模板</el-button>
+          <el-button type="info" @click="triggerImport">上传批量导入</el-button>
+          <input ref="fileRef" type="file" accept=".xlsx,.xls,.csv" @change="handleImport" style="display:none" />
         </el-form-item>
       </el-form>
     </el-card>
 
     <el-card class="table-card" shadow="never">
       <el-table :data="list" border style="width: 100%">
-        <el-table-column prop="id" label="ID" width="90" align="center" />
+        <!-- <el-table-column prop="id" label="ID" width="90" align="center" /> -->
         <el-table-column prop="rolesId" label="公司" width="120" align="center" />
         <el-table-column prop="parent" label="大类" align="center" />
         <el-table-column prop="child" label="子类" align="center" />
@@ -83,10 +86,12 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { getBiaoqian, addBiaoqian, upBiaoqian, delBiaoqian } from '@/api/biaoqian'
 import { getMoreAll } from '@/api/system'
+import * as XLSX from 'xlsx'
 
 const list = ref([])
 const total = ref(0)
 const moreOptions = ref([])
+const fileRef = ref(null)
 
 const query = reactive({
   roles_id: '',
@@ -172,6 +177,59 @@ async function handleDelete(row) {
   await delBiaoqian({ id: row.id })
   ElMessage.success('删除成功')
   loadData()
+}
+
+function downloadTemplate() {
+  const headers = ['roles_id', '大类', '子类', '备注']
+  const ws = XLSX.utils.aoa_to_sheet([headers])
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, '模板')
+  XLSX.writeFile(wb, '标签导入模板.xlsx')
+  ElMessage.success('已下载模板')
+}
+
+function triggerImport() {
+  fileRef.value && fileRef.value.click()
+}
+
+async function handleImport(e) {
+  const file = e.target.files?.[0]; if (!file) return
+  try {
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      const data = new Uint8Array(ev.target.result)
+      const workbook = XLSX.read(data, { type: 'array' })
+      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+
+      if (!rows?.length) {
+        ElMessage.warning('导入数据为空')
+        return
+      }
+
+      let success = 0, failed = 0
+      for (const r of rows) {
+        const payload = {
+          roles_id: r['roles_id'] || undefined,
+          大类: r['大类'],
+          子类: r['子类'],
+          备注: r['备注'] || undefined,
+        }
+        if (!payload['大类'] || !payload['子类']) { failed++; continue }
+        try {
+          await addBiaoqian(payload)
+          success++
+        } catch (err) {
+          failed++
+        }
+      }
+      ElMessage.success(`导入完成：成功 ${success} 条，失败 ${failed} 条`)
+      loadData()
+    }
+    reader.readAsArrayBuffer(file)
+  } finally {
+    e.target.value = ''
+  }
 }
 
 onMounted(loadData)
