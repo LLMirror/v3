@@ -2,7 +2,7 @@
   <div class="biaoqian-page">
     <el-card class="filter-card" shadow="never">
       <el-form :inline="true" :model="query" @submit.prevent>
-        <el-form-item label="角色ID">
+        <el-form-item label="公司ID">
           <el-input v-model="query.roles_id" placeholder="输入 roles_id" clearable />
         </el-form-item>
         <el-form-item label="大类">

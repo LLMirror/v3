@@ -1319,6 +1319,7 @@ router.post('/biaoqian/add', async (req, res) => {
     const parent = payload['大类'] ?? payload.parent ?? '';
     const child = payload['子类'] ?? payload.child ?? '';
     const remark = payload['备注'] ?? payload.remark ?? '';
+    const id = uuidv4();
 
     if (!String(parent).trim() || !String(child).trim()) {
       return res.send(utils.returnData({ code: -1, msg: '大类/子类不能为空', req }));
@@ -1336,8 +1337,8 @@ router.post('/biaoqian/add', async (req, res) => {
       return res.send(utils.returnData({ code: -1, msg: '该标签已存在', req }));
     }
 
-    const insertSql = `INSERT INTO pt_biaoqian (roles_id, 大类, 子类, 备注) VALUES (?,?,?,?)`;
-    const insertVal = [rolesId || null, String(parent).trim(), String(child).trim(), remark || null];
+    const insertSql = `INSERT INTO pt_biaoqian (id, roles_id, 大类, 子类, 备注) VALUES (?,?,?,?,?)`;
+    const insertVal = [id, rolesId || null, String(parent).trim(), String(child).trim(), remark || null];
     await pools({ sql: insertSql, val: insertVal, res, req });
     res.send(utils.returnData({ msg: '新增成功' }));
   } catch (error) {
