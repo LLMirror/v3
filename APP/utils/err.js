@@ -31,7 +31,16 @@ export const errLog=({err,code,msg,funName="error",req={}})=>{
     });
     let init=log4js.getLogger();
     try {
-        let data={err,code,msg,portName:req.originalUrl,body:req.body,query:req.query,method:req.method};
+        const safeReq = req || {};
+        let data={
+            err,
+            code,
+            msg,
+            portName: safeReq?.originalUrl ?? "",
+            body: safeReq?.body,
+            query: safeReq?.query,
+            method: safeReq?.method
+        };
         init[funName](data);
         console.log("记录了错误信息logs---"+funName);
     }catch (e) {

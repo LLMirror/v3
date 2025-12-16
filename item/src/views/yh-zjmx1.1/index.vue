@@ -97,7 +97,7 @@ registerCellType("autocomplete", AutocompleteCellType);
 const commonKeywords = ref([]);
 // 标签下拉选项（默认值 + 动态汇总）
 const tagOptions = ref([
-  '未设置', '期初', '工资', '报销', '税费', '利息', '还款', '转账', '其他'
+  '差旅费', '办公费', '工资', '福利费', '税费', '利息', '还款', '餐费', '往来款','保证金'
 ]);
 // 摘要关键词筛选
 const summaryKeyword = ref('');
