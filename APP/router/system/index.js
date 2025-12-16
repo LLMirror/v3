@@ -2801,9 +2801,22 @@ router.post("/updateSettlementData", async (req, res) => {
     if (!tableName || !data || !data.id) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
     }
+
+    // 先检查录入人是否一致
+    const checkSql = `SELECT user_id FROM \`${tableName}\` WHERE id = ?`;
+    const { result: checkResult } = await pools({ sql: checkSql, val: [data.id], res, req });
+    
+    if (checkResult && checkResult.length > 0) {
+      const recordUserId = checkResult[0].user_id;
+      if (recordUserId != userId) {
+        return res.send(utils.returnData({ code: -1, msg: "请联系录入人员修改" }));
+      }
+    } else {
+        return res.send(utils.returnData({ code: -1, msg: "记录不存在" }));
+    }
     
     // 执行更新（同时写入 roles_id、more_id）
-    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 标签 = ?,  发票 = ?, 序号 = ?, roles_id = ?, more_id = ? WHERE user_id = ? AND id = ?`;
+    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 标签 = ?,  发票 = ?, 序号 = ?, roles_id = ?, more_id = ? WHERE id = ?`;
     await pools({ 
       sql: updateSQL, 
       val: [
@@ -2821,7 +2834,6 @@ router.post("/updateSettlementData", async (req, res) => {
         data['序号'] || '',
         rolesId ?? '',
         moreId ?? null,
-        userId,
         data.id || ''
 
       ], 
