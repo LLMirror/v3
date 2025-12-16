@@ -28,12 +28,12 @@
 
     <el-card class="table-card" shadow="never">
       <el-table :data="list" border style="width: 100%">
-        <!-- <el-table-column prop="id" label="ID" width="90" /> -->
-        <el-table-column prop="rolesId" label="公司" width="120" />
-        <el-table-column prop="parent" label="大类" />
-        <el-table-column prop="child" label="子类" />
-        <el-table-column prop="remark" label="备注" />
-        <el-table-column label="操作" width="180">
+        <el-table-column prop="id" label="ID" width="90" align="center" />
+        <el-table-column prop="rolesId" label="公司" width="120" align="center" />
+        <el-table-column prop="parent" label="大类" align="center" />
+        <el-table-column prop="child" label="子类" align="center" />
+        <el-table-column prop="remark" label="备注" align="center" />
+        <el-table-column label="操作" width="180" align="center">
           <template #default="{ row }">
             <el-button type="primary" link @click="openEdit(row)">编辑</el-button>
             <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
