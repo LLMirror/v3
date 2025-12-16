@@ -2856,6 +2856,7 @@ router.post("/deleteSettlementData", async (req, res) => {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
+    const rolesId = user.user.rolesId;
 
     const { tableName, id } = req.body;
     
@@ -2863,11 +2864,26 @@ router.post("/deleteSettlementData", async (req, res) => {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
     }
     
+    // Check permission
+    const checkSql = `SELECT user_id FROM \`${tableName}\` WHERE id = ?`;
+    const { result: checkResult } = await pools({ sql: checkSql, val: [id], res, req });
+    
+    if (checkResult && checkResult.length > 0) {
+      const recordUserId = checkResult[0].user_id;
+      // rolesId为1,2,3则是超级管理员，可以删除所有；否则只能删除自己的
+      const isSuper = [1, 2, 3].includes(Number(rolesId));
+      if (!isSuper && recordUserId != userId) {
+        return res.send(utils.returnData({ code: -1, msg: "只能删除自己录入的数据" }));
+      }
+    } else {
+        return res.send(utils.returnData({ code: -1, msg: "记录不存在" }));
+    }
+
     // 执行删除
-    const deleteSQL = `DELETE FROM \`${tableName}\` WHERE user_id = ? AND id = ?`;
+    const deleteSQL = `DELETE FROM \`${tableName}\` WHERE id = ?`;
     await pools({ 
       sql: deleteSQL, 
-      val: [userId, id], 
+      val: [id], 
       isReturn: true 
     });
     console.log("result");
