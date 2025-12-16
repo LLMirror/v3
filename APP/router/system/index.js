@@ -1977,6 +1977,7 @@ router.post("/getSettlementData", async (req, res) => {
 
   // 登录用户
   const user = await utils.getUserRole(req, res);
+  console.log(user)
   const userId = user.user.id;
 
   // 兼容两种前端传参形式：selectedCompanyBank/dateRange 与 data 结构
@@ -1991,7 +1992,10 @@ router.post("/getSettlementData", async (req, res) => {
   const dateTo = data.dateTo ?? dateRange[1];
 
   // 基础查询
-  let sql = `SELECT id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\` WHERE user_id = ${userId}`;
+  const rolesIdNum = Number(user.user?.rolesId);
+  const isSuper = [1, 2, 3].includes(rolesIdNum);
+  let sql = `SELECT id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\``;
+  sql += isSuper ? ` WHERE 1=1` : ` WHERE user_id = ${userId}`;
   // 模糊匹配
   sql = utils.setLike(sql, '公司', company);
   sql = utils.setLike(sql, '银行', bank);
