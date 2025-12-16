@@ -1411,20 +1411,24 @@ router.post('/biaoqian/del', async (req, res) => {
 
 /** 获取当前登录公司标签（按用户 roles_id 限制） */
 router.post('/biaoqian/tagsByUser', async (req, res) => {
+  console.log("-------------------/biaoqian/tagsByUser------------------------")
   try {
     const user = await utils.getUserInfo({ req, res });
+    console.log(user.moreId,user.rolesId)
     if (!user) return; // 已在内部返回错误
-
-    const rolesIdNum = Number(user.rolesId);
-    const showAll = [1, 2, 3].includes(rolesIdNum);
+    // 先判断 roles_id 是否包含 1/2/3（超管）；否则根据 roles_id（可能多值）筛选
+    const rolesStr = String(user.rolesId || '').trim();
+    const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+    const showAll = rolesArr.some(v => [1, 2, 3].includes(v));
     const sql = showAll
       ? `SELECT DISTINCT 大类 AS tag FROM pt_biaoqian ORDER BY 大类 ASC`
-      : `SELECT DISTINCT 大类 AS tag FROM pt_biaoqian WHERE roles_id = ? ORDER BY 大类 ASC`;
+      : `SELECT DISTINCT 大类 AS tag FROM pt_biaoqian WHERE FIND_IN_SET(roles_id, ?) ORDER BY 大类 ASC`;
     const { result } = showAll
       ? await pools({ sql, res, req })
-      : await pools({ sql, val: [user.rolesId], res, req });
+      : await pools({ sql, val: [user.moreId], res, req });
     const tags = (result || []).map(r => r.tag).filter(t => t !== null && t !== undefined && String(t).trim() !== '');
     res.send(utils.returnData({ data: tags }));
+    console.log(tags)
   } catch (error) {
     console.error('biaoqian/tagsByUser error:', error);
     res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
@@ -1991,11 +1995,17 @@ router.post("/getSettlementData", async (req, res) => {
   const dateFrom = data.dateFrom ?? dateRange[0];
   const dateTo = data.dateTo ?? dateRange[1];
 
-  // 基础查询
-  const rolesIdNum = Number(user.user?.rolesId);
-  const isSuper = [1, 2, 3].includes(rolesIdNum);
+  // 基础查询：先判断 more_id 是否为 1/2/3，若是则全量；否则根据 roles_id（可能多值）筛选
+  // 修正为：先以 roles_id 判定超管（包含 1/2/3 即超管），否则才按 more_id 做公司过滤
+  const rolesStr = String(user.user?.rolesId || '').trim();
+  const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+  const isSuper = rolesArr.some(v => [1, 2, 3].includes(v));
   let sql = `SELECT id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\``;
-  sql += isSuper ? ` WHERE 1=1` : ` WHERE user_id = ${userId}`;
+  sql += ` WHERE 1=1`;
+  if (!isSuper) {
+    const moreIdNum = Number(user.user?.moreId);
+    if (!Number.isNaN(moreIdNum)) sql += ` AND more_id = ${moreIdNum}`;
+  }
   // 模糊匹配
   sql = utils.setLike(sql, '公司', company);
   sql = utils.setLike(sql, '银行', bank);
@@ -2697,6 +2707,8 @@ router.post("/addSettlementData", async (req, res) => {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
+    const moreId = user.user.moreId;
+    const rolesId = user.user.rolesId;
     const userName = user.user.name; // 录入人
 
     const { tableName, data } = req.body;
@@ -2718,12 +2730,14 @@ router.post("/addSettlementData", async (req, res) => {
       return res.send(utils.returnData({ code: 400, msg: "❌ 记录已存在" }));
     }
     
-    // 执行新增
-    const insertSQL = `INSERT INTO \`${tableName}\` (user_id,日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号, 录入人, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    // 执行新增（同时写入 user_id、more_id、roles_id）
+    const insertSQL = `INSERT INTO \`${tableName}\` (user_id, more_id, roles_id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号, 录入人, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     await pools({
       sql: insertSQL,
       val: [
-        userId, 
+        userId,
+        moreId ?? null,
+        rolesId ?? '',
         data['日期'] || '',
         data['公司'] || '',
         data['银行'] || '',
@@ -2766,7 +2780,10 @@ router.post("/updateSettlementData", async (req, res) => {
   try {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
+    console.log(user)
     const userId = user.user.id;
+    const moreId = user.user.moreId;
+    const rolesId = user.user.rolesId;
 
     const { tableName, data } = req.body;
     
@@ -2774,8 +2791,8 @@ router.post("/updateSettlementData", async (req, res) => {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
     }
     
-    // 执行更新
-    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?,标签 = ?,  发票 = ?, 序号 = ? WHERE user_id = ? AND id = ?`;
+    // 执行更新（同时写入 roles_id、more_id）
+    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 标签 = ?,  发票 = ?, 序号 = ?, roles_id = ?, more_id = ? WHERE user_id = ? AND id = ?`;
     await pools({ 
       sql: updateSQL, 
       val: [
@@ -2791,6 +2808,8 @@ router.post("/updateSettlementData", async (req, res) => {
         data['标签'] || '',
         data['发票'] || '',
         data['序号'] || '',
+        rolesId ?? '',
+        moreId ?? null,
         userId,
         data.id || ''
 
@@ -3222,6 +3241,8 @@ router.post("/hy-updateSettlementData", async (req, res) => {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
+    const moreId = user.user.moreId;
+    const rolesId = user.user.rolesId;
 
     const { tableName, data } = req.body;
     
@@ -3229,8 +3250,8 @@ router.post("/hy-updateSettlementData", async (req, res) => {
       return res.send(utils.returnData({ code: 400, msg: "❌ 缺少必要参数" }));
     }
     
-    // 执行更新
-    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ? WHERE user_id = ? AND id = ?`;
+    // 执行更新（同时写入 roles_id、more_id）
+    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 发票 = ?, 序号 = ?, roles_id = ?, more_id = ? WHERE user_id = ? AND id = ?`;
     await pools({ 
       sql: updateSQL, 
       val: [
@@ -3245,6 +3266,8 @@ router.post("/hy-updateSettlementData", async (req, res) => {
         data['备注'] || '',
         data['发票'] || '',
         data['序号'] || '',
+        rolesId ?? '',
+        moreId ?? null,
         userId,
         data.id || ''
 

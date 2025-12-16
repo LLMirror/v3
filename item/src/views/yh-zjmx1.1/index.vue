@@ -117,6 +117,7 @@ const loadingKeywords = ref(false);
 
 // 加载当前登录公司标签选项（后端按 roles_id 限制）
 async function loadCompanyTags() {
+  console.log("************************")
   try {
     const res = await getBiaoqianTagsByUser();
     console.log(res)
