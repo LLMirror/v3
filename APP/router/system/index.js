@@ -2057,8 +2057,16 @@ router.post("/getSettlementData", async (req, res) => {
   let sql = `SELECT id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\``;
   sql += ` WHERE 1=1`;
   if (!isSuper) {
-    const moreIdNum = Number(user.user?.moreId);
-    if (!Number.isNaN(moreIdNum)) sql += ` AND more_id = ${moreIdNum}`;
+    const moreIdStr = String(user.user?.moreId || '').trim();
+    const moreIdArr = moreIdStr ? moreIdStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+    
+    if (moreIdArr.length > 0) {
+      if (moreIdArr.length === 1) {
+        sql += ` AND more_id = ${moreIdArr[0]}`;
+      } else {
+        sql += ` AND more_id IN (${moreIdArr.join(',')})`;
+      }
+    }
   }
   // 模糊匹配
   sql = utils.setLike(sql, '公司', company);
