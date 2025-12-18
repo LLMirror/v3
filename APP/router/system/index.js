@@ -591,8 +591,20 @@ router.post("/getMoreAll", async (req, res) => {
 
     let sql = "SELECT id,name,remark,app_key ,app_secret  FROM more";
     if (!isSuper && moreId !== undefined && moreId !== null) {
-      sql += " WHERE id = ?";
-      await pools({ sql, val: [moreId], res, req, run:false });
+      // moreId 可能是单个值 17，也可能是多值字符串 "17,8"
+      const ids = String(moreId)
+        .split(',')
+        .map(id => id.trim())
+        .filter(id => id !== '');
+
+      if (ids.length === 0) {
+        // 没有有效 id，直接返回空数据
+        return res.send(utils.returnData({ data: [], total: 0 }));
+      }
+
+      const placeholders = ids.map(() => '?').join(',');
+      sql += ` WHERE id IN (${placeholders})`;
+      await pools({ sql, val: ids, res, req, run:false });
     } else {
       await pools({ sql, res, req, run:false });
     }

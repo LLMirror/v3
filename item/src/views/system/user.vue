@@ -84,8 +84,8 @@
           </el-select>
         </el-form-item>
         <el-form-item label="账号归属" prop="moreId" v-if="form.admin!==1">
-          <el-select v-model="form.moreId" filterable placeholder="请选择账号">
-            <el-option v-for="(item) in moreArr" :key="item.id" :label="item.name" :value="item.id">
+          <el-select v-model="form.moreId" filterable multiple collapse-tags collapse-tags-tooltip placeholder="请选择账号">
+            <el-option v-for="(item) in moreArr" :key="item.id" :label="item.name" :value="String(item.id)">
             </el-option>
           </el-select>
         </el-form-item>
@@ -233,7 +233,11 @@ function openDialog(){
 }
 function handleEdit(row){
   open.value=true;
-  form.value={...row,rolesId:row.rolesId.split(",")};
+  form.value={
+    ...row,
+    rolesId: row.rolesId ? String(row.rolesId).split(",") : [],
+    moreId: row.moreId ? String(row.moreId).split(",") : []
+  };
   nextTick(()=>{
     fileList.value=[{name:row.url,url:row.url}];
   })
@@ -242,7 +246,11 @@ async function submitForm(){
   await proxy.$refs["ruleForm"].validate();
   try {
     loading.value=true;
-    const data={...form.value,rolesId:form.value.rolesId.join(",")};
+    const data={
+      ...form.value,
+      rolesId: (form.value.rolesId || []).join(","),
+      moreId: (form.value.moreId || []).join(",")
+    };
     !form.value.id&&await addUser({...data,pwd:md5(getPwdNodeMD5()+data.pwd)});
     form.value.id&&await upUser(data);
     proxy.$modal.msgSuccess(form.value.id? "修改成功" : "新增成功");
@@ -338,9 +346,16 @@ async function getMoreAllApi(){
 }
 function formatMore (row) {
   if(row.admin===1) return "总管理";
-  let res = moreArr.value.filter(t => t.id == row.moreId);
-  if (res.length == 0) return "“账号不存在”"
-  return res[0].name
+  if (!row.moreId) return "";
+  const ids = String(row.moreId).split(",");
+  const names = ids
+    .map(id => {
+      const found = moreArr.value.find(t => String(t.id) === String(id));
+      return found ? found.name : null;
+    })
+    .filter(Boolean);
+  if (!names.length) return "“账号不存在”";
+  return names.join("，");
 }
 onMounted(async  ()=>{
   initData(getUser);
