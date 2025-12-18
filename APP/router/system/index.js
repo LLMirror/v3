@@ -65,7 +65,7 @@ async function getApprovalNumber(instanceId,token) {
                 'x-acs-dingtalk-access-token': token
             }, timeout: 30000
         });
-        console.log(res.data.result.businessId)
+        // console.log(res.data.result.businessId)
         return res.data.result.businessId;  // 返回完整响应数据
     } catch (error) {
         console.error('调用钉钉获取审批接口失败：', error.response?.data || error);
@@ -77,7 +77,6 @@ async function getApprovalNumber(instanceId,token) {
 
 // 测试 token 是否有效（调用钉钉流程编码接口）
 async function getProcessCodeByName(token, remark) {
-  console.log("remark------ **********:", remark,token);
   try {
     const url = `https://api.dingtalk.com/v1.0/workflow/processCentres/schemaNames/processCodes`;
     const res = await axios.get(url, {
@@ -90,7 +89,6 @@ async function getProcessCodeByName(token, remark) {
     return { ok: true, data: res.data };
   } catch (error) {
     const errData = error.response?.data || {};
-    console.log("errData------ **********:", errData);
     // 失败时返回统一结构，便于上层判断是否为 token 失效
     return { ok: false, error: errData };
   }
@@ -140,13 +138,13 @@ router.post("/getDingTalkToken", async (req, res) => {
     };
 
     if (!currentToken) {
-      console.log("!currentToken------ **********:", currentToken);
+      // console.log("!currentToken------ **********:", currentToken);
       await ensureFreshToken();
     } else {
       const check = await getProcessCodeByName(currentToken, remark);
          if (!check.ok) {
         // 兼容 errcode 或 code 的返回格式，40001 为 token 失效
-        console.log("!check.ok------ **********:", check);
+        // console.log("!check.ok------ **********:", check);
           await ensureFreshToken();
       }
       let data= await startDingTalkProcess(check.data.result.processCode,user,moreRows[0],req.body.payload)
@@ -215,7 +213,7 @@ router.post("/getDingTalkToken", async (req, res) => {
 
 //获取图形二维码
 router.post("/getCaptcha", async (req, res) => {
-  console.log("req.body------ **********:", req.body);
+  // console.log("req.body------ **********:", req.body);
     const captcha = svgCaptcha.create({
         inverse: false, // 翻转颜色
         fontSize: 48, // 字体大小
@@ -723,7 +721,6 @@ router.post("/getLogs", async (req, res) => {
 router.post("/importData", async (req, res) => {
     try {
         const { tableName, data, operator } = req.body; // operator 来自前端 userStore.name
-        console.log("importData", data.length);
         if (!tableName || !Array.isArray(data) || !data.length || !operator) {
             return res.send(utils.returnData({ code: -1, msg: "参数错误", data: {} }));
         }
@@ -745,7 +742,7 @@ router.post("/importData", async (req, res) => {
                 ${columnDefs}
             )`;
             await pools({ sql, res, req });
-            console.log(`表 ${tableName} 已创建`);
+            // console.log(`表 ${tableName} 已创建`);
         } else {
             // 2️⃣ 表存在，检查缺失列并添加
             const { result: existingColumns } = await pools({ sql: `SHOW COLUMNS FROM \`${tableName}\``, res, req });
@@ -786,7 +783,7 @@ router.post("/importData", async (req, res) => {
             sql = `INSERT INTO \`${tableName}\` (${allColumns.map(c => `\`${c}\``).join(",")}) VALUES ${placeholders}`;
             await pools({ sql, val: values, res, req });
 
-            console.log(`导入进度: ${Math.floor(((i + batch.length) / total) * 100)}%`);
+            // console.log(`导入进度: ${Math.floor(((i + batch.length) / total) * 100)}%`);
         }
 
         res.send(utils.returnData({ code: 200, msg: "导入成功", data: {} }));
@@ -949,7 +946,7 @@ router.post('/deleteCashRecord', async (req, res) => {
 
 /** 修改现金记录 */
 router.post('/updateCashRecord', async (req, res) => {
-    console.log("updateCashRecord",req.body)
+    // console.log("updateCashRecord",req.body)
     const obj = req.body;
     const dateTimeStr = obj.data.date ? dayjs(obj.data.date).format('YYYY-MM-DD HH:mm:ss') : null;
 
@@ -974,7 +971,7 @@ router.post('/updateCashRecord', async (req, res) => {
 
 /** 查询现金记录 */
 router.post('/getCashRecords', async (req, res) => {
-    console.log("getCashRecords",req.body)  
+    // console.log("getCashRecords",req.body)  
     const obj = req.body;
 
     // 修复：缺少 WHERE 导致 AND 拼接到 FROM 后产生语法错误
@@ -1242,7 +1239,7 @@ router.post('/dashboard/cashOverview', async (req, res) => {
 /** 获取公司列表 */
 router.post('/getCompanyList', async (req, res) => {
   try {
-    console.log('getCompanyList', req.body);
+    // console.log('getCompanyList', req.body);
     let sql = `SELECT DISTINCT 公司 AS company FROM pt_cw_zjmxb WHERE 公司 IS NOT NULL AND 公司 <> ''`;
     const params = [];
     const body = req.body || {};
@@ -1278,7 +1275,7 @@ router.post('/getSeriesList', async (req, res) => {
 });
 
 router.post('/getCashSummaryList', async (req, res) => {
-  console.log('getCashSummaryList', req.body);
+  // console.log('getCashSummaryList', req.body);
   try {
     const payload = (req.body && req.body.data) ? req.body.data : req.body;
     let { company, bank, summary } = payload || {};
@@ -1380,7 +1377,7 @@ router.post('/biaoqian/get', async (req, res) => {
     const user = await utils.getUserRole(req, res);
     const rolesId = user?.user?.rolesId;
     const moreId = user?.user?.moreId;
-    console.log(user.user)
+
     const isSuper = [1, 2, 3].includes(Number(rolesId));
     if (!isSuper && moreId !== undefined && moreId !== null) {
       // moreId 可能是单个值 17，也可能是多值字符串 "17,21"
@@ -1523,7 +1520,7 @@ async function ensureDbwhTableExists(tableName, createTableSql) {
     // 如果表不存在，则创建
     if (checkResult.result.length === 0) {
       await pools({ sql: createTableSql, run: true });
-      console.log(`创建表 ${tableName} 成功`);
+      // console.log(`创建表 ${tableName} 成功`);
     }
   } catch (error) {
     console.error(`确保表 ${tableName} 存在时出错:`, error);
@@ -1780,7 +1777,7 @@ router.post('/ty-dbwh/data/changeStatus', async (req, res) => {
  * 📥 导入 Excel 数据写入数据库
  */
 router.post("/importExcelData", async (req, res) => {
-  console.log("📥 importExcelData");
+  // console.log("📥 importExcelData");
 
   try {
     // 获取登录用户信息
@@ -2034,12 +2031,11 @@ router.post("/getExcelData", async (req, res) => {
 // 获取出纳结算数据
 router.post("/getSettlementData", async (req, res) => {
   // 参考 getCashRecords 的过滤与分页模式
-  console.log("getSettlementData", req.body);
   const obj = req.body || {};
 
   // 登录用户
   const user = await utils.getUserRole(req, res);
-  console.log(user)
+
   const userId = user.user.id;
 
   // 兼容两种前端传参形式：selectedCompanyBank/dateRange 与 data 结构
@@ -2774,7 +2770,6 @@ router.post('/deleteReceivable', async (req, res) => {
 
 // 出纳表 - 新增单条记录
 router.post("/addSettlementData", async (req, res) => {
-  console.log(req.body);
   try {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
@@ -2848,11 +2843,10 @@ router.post("/addSettlementData", async (req, res) => {
 
 // 出纳表 - 更新单条记录
 router.post("/updateSettlementData", async (req, res) => {
-    console.log(req.body);
   try {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
-    console.log(user)
+  
     const userId = user.user.id;
     const moreId = user.user.moreId;
     const rolesId = user.user.rolesId;
@@ -2912,7 +2906,6 @@ router.post("/updateSettlementData", async (req, res) => {
 
 // 出纳表 - 删除单条记录
 router.post("/deleteSettlementData", async (req, res) => {
-  console.log(req.body);
   try {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
@@ -2947,7 +2940,6 @@ router.post("/deleteSettlementData", async (req, res) => {
       val: [id], 
       isReturn: true 
     });
-    console.log("result");
     res.send(utils.returnData({ code: 1, msg: "✅ 删除成功" }));
   } catch (err) {
     console.error("❌ 删除数据出错:", err);
@@ -3281,7 +3273,6 @@ router.post("/hy-upSettlementData", async (req, res) => {
 // 获取出纳结算数据
 router.post("/hy-getSettlementData", async (req, res) => {
   // 参考 getCashRecords 的过滤与分页模式
-  console.log("getSettlementData", req.body);
   const obj = req.body || {};
 
   // 登录用户
@@ -3338,7 +3329,6 @@ router.post("/hy-getSettlementCompanyBank", async (req, res) => {
 
 // 出纳表 - 更新单条记录
 router.post("/hy-updateSettlementData", async (req, res) => {
-    console.log(req.body);
   try {
     // 获取登录用户信息
     const user = await utils.getUserRole(req, res);
