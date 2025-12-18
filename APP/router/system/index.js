@@ -2893,6 +2893,42 @@ router.post("/addSettlementData", async (req, res) => {
     if (Array.isArray(checkResult) && checkResult.length > 0) {
       return res.send(utils.returnData({ code: 400, msg: "❌ 记录已存在" }));
     }
+
+    // Determine valid more_id to avoid truncation if user has multiple accounts
+    let validMoreId = data.more_id;
+    if (validMoreId === undefined || validMoreId === null) {
+      // 1. First try to find by company name if provided
+      const companyName = data['公司'] || '';
+      if (companyName) {
+         // Trim company name to ensure accurate matching
+         const trimmedCompany = companyName.trim();
+         const moreSql = `SELECT id FROM more WHERE name = ? LIMIT 1`;
+         const { result: moreRes } = await pools({
+           sql: moreSql,
+           val: [trimmedCompany],
+           res,
+           req
+         });
+         if (moreRes && moreRes.length > 0) {
+           validMoreId = moreRes[0].id;
+         }
+      }
+
+      // 2. If still not found, fallback to user's moreId logic
+      if (validMoreId === undefined || validMoreId === null) {
+        if (moreId) {
+          const ids = String(moreId).split(',');
+          // Only auto-fill if user belongs to exactly one account
+          if (ids.length === 1) {
+            validMoreId = ids[0];
+          } else {
+            validMoreId = null; 
+          }
+        } else {
+          validMoreId = null;
+        }
+      }
+    }
     
     // 执行新增（同时写入 user_id、more_id、roles_id）
     const insertSQL = `INSERT INTO \`${tableName}\` (user_id, more_id, roles_id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号, 录入人, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -2900,7 +2936,7 @@ router.post("/addSettlementData", async (req, res) => {
       sql: insertSQL,
       val: [
         userId,
-        data.more_id ?? moreId ?? null,
+        validMoreId,
         rolesId ?? '',
         data['日期'] || '',
         data['公司'] || '',
