@@ -1383,10 +1383,35 @@ router.post('/biaoqian/get', async (req, res) => {
     console.log(user.user)
     const isSuper = [1, 2, 3].includes(Number(rolesId));
     if (!isSuper && moreId !== undefined && moreId !== null) {
-      sql = utils.setAssign(sql, 'roles_id', moreId);
+      // moreId 可能是单个值 17，也可能是多值字符串 "17,21"
+      const ids = String(moreId)
+        .split(',')
+        .map(v => Number(String(v).trim()))
+        .filter(v => !Number.isNaN(v));
+      if (ids.length === 1) {
+        sql = utils.setAssign(sql, 'roles_id', ids[0]);
+      } else if (ids.length > 1) {
+        // 直接拼接已数值化的 id，避免占位符与 getSum 冲突
+        sql += ` AND roles_id IN (${ids.join(',')})`;
+      }
     } else {
-      // 超管可选按传入的 roles_id 过滤
-      if (obj.roles_id !== undefined) sql = utils.setAssign(sql, 'roles_id', obj.roles_id);
+      // 超管可选按传入的 roles_id 过滤（亦兼容多值）
+      if (obj.roles_id !== undefined) {
+        const val = obj.roles_id;
+        if (typeof val === 'string' && val.includes(',')) {
+          const ids = val
+            .split(',')
+            .map(v => Number(String(v).trim()))
+            .filter(v => !Number.isNaN(v));
+          if (ids.length === 1) {
+            sql = utils.setAssign(sql, 'roles_id', ids[0]);
+          } else if (ids.length > 1) {
+            sql += ` AND roles_id IN (${ids.join(',')})`;
+          }
+        } else {
+          sql = utils.setAssign(sql, 'roles_id', val);
+        }
+      }
     }
 
     // 过滤条件
