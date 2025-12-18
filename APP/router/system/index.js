@@ -3008,8 +3008,45 @@ router.post("/updateSettlementData", async (req, res) => {
         return res.send(utils.returnData({ code: -1, msg: "记录不存在" }));
     }
     
-    // 执行更新（同时写入 roles_id、more_id）
-    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 标签 = ?,  发票 = ?, 序号 = ?, roles_id = ?, more_id = ? WHERE id = ?`;
+    // Determine valid more_id and series to avoid truncation and ensure data consistency
+    let validMoreId = data.more_id;
+    let validSeries = '';
+    
+    // Always try to lookup by company name first to get the correct series and more_id
+    const companyName = data['公司'] || '';
+    if (companyName) {
+       // Trim company name to ensure accurate matching
+       const trimmedCompany = companyName.trim();
+       const moreSql = `SELECT id, series FROM more WHERE name = ? LIMIT 1`;
+       const { result: moreRes } = await pools({
+         sql: moreSql,
+         val: [trimmedCompany],
+         res,
+         req
+       });
+       if (moreRes && moreRes.length > 0) {
+         validMoreId = moreRes[0].id;
+         validSeries = moreRes[0].series || '';
+       }
+    }
+
+    // If more_id is still not determined (e.g. company not found), fallback to user's moreId logic
+    if (validMoreId === undefined || validMoreId === null) {
+      if (moreId) {
+        const ids = String(moreId).split(',');
+        // Only auto-fill if user belongs to exactly one account
+        if (ids.length === 1) {
+          validMoreId = ids[0];
+        } else {
+          validMoreId = null; 
+        }
+      } else {
+        validMoreId = null;
+      }
+    }
+    
+    // 执行更新（同时写入 roles_id、more_id、系列）
+    const updateSQL = `UPDATE \`${tableName}\` SET unique_key = ?, 日期 = ?, 公司 = ?, 银行 = ?, 摘要 = ?, 收入 = ?, 支出 = ?, 余额 = ?, 备注 = ?, 标签 = ?,  发票 = ?, 序号 = ?, roles_id = ?, more_id = ?, 系列 = ? WHERE id = ?`;
     await pools({ 
       sql: updateSQL, 
       val: [
@@ -3026,7 +3063,8 @@ router.post("/updateSettlementData", async (req, res) => {
         data['发票'] || '',
         data['序号'] || '',
         rolesId ?? '',
-        data.more_id ?? moreId ?? null,
+        validMoreId,
+        validSeries,
         data.id || ''
 
       ], 
