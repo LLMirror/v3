@@ -1239,9 +1239,31 @@ router.post('/dashboard/cashOverview', async (req, res) => {
 /** 获取公司列表 */
 router.post('/getCompanyList', async (req, res) => {
   try {
+    // 获取登录用户信息
+    const user = await utils.getUserRole(req, res);
+    const rolesStr = String(user.user?.rolesId || '').trim();
+    const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+    const isSuper = rolesArr.some(v => [1, 2, 3].includes(v));
+
     // console.log('getCompanyList', req.body);
     let sql = `SELECT DISTINCT 公司 AS company FROM pt_cw_zjmxb WHERE 公司 IS NOT NULL AND 公司 <> ''`;
     const params = [];
+
+    // 非超管过滤 more_id
+    if (!isSuper) {
+      const moreIdStr = String(user.user?.moreId || '').trim();
+      const moreIdArr = moreIdStr ? moreIdStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+      
+      if (moreIdArr.length > 0) {
+        if (moreIdArr.length === 1) {
+          sql += ` AND more_id = ?`;
+          params.push(moreIdArr[0]);
+        } else {
+          sql += ` AND more_id IN (${moreIdArr.join(',')})`;
+        }
+      }
+    }
+
     const body = req.body || {};
     const seriesRaw = body.series;
     const series = seriesRaw ? String(seriesRaw).trim() : '';
