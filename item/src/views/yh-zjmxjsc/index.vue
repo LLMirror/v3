@@ -309,14 +309,14 @@
     <div class="table-card">
       <div class="chart-title">当日收付明细</div>
       <el-table :data="todayDetails" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
-        <el-table-column prop="date" label="日期" width="140" />
-        <el-table-column prop="company" label="公司" width="240" />
-        <el-table-column prop="bank" label="银行" width="320" />
-        <el-table-column prop="summary" label="摘要" />
-        <el-table-column prop="income" label="收入" width="120" />
-        <el-table-column prop="expense" label="支出" width="120" />
-        <el-table-column prop="balance" label="余额" width="120" />
-        <el-table-column prop="remark" label="备注" />
+        <el-table-column prop="date" label="日期" min-width="100" />
+        <el-table-column prop="company" label="公司" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="bank" label="银行" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="summary" label="摘要" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="income" label="收入" min-width="110" />
+        <el-table-column prop="expense" label="支出" min-width="110" />
+        <el-table-column prop="balance" label="余额" min-width="110" />
+        <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
       </el-table>
     </div>
   </div>
