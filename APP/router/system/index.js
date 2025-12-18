@@ -1311,7 +1311,29 @@ router.post('/getBankList', async (req, res) => {
 
 /** 获取系列列表（从数据库去重） */
 router.post('/getSeriesList', async (req, res) => {
-    const sql = `SELECT DISTINCT 系列 AS series FROM pt_cw_zjmxb WHERE 系列 IS NOT NULL AND 系列 <> '' ORDER BY 系列`;
+    // 获取登录用户信息
+    const user = await utils.getUserRole(req, res);
+    const rolesStr = String(user.user?.rolesId || '').trim();
+    const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+    const isSuper = rolesArr.some(v => [1, 2, 3].includes(v));
+
+    let sql = `SELECT DISTINCT 系列 AS series FROM pt_cw_zjmxb WHERE 系列 IS NOT NULL AND 系列 <> ''`;
+
+    // 非超管过滤 more_id
+    if (!isSuper) {
+      const moreIdStr = String(user.user?.moreId || '').trim();
+      const moreIdArr = moreIdStr ? moreIdStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+      
+      if (moreIdArr.length > 0) {
+        if (moreIdArr.length === 1) {
+          sql += ` AND more_id = ${moreIdArr[0]}`;
+        } else {
+          sql += ` AND more_id IN (${moreIdArr.join(',')})`;
+        }
+      }
+    }
+
+    sql += ` ORDER BY 系列`;
     const { result } = await pools({ sql, res, req });
     const data = (result || []).map(r => r.series);
     res.send(utils.returnData({ data }));
