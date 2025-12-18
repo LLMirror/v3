@@ -1352,8 +1352,21 @@ router.post('/biaoqian/get', async (req, res) => {
   try {
     const obj = (req.body && req.body.data) ? req.body.data : req.body || {};
     let sql = `SELECT id, roles_id AS rolesId, 大类 AS parent, 子类 AS child, 备注 AS remark FROM pt_biaoqian WHERE 1=1`;
+
+    // 根据登录用户权限控制数据范围：rolesId 为 1/2/3 查看全部，否则仅查看自己绑定 moreId（匹配 pt_biaoqian.roles_id）
+    const user = await utils.getUserRole(req, res);
+    const rolesId = user?.user?.rolesId;
+    const moreId = user?.user?.moreId;
+    console.log(user.user)
+    const isSuper = [1, 2, 3].includes(Number(rolesId));
+    if (!isSuper && moreId !== undefined && moreId !== null) {
+      sql = utils.setAssign(sql, 'roles_id', moreId);
+    } else {
+      // 超管可选按传入的 roles_id 过滤
+      if (obj.roles_id !== undefined) sql = utils.setAssign(sql, 'roles_id', obj.roles_id);
+    }
+
     // 过滤条件
-    if (obj.roles_id !== undefined) sql = utils.setAssign(sql, 'roles_id', obj.roles_id);
     sql = utils.setLike(sql, '大类', obj.parent ?? obj['大类']);
     sql = utils.setLike(sql, '子类', obj.child ?? obj['子类']);
     sql = utils.setLike(sql, '备注', obj.remark ?? obj['备注']);
