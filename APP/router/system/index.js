@@ -2138,7 +2138,7 @@ router.post("/getSettlementData", async (req, res) => {
   const rolesStr = String(user.user?.rolesId || '').trim();
   const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
   const isSuper = rolesArr.some(v => [1, 2, 3].includes(v));
-  let sql = `SELECT id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\``;
+  let sql = `SELECT id,  系列, 日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\``;
   sql += ` WHERE 1=1`;
   if (!isSuper) {
     const moreIdStr = String(user.user?.moreId || '').trim();
@@ -2931,13 +2931,14 @@ router.post("/addSettlementData", async (req, res) => {
     }
     
     // 执行新增（同时写入 user_id、more_id、roles_id）
-    const insertSQL = `INSERT INTO \`${tableName}\` (user_id, more_id, roles_id, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号, 录入人, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    const insertSQL = `INSERT INTO \`${tableName}\` (user_id, more_id, roles_id,  系列, 日期, 公司, 银行, 摘要, 收入, 支出, 余额, 备注, 发票, 序号, 录入人, id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
     await pools({
       sql: insertSQL,
       val: [
         userId,
         validMoreId,
         rolesId ?? '',
+        data['系列'] || '',
         data['日期'] || '',
         data['公司'] || '',
         data['银行'] || '',
