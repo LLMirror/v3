@@ -974,9 +974,30 @@ router.post('/getCashRecords', async (req, res) => {
     // console.log("getCashRecords",req.body)  
     const obj = req.body;
 
+    // 获取登录用户信息
+    const user = await utils.getUserRole(req, res);
+    const rolesStr = String(user.user?.rolesId || '').trim();
+    const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+    const isSuper = rolesArr.some(v => [1, 2, 3].includes(v));
+
     // 修复：缺少 WHERE 导致 AND 拼接到 FROM 后产生语法错误
     let sql = `SELECT id, 序号 AS seq,LEFT(日期, 10) AS date, 公司 AS company, 银行 AS bank, 摘要 AS summary, 收入 AS income, 支出 AS expense, 余额 AS balance, 备注 AS remark, 发票 AS invoice, user_id AS createdBy, created_at AS createdAt
                FROM pt_cw_zjmxb WHERE 1=1`;
+
+    // 非超管过滤 more_id
+    if (!isSuper) {
+      const moreIdStr = String(user.user?.moreId || '').trim();
+      const moreIdArr = moreIdStr ? moreIdStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+      
+      if (moreIdArr.length > 0) {
+        if (moreIdArr.length === 1) {
+          sql += ` AND more_id = ${moreIdArr[0]}`;
+        } else {
+          sql += ` AND more_id IN (${moreIdArr.join(',')})`;
+        }
+      }
+    }
+
     sql = utils.setLike(sql, '公司', obj.company);
     sql = utils.setLike(sql, '银行', obj.bank);
     sql = utils.setLike(sql, '摘要', obj.summary);
