@@ -583,8 +583,19 @@ router.post("/getMore", async (req, res) => {
 //查询多账号 全部
 router.post("/getMoreAll", async (req, res) => {
     // await ensureMoreAppColumns(res, req);
+    // 权限：rolesId 为 1/2/3 查看全部；否则仅查看绑定 moreId 的公司（匹配 more.id）
+    const user = await utils.getUserRole(req, res);
+    const rolesId = user?.user?.rolesId;
+    const moreId = user?.user?.moreId;
+    const isSuper = [1, 2, 3].includes(Number(rolesId));
+
     let sql = "SELECT id,name,remark,app_key ,app_secret  FROM more";
-    await pools({sql,res,req,run:false});
+    if (!isSuper && moreId !== undefined && moreId !== null) {
+      sql += " WHERE id = ?";
+      await pools({ sql, val: [moreId], res, req, run:false });
+    } else {
+      await pools({ sql, res, req, run:false });
+    }
 });
 //修改多账号
 router.post("/upMore", async (req, res) => {
