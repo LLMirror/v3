@@ -2417,8 +2417,13 @@ router.post("/getSettlementCompanyBank", async (req, res) => {
     let sql = `SELECT DISTINCT 公司,银行 FROM \`pt_cw_zjmxb\` WHERE 1=1`;
     
     if (!isSuper) {
-      const moreIdNum = Number(user.user?.moreId);
-      if (!Number.isNaN(moreIdNum)) sql += ` AND more_id = ${moreIdNum}`;
+      const moreIdStr = String(user.user?.moreId || '').trim();
+      const moreIds = moreIdStr ? moreIdStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+      if (moreIds.length === 1) {
+        sql += ` AND more_id = ${moreIds[0]}`;
+      } else if (moreIds.length > 1) {
+        sql += ` AND more_id IN (${moreIds.join(',')})`;
+      }
     }
     
     sql += ` AND 公司 IS NOT NULL AND 公司 <> '' AND 银行 IS NOT NULL AND 银行 <> ''`;
