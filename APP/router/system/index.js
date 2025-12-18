@@ -1897,12 +1897,30 @@ keys = [...new Set(keys)];
     `;
     await pools({ sql: createSQL, res, req });
 
+    // 查询当前表最大序号
+    let maxSequence = 0;
+    try {
+      const maxSeqSql = `SELECT MAX(CAST(序号 AS UNSIGNED)) as maxSeq FROM \`${tableName}\` WHERE user_id = ?`;
+      const { result: maxSeqRes } = await pools({ sql: maxSeqSql, val: [userId], res, req });
+      if (maxSeqRes && maxSeqRes.length > 0 && maxSeqRes[0].maxSeq) {
+        maxSequence = Number(maxSeqRes[0].maxSeq);
+      }
+    } catch (e) {
+      // 忽略错误，可能是表中没有序号字段
+    }
+
     // 判断是否已有 name 字段
     // const hasNameField = keys.includes("name");
 
     // ✅ 预处理行，生成唯一键与插入值
-    const prepared = data.map(row => {
+    const prepared = data.map((row, index) => {
       const cleanRow = { ...row };
+      
+      // 自动递增序号
+      if ('序号' in cleanRow || keys.includes('序号')) {
+         cleanRow['序号'] = maxSequence + index + 1;
+      }
+
       // “录入人”映射成 name
       // if ("录入人" in cleanRow) cleanRow.name = cleanRow["录入人"];
       // 如果 Excel 没有录入人字段，自动填当前用户
