@@ -2138,7 +2138,7 @@ router.post("/getSettlementData", async (req, res) => {
   const rolesStr = String(user.user?.rolesId || '').trim();
   const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
   const isSuper = rolesArr.some(v => [1, 2, 3].includes(v));
-  let sql = `SELECT id,  系列, 日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\``;
+  let sql = `SELECT id,日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\``;
   sql += ` WHERE 1=1`;
   if (!isSuper) {
     const moreIdStr = String(user.user?.moreId || '').trim();
@@ -2896,13 +2896,14 @@ router.post("/addSettlementData", async (req, res) => {
 
     // Determine valid more_id to avoid truncation if user has multiple accounts
     let validMoreId = data.more_id;
+    let validSeries = '';
     if (validMoreId === undefined || validMoreId === null) {
       // 1. First try to find by company name if provided
       const companyName = data['公司'] || '';
       if (companyName) {
          // Trim company name to ensure accurate matching
          const trimmedCompany = companyName.trim();
-         const moreSql = `SELECT id FROM more WHERE name = ? LIMIT 1`;
+         const moreSql = `SELECT id, series FROM more WHERE name = ? LIMIT 1`;
          const { result: moreRes } = await pools({
            sql: moreSql,
            val: [trimmedCompany],
@@ -2911,6 +2912,7 @@ router.post("/addSettlementData", async (req, res) => {
          });
          if (moreRes && moreRes.length > 0) {
            validMoreId = moreRes[0].id;
+           validSeries = moreRes[0].series || '';
          }
       }
 
@@ -2938,7 +2940,7 @@ router.post("/addSettlementData", async (req, res) => {
         userId,
         validMoreId,
         rolesId ?? '',
-        data['系列'] || '',
+        validSeries,
         data['日期'] || '',
         data['公司'] || '',
         data['银行'] || '',
