@@ -2803,7 +2803,7 @@ router.post("/addSettlementData", async (req, res) => {
       sql: insertSQL,
       val: [
         userId,
-        moreId ?? null,
+        data.more_id ?? moreId ?? null,
         rolesId ?? '',
         data['日期'] || '',
         data['公司'] || '',
@@ -2890,7 +2890,7 @@ router.post("/updateSettlementData", async (req, res) => {
         data['发票'] || '',
         data['序号'] || '',
         rolesId ?? '',
-        moreId ?? null,
+        data.more_id ?? moreId ?? null,
         data.id || ''
 
       ], 

@@ -86,7 +86,7 @@ import * as XLSX from "xlsx";
 import { ElMessage } from "element-plus";
 import useUserStore from '@/store/modules/user'
 
-import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList,addSettlementData,updateSettlementData,deleteSettlementData,getMaxId } from "@/api/system/index.js";
+import { upSettlementData,getSettlementData,getSettlementCompanyBank,getCashSummaryList,addSettlementData,updateSettlementData,deleteSettlementData,getMaxId, getMoreAll } from "@/api/system/index.js";
 import { getBiaoqianTagsByUser } from '@/api/biaoqian/index.js'
 
 // 注册 numeric 类型和日期选择器插件
@@ -96,6 +96,9 @@ registerCellType("autocomplete", AutocompleteCellType);
 
 // 常用摘要关键词，用于输入联想（从API获取）
 const commonKeywords = ref([]);
+// 公司列表及ID映射
+const moreList = ref([]);
+const moreMap = ref({});
 // 标签下拉选项（默认值 + 动态汇总）
 const tagOptions = ref([
   '差旅费', '办公费', '工资', '福利费', '税费', '利息', '还款', '餐费', '往来款','保证金'
@@ -257,7 +260,7 @@ const hotSettings = reactive({
       if (!Array.isArray(sel)) return;
       const viewCol = sel[1];
       const prop = columns.value?.[viewCol]?.data;
-      if (prop === '标签') {
+      if (prop === '标签' || prop === '公司') {
         const allowed = new Set(['Enter', 'Tab', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
         const isPrintable = e?.key && e.key.length === 1;
         const blockedKeys = ['Backspace', 'Delete', 'Home', 'End'];
@@ -458,6 +461,7 @@ const hotSettings = reactive({
               unique_key: newRow['unique_key'],
               '日期': newRow['日期'] || '',
               '公司': newRow['公司'] || '',
+              'more_id': moreMap.value[newRow['公司']] || null,
               '银行': newRow['银行'] || '',
               '摘要': newRow['摘要'] || '',
               '收入': newRow['收入'] || 0,
@@ -536,10 +540,9 @@ const hotSettings = reactive({
               // 服务器删除失败则跳过本地删除，保持数据一致
               continue;
             }
-            console.log('✅ 后端删除成功:', payload);
           } catch (err) {
             console.error('❌ 调用删除接口异常:', err);
-            ElMessage.error(`删除异常：${err.message || err}`);
+            // ElMessage.error(`删除异常：${err.message || err}`);
             // 接口异常则跳过本地删除
             continue;
           }
@@ -599,6 +602,7 @@ async function update_SettlementData(rowData) {
         unique_key: rowData.unique_key,
         '日期': rowData['日期'] || '',
         '公司': rowData['公司'] || '',
+        'more_id': moreMap.value[rowData['公司']] || null,
         '银行': rowData['银行'] || '',
         '摘要': rowData['摘要'] || '',
         '收入': rowData['收入'] || 0,
@@ -720,6 +724,21 @@ const getHistorySummaries = async () => {
 
 /* ====== 初始化示例 ====== */
 onMounted(async () => {
+  // 获取所有公司列表
+  try {
+    const moreRes = await getMoreAll();
+    if (moreRes && moreRes.data) {
+      moreList.value = moreRes.data.map(item => item.name);
+      const map = {};
+      moreRes.data.forEach(item => {
+        map[item.name] = item.id;
+      });
+      moreMap.value = map;
+    }
+  } catch (error) {
+    console.error("获取公司列表失败:", error);
+  }
+
   // 优先加载公司标签选项
   await loadCompanyTags();
   // 获取公司、银行
@@ -943,6 +962,15 @@ function initTableFromObjects(objArray) {
       type: dateColumns.has(k) ? "date" : (textColumns.has(k) ? "text" : (isNum || k === "收入" || k === "支出" || k === "余额" ? "numeric" : (k === "摘要" ? "autocomplete" : "text"))),
       allowInvalid: true,
     };
+
+    // 为“公司”列设置下拉选择
+    if (k === '公司') {
+      columnConfig.type = 'dropdown';
+      columnConfig.source = moreList.value;
+      columnConfig.strict = true; // 限制只能选择下拉项
+      columnConfig.allowInvalid = false;
+      columnConfig.trimDropdown = false;
+    }
 
     // 为“标签”列设置下拉选择
     if (k === '标签') {
