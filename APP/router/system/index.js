@@ -560,16 +560,16 @@ router.post("/delUser", async (req, res) => {
 router.post("/addMore", async (req, res) => {
     await utils.checkPermi({req,res,role:[systemSettings.more.moreAdd]});
     // await ensureMoreAppColumns(res, req);
-    let sql = "INSERT INTO more(name,remark,app_key,app_secret) VALUES (?,?,?,?)", obj = req.body;
+    let sql = "INSERT INTO more(name,remark,app_key,app_secret,series) VALUES (?,?,?,?,?)", obj = req.body;
     await utils.existName({sql: "SELECT id FROM more WHERE  name=?", name: obj.name,res,msg:"账号名已存在！",req});
-    await pools({sql,val:[obj.name, obj.remark, (obj.appKey ?? obj.app_key ?? null), (obj.appsecret ?? obj.app_secret ?? null)],res,req,run:false});
+    await pools({sql,val:[obj.name, obj.remark, (obj.appKey ?? obj.app_key ?? null), (obj.appsecret ?? obj.app_secret ?? null), obj.series],res,req,run:false});
 });
 //查询多账号
 router.post("/getMore", async (req, res) => {
     await utils.checkPermi({req,res,role:[systemSettings.more.moreQuery]});
     let obj=req.body;
     // await ensureMoreAppColumns(res, req);
-    let sql = `SELECT id,name,remark,app_key ,app_secret ,update_time AS updateTime,create_time AS createTime FROM more WHERE 1=1`;
+    let sql = `SELECT id,name,remark,app_key ,app_secret ,series,update_time AS updateTime,create_time AS createTime FROM more WHERE 1=1`;
     sql=utils.setLike(sql,"name",obj.name);
     let {total}=await utils.getSum({sql,name:"more",res,req});
     sql+=` ORDER BY id DESC`;
@@ -587,7 +587,7 @@ router.post("/getMoreAll", async (req, res) => {
     const moreId = user?.user?.moreId;
     const isSuper = [1, 2, 3].includes(Number(rolesId));
 
-    let sql = "SELECT id,name,remark,app_key ,app_secret  FROM more";
+    let sql = "SELECT id,name,remark,app_key ,app_secret,series  FROM more";
     if (!isSuper && moreId !== undefined && moreId !== null) {
       // moreId 可能是单个值 17，也可能是多值字符串 "17,8"
       const ids = String(moreId)
@@ -610,10 +610,10 @@ router.post("/getMoreAll", async (req, res) => {
 //修改多账号
 router.post("/upMore", async (req, res) => {
     await utils.checkPermi({req,res,role:[systemSettings.more.moreUp]});
-    let sql = "UPDATE  more SET name=?,remark=?,app_key=?,app_secret=? WHERE id=?", obj = req.body;
+    let sql = "UPDATE  more SET name=?,remark=?,app_key=?,app_secret=?,series=? WHERE id=?", obj = req.body;
     let judgeUserNameRes = await utils.judgeUserName({sql:"SELECT name FROM more WHERE  id=?",sqlName:"name",name:obj.name,id:obj.id,req,res});
     if(judgeUserNameRes===1)await utils.existName({sql:"SELECT id FROM more WHERE name=?",name:obj.name,res,msg:"多账号名称已存在！",req});
-    await pools({sql,val:[obj.name, obj.remark, (obj.appKey ?? obj.app_key ?? null), (obj.appsecret ?? obj.app_secret ?? null), obj.id],res,req,run:false});
+    await pools({sql,val:[obj.name, obj.remark, (obj.appKey ?? obj.app_key ?? null), (obj.appsecret ?? obj.app_secret ?? null), obj.series, obj.id],res,req,run:false});
 });
 //删除多账号
 router.post("/delMore", async (req, res) => {
