@@ -128,14 +128,14 @@
       <div class="table-card" v-if="todayCompanyAggregates.length">
         <div class="chart-title">各公司{{ selectedDay ? '选定日' : '当日' }}汇总{{ selectedDay ? `（${selectedDay}）` : '' }}</div>
         <el-table :data="todayCompanyAggregates" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
-          <el-table-column prop="company" label="公司" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="income" label="当日收入" min-width="100">
+          <el-table-column prop="company" label="公司" min-width="260" show-overflow-tooltip />
+          <el-table-column prop="income" label="当日收入" min-width="110">
             <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
           </el-table-column>
-          <el-table-column prop="expense" label="当日支出" min-width="100">
+          <el-table-column prop="expense" label="当日支出" min-width="110">
             <template #default="scope">{{ formatMoney(scope.row.expense) }}</template>
           </el-table-column>
-          <el-table-column prop="balance" label="当前实时余额" min-width="100">
+          <el-table-column prop="balance" label="当前实时余额" min-width="110">
             <template #default="scope">{{ formatMoney(scope.row.balance) }}</template>
           </el-table-column>
         </el-table>
@@ -145,14 +145,14 @@
       <div class="table-card" v-if="todayBankAggregates.length" style="margin-left: 20px;">
         <div class="chart-title">各银行{{ selectedDay ? '选定日' : '当日' }}汇总{{ selectedDay ? `（${selectedDay}）` : '' }}</div>
         <el-table :data="todayBankAggregates" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
-          <el-table-column prop="bank" label="银行" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="income" label="当日收入" min-width="100">
+          <el-table-column prop="bank" label="银行" min-width="300" show-overflow-tooltip />
+          <el-table-column prop="income" label="当日收入" min-width="110">
             <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
           </el-table-column>
-          <el-table-column prop="expense" label="当日支出" min-width="100">
+          <el-table-column prop="expense" label="当日支出" min-width="110">
             <template #default="scope">{{ formatMoney(scope.row.expense) }}</template>
           </el-table-column>
-          <el-table-column prop="balance" label="当前实时余额" min-width="100">
+          <el-table-column prop="balance" label="当前实时余额" min-width="110">
             <template #default="scope">{{ formatMoney(scope.row.balance) }}</template>
           </el-table-column>
         </el-table>
