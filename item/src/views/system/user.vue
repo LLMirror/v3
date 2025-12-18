@@ -84,7 +84,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="账号归属" prop="moreId" v-if="form.admin!==1">
-          <el-select v-model="form.moreId" filterable multiple collapse-tags collapse-tags-tooltip placeholder="请选择账号">
+          <el-select v-model="form.moreId" filterable multiple placeholder="请选择账号">
             <el-option v-for="(item) in moreArr" :key="item.id" :label="item.name" :value="String(item.id)">
             </el-option>
           </el-select>
