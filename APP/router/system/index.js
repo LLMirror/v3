@@ -1108,6 +1108,8 @@ router.post('/getCashSummary', async (req, res) => {
 /** 资金驾驶舱总览 */
 router.post('/dashboard/cashOverview', async (req, res) => {
   try {
+    const user = await utils.getUserRole(req, res);
+    const rolesId = user.roles_id;
     const payload = (req.body && req.body.data) ? req.body.data : req.body || {};
 
     const dateFrom = payload.dateFrom ? dayjs(payload.dateFrom).format('YYYY-MM-DD HH:mm:ss') : null;
@@ -1130,6 +1132,22 @@ router.post('/dashboard/cashOverview', async (req, res) => {
 
     // 公共Where子句（全量，不按用户过滤）
     let whereBase = ` WHERE 1=1 `;
+    
+    let moreIdFilter = '';
+    if (![1, 2, 3].includes(rolesId)) {
+      if (user.user?.moreId) {
+        const moreIds = String(user.user.moreId).split(',').map(id => Number(id.trim())).filter(id => !isNaN(id));
+        if (moreIds.length > 0) {
+          if (moreIds.length === 1) {
+            moreIdFilter = ` AND more_id = ${moreIds[0]}`;
+          } else {
+            moreIdFilter = ` AND more_id IN (${moreIds.join(',')})`;
+          }
+        }
+      }
+    }
+    whereBase += moreIdFilter;
+
     if (dateFrom) whereBase += ` AND 日期 >= '${dateFrom}'`;
     if (dateTo) whereBase += ` AND 日期 <= '${dateTo}'`;
     if (company) whereBase += ` AND 公司 = '${company}'`;
@@ -1176,6 +1194,7 @@ router.post('/dashboard/cashOverview', async (req, res) => {
 
     // 4) 当日收付情况（汇总）
     let todayWhere = ` WHERE LEFT(日期,10) = '${today}'`;
+    todayWhere += moreIdFilter;
     if (company) todayWhere += ` AND 公司 LIKE '%${company}%'`;
     if (bank) todayWhere += ` AND 银行 LIKE '%${bank}%'`;
     if (series) todayWhere += ` AND 系列 LIKE '%${series}%'`;
