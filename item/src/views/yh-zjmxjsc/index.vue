@@ -1294,11 +1294,13 @@ function initTopSummaryChart() {
 }
 
 onMounted(() => {
+  loadOverview()
   // 加载公司选项
   // 初次不加载全部公司，等待选中系列后再加载对应公司
-  initOverviewDefaultRange();
+  // initOverviewDefaultRange();
   // 加载系列选项
   loadSeriesOptions();
+  
   // 统一绑定一次 resize 事件
   if (!resizeHandler) {
     resizeHandler = () => {
