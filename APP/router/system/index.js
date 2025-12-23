@@ -1587,6 +1587,66 @@ router.post('/biaoqian/tagsByUser', async (req, res) => {
   }
 });
 
+// ---------------- 额外分析：收付情况（按大类分组） ----------------
+router.post('/dashboard/paymentSituation', async (req, res) => {
+  try {
+    const user = await utils.getUserRole(req, res);
+    const rolesId = user.roles_id;
+    const payload = (req.body && req.body.data) ? req.body.data : req.body || {};
+
+    const dateFrom = payload.dateFrom ? dayjs(payload.dateFrom).format('YYYY-MM-DD HH:mm:ss') : null;
+    const dateTo = payload.dateTo ? dayjs(payload.dateTo).format('YYYY-MM-DD HH:mm:ss') : null;
+    const company = payload.company ? String(payload.company).trim() : '';
+    const series = payload.series ? String(payload.series).trim() : '';
+
+    // 公共Where子句
+    let whereBase = ` WHERE 1=1 `;
+    let moreIdFilter = '';
+    if (![1, 2, 3].includes(rolesId)) {
+      if (user.user?.moreId) {
+        const moreIds = String(user.user.moreId).split(',').map(id => Number(id.trim())).filter(id => !isNaN(id));
+        if (moreIds.length > 0) {
+          if (moreIds.length === 1) {
+            whereBase += ` AND t.more_id = ${moreIds[0]}`;
+          } else {
+            whereBase += ` AND t.more_id IN (${moreIds.join(',')})`;
+          }
+        }
+      }
+    }
+
+    if (dateFrom) whereBase += ` AND t.日期 >= '${dateFrom}'`;
+    if (dateTo) whereBase += ` AND t.日期 <= '${dateTo}'`;
+    if (company) whereBase += ` AND t.公司 = '${company}'`;
+    if (series) whereBase += ` AND TRIM(t.系列) = '${series}'`;
+
+    // 联表查询：按 月份 + 公司 + 大类 分组
+    // COALESCE(b.大类, '未分类') 保证没匹配到标签的也能统计出来
+    // 注意：pt_biaoqian 表结构：id, roles_id, 大类, 子类, 备注
+    let sql = `
+      SELECT 
+        LEFT(t.日期, 7) AS month,
+        t.公司 AS company,
+        COALESCE(b.大类, '未分类') AS category,
+        ROUND(SUM(t.收入), 2) AS income,
+        ROUND(SUM(t.支出), 2) AS expense,
+        ROUND(SUM(t.收入) - SUM(t.支出), 2) AS net
+      FROM pt_cw_zjmxb t
+      LEFT JOIN pt_biaoqian b ON t.标签 = b.子类
+      ${whereBase}
+      GROUP BY LEFT(t.日期, 7), t.公司, COALESCE(b.大类, '未分类')
+      ORDER BY month DESC, company, category
+    `;
+
+    const { result } = await pools({ sql, res, req });
+    res.send(utils.returnData({ data: result || [] }));
+  } catch (error) {
+    console.error('dashboard/paymentSituation error:', error);
+    res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
+  }
+});
+
+
 
 // ==================== 数据库管理系统(ty-dbwh)相关 API ====================
 

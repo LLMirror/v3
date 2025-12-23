@@ -358,6 +358,16 @@ export function getCashOverview(params) {
     data: params
   });
 }
+
+// 收付情况分析
+export function getPaymentSituation(params) {
+  return request({
+    url: "/system/dashboard/paymentSituation",
+    method: "post",
+    data: params
+  });
+}
+
 // ---------------------------------------------------------出纳结算----------------------------------------------------------------------
 // 导入 Excel 数据
 export function importExcelData(params) {
