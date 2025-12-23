@@ -1696,8 +1696,8 @@ router.post('/dashboard/profitTable', async (req, res) => {
         monthsMap.set(m, {
           month: m,
           details: [],
-          totalIncome: 0,
-          totalExpense: 0
+          income: 0,
+          expense: 0
         });
       }
       const monthObj = monthsMap.get(m);
@@ -1712,8 +1712,8 @@ router.post('/dashboard/profitTable', async (req, res) => {
         income: Number(income.toFixed(2)),
         expense: Number(expense.toFixed(2))
       });
-      monthObj.totalIncome += income;
-      monthObj.totalExpense += expense;
+      monthObj.income += income;
+      monthObj.expense += expense;
     });
 
     const sortedMonths = Array.from(monthsMap.keys()).sort();
@@ -1765,7 +1765,10 @@ router.post('/dashboard/profitTable', async (req, res) => {
         }
       });
 
-      monthObj.closingBalance = Number((currentBalance + monthObj.totalIncome - monthObj.totalExpense).toFixed(2));
+      monthObj.income = Number(monthObj.income.toFixed(2));
+      monthObj.expense = Number(monthObj.expense.toFixed(2));
+      monthObj.netProfit = Number((monthObj.income - monthObj.expense).toFixed(2));
+      monthObj.closingBalance = Number((currentBalance + monthObj.income - monthObj.expense).toFixed(2));
       currentBalance = monthObj.closingBalance;
 
       finalResult.push(monthObj);
