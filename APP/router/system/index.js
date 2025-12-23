@@ -1921,6 +1921,14 @@ keys = [...new Set(keys)];
          cleanRow['序号'] = maxSequence + index + 1;
       }
 
+      // 遍历 cleanRow 的所有字段，将格式为 "YYYY-MM-DD" 的日期转换为 "YYYY-MM-DD 00:00:00"
+      for (const key in cleanRow) {
+        const val = cleanRow[key];
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+          cleanRow[key] = val + ' 00:00:00';
+        }
+      }
+
       // “录入人”映射成 name
       // if ("录入人" in cleanRow) cleanRow.name = cleanRow["录入人"];
       // 如果 Excel 没有录入人字段，自动填当前用户
