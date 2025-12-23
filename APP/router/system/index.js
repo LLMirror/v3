@@ -1622,15 +1622,20 @@ router.post('/dashboard/profitTable', async (req, res) => {
 
     // 1. 计算期初余额 (Initial Opening Balance) - dateFrom 之前的所有收支
     let initialBalance = 0;
+    let initialDepositBalance = 0;
     if (dateFrom) {
       let sqlInit = `
-        SELECT SUM(t.收入) - SUM(t.支出) as val 
+        SELECT 
+          SUM(t.收入) - SUM(t.支出) as val,
+          SUM(CASE WHEN COALESCE(b.大类, '未分类') = '保证金' THEN t.收入 - t.支出 ELSE 0 END) as deposit_val
         FROM pt_cw_zjmxb t 
+        LEFT JOIN pt_biaoqian b ON t.标签 = b.子类
         ${whereBase} AND t.日期 < '${dateFrom}'
       `;
       const { result: initResult } = await pools({ sql: sqlInit, res, req });
       if (initResult && initResult.length > 0) {
         initialBalance = Number(initResult[0].val) || 0;
+        initialDepositBalance = Number(initResult[0].deposit_val) || 0;
       }
     }
 
@@ -1696,17 +1701,34 @@ router.post('/dashboard/profitTable', async (req, res) => {
     const sortedMonths = Array.from(monthsMap.keys()).sort();
     const finalResult = [];
     let currentBalance = initialBalance;
+    let currentDepositBalance = initialDepositBalance;
 
     for (const m of sortedMonths) {
       const monthData = monthsMap.get(m);
       const opening = currentBalance;
+      const depositOpening = currentDepositBalance;
+      
       const net = monthData.totalIncome - monthData.totalExpense;
+
+      let depositIncome = 0;
+      let depositExpense = 0;
+      monthData.details.forEach(d => {
+        if (d.category === '保证金') {
+          depositIncome += d.income;
+          depositExpense += d.expense;
+        }
+      });
+      const depositNet = depositIncome - depositExpense;
+
       const closing = opening + net;
+      const depositClosing = depositOpening + depositNet;
       
       finalResult.push({
         month: m,
         openingBalance: Number(opening.toFixed(2)),
         closingBalance: Number(closing.toFixed(2)),
+        depositOpening: Number(depositOpening.toFixed(2)),
+        depositClosing: Number(depositClosing.toFixed(2)),
         income: Number(monthData.totalIncome.toFixed(2)),
         expense: Number(monthData.totalExpense.toFixed(2)),
         netProfit: Number(net.toFixed(2)),
@@ -1714,6 +1736,7 @@ router.post('/dashboard/profitTable', async (req, res) => {
       });
 
       currentBalance = closing;
+      currentDepositBalance = depositClosing;
     }
 
     res.send(utils.returnData({ data: finalResult }));
