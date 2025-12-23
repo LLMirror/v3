@@ -320,6 +320,15 @@ export function upSettlementData(params) {
   });
 }
 
+// 获取利润表数据
+export function getProfitTable(params) {
+  return request({
+    url: "/system/dashboard/profitTable",
+    method: "post",
+    data: params
+  });
+}
+
 // 获取出纳数据
 export function getSettlementData(params) {
   return request({
@@ -359,10 +368,11 @@ export function getCashOverview(params) {
   });
 }
 
+
 // 收付情况分析
 export function getPaymentSituation(params) {
   return request({
-    url: "/system/dashboard/paymentSituation",
+    url: "/system/dashboard/profitTable",
     method: "post",
     data: params
   });

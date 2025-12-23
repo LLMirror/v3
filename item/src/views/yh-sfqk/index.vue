@@ -1,209 +1,242 @@
 <template>
-  <div class="payment-situation" v-loading="loading">
-    <div class="header">
-      <h2>收付情况分析</h2>
-      <div class="filters">
-        <el-select v-model="selectedSeries" placeholder="选择系列" clearable filterable style="width: 200px; margin-right: 12px;">
-            <el-option v-for="s in seriesOptions" :key="s.value" :label="s.label" :value="s.value" />
-        </el-select>
-        <el-select v-model="selectedCompany" :disabled="!selectedSeries" placeholder="选择公司" clearable filterable style="width: 200px; margin-right: 12px;">
-            <el-option v-for="c in companyOptions" :key="c" :label="c" :value="c" />
-        </el-select>
-        <el-date-picker v-model="dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" style="width: 300px; margin-right: 12px;" />
-        <el-button type="primary" @click="fetchData">查询</el-button>
-      </div>
+  <div class="app-container">
+    <h2>收付情况表</h2>
+    
+    <!-- 筛选区域 -->
+    <div class="filter-container" style="margin-bottom: 20px;">
+      <el-form :inline="true" :model="queryParams" class="demo-form-inline">
+        <el-form-item label="日期范围">
+          <el-date-picker
+            v-model="queryParams.dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            style="width: 260px;"
+          />
+        </el-form-item>
+
+        <el-form-item label="系列">
+          <el-select v-model="queryParams.series" placeholder="请选择系列" clearable style="width: 180px;" @change="handleSeriesChange">
+             <el-option
+              v-for="item in seriesOptions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item label="公司">
+          <el-select v-model="queryParams.company" placeholder="请选择公司" clearable style="width: 180px;">
+            <el-option
+              v-for="item in companyOptions"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item>
+          <el-button type="primary" :loading="loading" @click="handleQuery">查询</el-button>
+          <el-button @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
     </div>
 
-    <!-- 图表区域 -->
-    <div class="chart-container" ref="chartRef" style="height: 400px; margin-bottom: 20px;"></div>
-
-    <!-- 表格区域 -->
-    <el-table :data="tableData" border stripe style="width: 100%" show-summary :summary-method="getSummaries" height="600">
-      <el-table-column prop="month" label="月份" width="120" sortable />
-      <el-table-column prop="company" label="公司" width="220" sortable show-overflow-tooltip />
-      <el-table-column prop="category" label="大类分类" width="150" sortable />
-      <el-table-column prop="income" label="收入" min-width="120" sortable align="right">
-        <template #default="scope">{{ formatMoney(scope.row.income) }}</template>
-      </el-table-column>
-      <el-table-column prop="expense" label="支出" min-width="120" sortable align="right">
-         <template #default="scope">{{ formatMoney(scope.row.expense) }}</template>
-      </el-table-column>
-      <el-table-column prop="net" label="净额" min-width="120" sortable align="right">
-         <template #default="scope">
-             <span :class="{ 'text-success': scope.row.net >= 0, 'text-danger': scope.row.net < 0 }">
-                 {{ formatMoney(scope.row.net) }}
-             </span>
-         </template>
-      </el-table-column>
-    </el-table>
+    <!-- 数据展示区域 -->
+    <div v-loading="loading">
+      <el-empty v-if="!profitData || profitData.length === 0" description="暂无数据" />
+      
+      <div v-else v-for="(monthData, index) in profitData" :key="index" class="month-section">
+        <el-card class="box-card" shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span class="month-title">{{ monthData.month }} 收付情况</span>
+              <div class="month-summary">
+                <el-tag type="info">期初余额: {{ formatMoney(monthData.openingBalance) }}</el-tag>
+                <el-tag type="success">本月收入: {{ formatMoney(monthData.income) }}</el-tag>
+                <el-tag type="danger">本月支出: {{ formatMoney(monthData.expense) }}</el-tag>
+                <el-tag :type="monthData.netProfit >= 0 ? 'warning' : 'danger'">
+                  净收益: {{ formatMoney(monthData.netProfit) }}
+                </el-tag>
+                <el-tag type="primary">期末余额: {{ formatMoney(monthData.closingBalance) }}</el-tag>
+              </div>
+            </div>
+          </template>
+          
+          <el-table
+            :data="monthData.details"
+            border
+            style="width: 100%"
+            :summary-method="(param) => getSummaries(param, monthData)"
+            show-summary
+            size="small"
+          >
+            <el-table-column prop="company" label="公司" width="180" />
+            <el-table-column prop="category" label="大类" width="150" />
+            <el-table-column prop="subcategory" label="子类/标签" />
+            <el-table-column prop="income" label="收入" width="150" align="right">
+              <template #default="scope">
+                {{ formatMoney(scope.row.income) }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="expense" label="支出" width="150" align="right">
+              <template #default="scope">
+                {{ formatMoney(scope.row.expense) }}
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick, onUnmounted } from 'vue';
-import * as echarts from 'echarts';
-import { getPaymentSituation, getSeriesList, getCompanyList } from '@/api/system';
+import { ref, reactive, onMounted } from 'vue';
+import { getProfitTable, getCompanyList, getSeriesList } from '@/api/system/index.js';
 import { ElMessage } from 'element-plus';
 
 const loading = ref(false);
-const tableData = ref([]);
-const dateRange = ref([]);
-const selectedSeries = ref('');
-const selectedCompany = ref('');
-const seriesOptions = ref([]);
+const profitData = ref([]);
 const companyOptions = ref([]);
-const chartRef = ref(null);
-let myChart = null;
+const seriesOptions = ref([]);
 
-function formatMoney(val) {
-  if (val === null || val === undefined) return '0.00';
-  return Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-async function loadSeries() {
-  try {
-    const res = await getSeriesList({});
-    const arr = res?.data || [];
-    seriesOptions.value = arr.map(s => ({ label: s, value: s }));
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-async function loadCompanies(series) {
-  if (!series) {
-    companyOptions.value = [];
-    return;
-  }
-  try {
-    const res = await getCompanyList({ series });
-    companyOptions.value = res?.data || [];
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-watch(selectedSeries, (val) => {
-  selectedCompany.value = '';
-  loadCompanies(val);
+const queryParams = reactive({
+  dateRange: [],
+  company: '',
+  series: ''
 });
 
-async function fetchData() {
+// 初始化加载
+onMounted(() => {
+  fetchSeries();
+  fetchCompanies();
+});
+
+const fetchSeries = async () => {
+  try {
+    const seriesRes = await getSeriesList();
+    if (seriesRes.code === 1 || seriesRes.code === 200) {
+      seriesOptions.value = seriesRes.data || [];
+    }
+  } catch (error) {
+    console.error("Failed to fetch series", error);
+  }
+};
+
+const fetchCompanies = async () => {
+  try {
+    const params = {};
+    if (queryParams.series) {
+      params.series = queryParams.series;
+    }
+    // Pass params directly, not wrapped in { data: ... } because backend expects req.body.series
+    const companyRes = await getCompanyList(params);
+    if (companyRes.code === 1 || companyRes.code === 200) {
+      companyOptions.value = companyRes.data || [];
+    }
+  } catch (error) {
+    console.error("Failed to fetch companies", error);
+  }
+};
+
+const handleSeriesChange = () => {
+  queryParams.company = '';
+  fetchCompanies();
+};
+
+const handleQuery = async () => {
   loading.value = true;
   try {
     const params = {
-      series: selectedSeries.value,
-      company: selectedCompany.value,
-      dateFrom: dateRange.value?.[0],
-      dateTo: dateRange.value?.[1]
+      dateFrom: queryParams.dateRange?.[0] || '',
+      dateTo: queryParams.dateRange?.[1] || '',
+      company: queryParams.company,
+      series: queryParams.series
     };
-    const res = await getPaymentSituation(params);
-    tableData.value = res.data || [];
-    initChart();
-  } catch (e) {
-    console.error(e);
-    ElMessage.error('获取数据失败');
+    
+    const res = await getProfitTable({ data: params }); 
+    
+    if (res.code === 1 || res.code === 200) {
+      profitData.value = res.data;
+      if (!res.data || res.data.length === 0) {
+        ElMessage.info('未查询到数据');
+      }
+    } else {
+      ElMessage.error(res.msg || '查询失败');
+    }
+  } catch (error) {
+    console.error(error);
+    // ElMessage.error('系统异常'); // Interceptor likely showed error already
   } finally {
     loading.value = false;
   }
-}
+};
 
-function initChart() {
-  if (!chartRef.value) return;
-  if (!myChart) myChart = echarts.init(chartRef.value);
-  
-  // 聚合数据用于图表：按大类分类汇总收入和支出
-  const categoryMap = new Map();
-  tableData.value.forEach(item => {
-    const cat = item.category || '未分类';
-    if (!categoryMap.has(cat)) categoryMap.set(cat, { income: 0, expense: 0 });
-    const obj = categoryMap.get(cat);
-    obj.income += Number(item.income || 0);
-    obj.expense += Number(item.expense || 0);
-  });
+const resetQuery = () => {
+  queryParams.dateRange = [];
+  queryParams.company = '';
+  queryParams.series = '';
+  profitData.value = [];
+  fetchCompanies(); // Fetch all companies
+};
 
-  const categories = Array.from(categoryMap.keys());
-  const incomeData = categories.map(c => categoryMap.get(c).income);
-  const expenseData = categories.map(c => categoryMap.get(c).expense);
+const formatMoney = (value) => {
+  if (value === null || value === undefined) return '0.00';
+  return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
-  const option = {
-    title: { text: '收付情况概览（按分类）', left: 'center' },
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    legend: { data: ['收入', '支出'], top: 30 },
-    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-    xAxis: { type: 'category', data: categories, axisLabel: { interval: 0, rotate: 30 } },
-    yAxis: { type: 'value' },
-    series: [
-      { name: '收入', type: 'bar', data: incomeData, itemStyle: { color: '#67c23a' } },
-      { name: '支出', type: 'bar', data: expenseData, itemStyle: { color: '#f56c6c' } }
-    ]
-  };
-  
-  myChart.setOption(option);
-}
-
-function getSummaries(param) {
+// 表格合计行
+const getSummaries = (param, monthData) => {
   const { columns, data } = param;
   const sums = [];
   columns.forEach((column, index) => {
     if (index === 0) {
-      sums[index] = '合计';
+      sums[index] = '本月合计';
       return;
     }
-    if (['income', 'expense', 'net'].includes(column.property)) {
-      const values = data.map(item => Number(item[column.property]));
-      if (!values.every(value => Number.isNaN(value))) {
-        const sum = values.reduce((prev, curr) => {
-          const value = Number(curr);
-          if (!Number.isNaN(value)) {
-            return prev + curr;
-          } else {
-            return prev;
-          }
-        }, 0);
-        sums[index] = formatMoney(sum);
-      } else {
-        sums[index] = '';
-      }
+    // 只计算收入和支出列
+    if (['income', 'expense'].includes(column.property)) {
+       // 使用 monthData 中已经计算好的总计，避免前端浮点数计算误差
+       if (column.property === 'income') {
+         sums[index] = formatMoney(monthData.income);
+       } else {
+         sums[index] = formatMoney(monthData.expense);
+       }
     } else {
       sums[index] = '';
     }
   });
   return sums;
-}
-
-onMounted(() => {
-  loadSeries();
-  // 设置默认日期范围：本年
-  const end = new Date();
-  const start = new Date(new Date().getFullYear(), 0, 1);
-  const formatDate = (d) => {
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${d.getFullYear()}-${m}-${day}`;
-  };
-  dateRange.value = [formatDate(start), formatDate(end)];
-  
-  fetchData();
-  
-  window.addEventListener('resize', handleResize);
-});
-
-onUnmounted(() => {
-    window.removeEventListener('resize', handleResize);
-    if (myChart) myChart.dispose();
-});
-
-function handleResize() {
-    if (myChart) myChart.resize();
-}
+};
 </script>
 
 <style scoped>
-.payment-situation { padding: 20px; background-color: #fff; border-radius: 4px; }
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-.filters { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-.text-success { color: #67c23a; font-weight: bold; }
-.text-danger { color: #f56c6c; font-weight: bold; }
-.chart-container { width: 100%; }
+.app-container {
+  padding: 20px;
+}
+
+.month-section {
+  margin-bottom: 30px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.month-title {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.month-summary {
+  display: flex;
+  gap: 10px;
+}
 </style>

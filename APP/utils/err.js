@@ -43,6 +43,7 @@ export const errLog=({err,code,msg,funName="error",req={}})=>{
         };
         init[funName](data);
         console.log("记录了错误信息logs---"+funName);
+        console.error("DEBUG ERROR:", err); // Added debug log
     }catch (e) {
         init[funName]("错误日志--记录错误："+e);
     }

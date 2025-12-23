@@ -1587,8 +1587,11 @@ router.post('/biaoqian/tagsByUser', async (req, res) => {
   }
 });
 
-// ---------------- 额外分析：收付情况（按大类分组） ----------------
-router.post('/dashboard/paymentSituation', async (req, res) => {
+
+
+// ---------------- 利润表（按月统计） ----------------
+router.post('/dashboard/profitTable', async (req, res) => {
+  console.log(req.body)
   try {
     const user = await utils.getUserRole(req, res);
     const rolesId = user.roles_id;
@@ -1601,7 +1604,6 @@ router.post('/dashboard/paymentSituation', async (req, res) => {
 
     // 公共Where子句
     let whereBase = ` WHERE 1=1 `;
-    let moreIdFilter = '';
     if (![1, 2, 3].includes(rolesId)) {
       if (user.user?.moreId) {
         const moreIds = String(user.user.moreId).split(',').map(id => Number(id.trim())).filter(id => !isNaN(id));
@@ -1615,33 +1617,99 @@ router.post('/dashboard/paymentSituation', async (req, res) => {
       }
     }
 
-    if (dateFrom) whereBase += ` AND t.日期 >= '${dateFrom}'`;
-    if (dateTo) whereBase += ` AND t.日期 <= '${dateTo}'`;
     if (company) whereBase += ` AND t.公司 = '${company}'`;
     if (series) whereBase += ` AND TRIM(t.系列) = '${series}'`;
 
-    // 联表查询：按 月份 + 公司 + 大类 分组
-    // COALESCE(b.大类, '未分类') 保证没匹配到标签的也能统计出来
-    // 注意：pt_biaoqian 表结构：id, roles_id, 大类, 子类, 备注
-    let sql = `
+    // 1. 计算期初余额 (Initial Opening Balance) - dateFrom 之前的所有收支
+    let initialBalance = 0;
+    if (dateFrom) {
+      let sqlInit = `
+        SELECT SUM(t.收入) - SUM(t.支出) as val 
+        FROM pt_cw_zjmxb t 
+        ${whereBase} AND t.日期 < '${dateFrom}'
+      `;
+      const { result: initResult } = await pools({ sql: sqlInit, res, req });
+      if (initResult && initResult.length > 0) {
+        initialBalance = Number(initResult[0].val) || 0;
+      }
+    }
+
+    // 2. 查询范围内的明细数据
+    let whereRange = whereBase;
+    if (dateFrom) whereRange += ` AND t.日期 >= '${dateFrom}'`;
+    if (dateTo) whereRange += ` AND t.日期 <= '${dateTo}'`;
+
+    let sqlData = `
       SELECT 
         LEFT(t.日期, 7) AS month,
         t.公司 AS company,
         COALESCE(b.大类, '未分类') AS category,
-        ROUND(SUM(t.收入), 2) AS income,
-        ROUND(SUM(t.支出), 2) AS expense,
-        ROUND(SUM(t.收入) - SUM(t.支出), 2) AS net
+        t.标签 AS subcategory,
+        SUM(t.收入) AS income,
+        SUM(t.支出) AS expense
       FROM pt_cw_zjmxb t
       LEFT JOIN pt_biaoqian b ON t.标签 = b.子类
-      ${whereBase}
-      GROUP BY LEFT(t.日期, 7), t.公司, COALESCE(b.大类, '未分类')
-      ORDER BY month DESC, company, category
+      ${whereRange}
+      GROUP BY LEFT(t.日期, 7), t.公司, COALESCE(b.大类, '未分类'), t.标签
+      ORDER BY month ASC, category, subcategory
     `;
 
-    const { result } = await pools({ sql, res, req });
-    res.send(utils.returnData({ data: result || [] }));
+    const { result: dataResult } = await pools({ sql: sqlData, res, req });
+
+    // 3. 处理数据：按月份分组，计算期初/期末余额
+    const monthsMap = new Map();
+    (dataResult || []).forEach(row => {
+      const m = row.month;
+      if (!monthsMap.has(m)) {
+        monthsMap.set(m, {
+          month: m,
+          details: [],
+          totalIncome: 0,
+          totalExpense: 0
+        });
+      }
+      const monthObj = monthsMap.get(m);
+      
+      const income = Number(row.income) || 0;
+      const expense = Number(row.expense) || 0;
+
+      monthObj.details.push({
+        company: row.company,
+        category: row.category,
+        subcategory: row.subcategory || '未分类',
+        income: Number(income.toFixed(2)),
+        expense: Number(expense.toFixed(2))
+      });
+      monthObj.totalIncome += income;
+      monthObj.totalExpense += expense;
+    });
+
+    const sortedMonths = Array.from(monthsMap.keys()).sort();
+    const finalResult = [];
+    let currentBalance = initialBalance;
+
+    for (const m of sortedMonths) {
+      const monthData = monthsMap.get(m);
+      const opening = currentBalance;
+      const net = monthData.totalIncome - monthData.totalExpense;
+      const closing = opening + net;
+      
+      finalResult.push({
+        month: m,
+        openingBalance: Number(opening.toFixed(2)),
+        closingBalance: Number(closing.toFixed(2)),
+        income: Number(monthData.totalIncome.toFixed(2)),
+        expense: Number(monthData.totalExpense.toFixed(2)),
+        netProfit: Number(net.toFixed(2)),
+        details: monthData.details
+      });
+
+      currentBalance = closing;
+    }
+
+    res.send(utils.returnData({ data: finalResult }));
   } catch (error) {
-    console.error('dashboard/paymentSituation error:', error);
+    console.error('dashboard/profitTable error:', error);
     res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
   }
 });
