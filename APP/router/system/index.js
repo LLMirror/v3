@@ -1112,8 +1112,20 @@ router.post('/dashboard/cashOverview', async (req, res) => {
     const rolesId = user.roles_id;
     const payload = (req.body && req.body.data) ? req.body.data : req.body || {};
 
-    const dateFrom = payload.dateFrom ? dayjs(payload.dateFrom).format('YYYY-MM-DD HH:mm:ss') : null;
-    const dateTo = payload.dateTo ? dayjs(payload.dateTo).format('YYYY-MM-DD HH:mm:ss') : null;
+    // 统一日期上下界：仅传入 YYYY-MM-DD 时，起始为 00:00:00，结束为 23:59:59
+    let dateFrom = null;
+    let dateTo = null;
+    if (payload.dateFrom && dayjs(payload.dateFrom).isValid()) {
+      const df = dayjs(payload.dateFrom);
+      // 若无时间部分，归到当天起始
+      dateFrom = df.hour() || df.minute() || df.second() ? df.format('YYYY-MM-DD HH:mm:ss') : df.startOf('day').format('YYYY-MM-DD HH:mm:ss');
+    }
+    if (payload.dateTo && dayjs(payload.dateTo).isValid()) {
+      const dt = dayjs(payload.dateTo);
+      // 若无时间部分或为 00:00:00，归到当天结束
+      const hasTime = dt.hour() || dt.minute() || dt.second();
+      dateTo = hasTime ? dt.format('YYYY-MM-DD HH:mm:ss') : dt.endOf('day').format('YYYY-MM-DD HH:mm:ss');
+    }
     const company = payload.company ? String(payload.company).trim() : '';
     const bank = payload.bank ? String(payload.bank).trim() : '';
     const series = payload.series ? String(payload.series).trim() : '';
@@ -1150,9 +1162,9 @@ router.post('/dashboard/cashOverview', async (req, res) => {
 
     if (dateFrom) whereBase += ` AND 日期 >= '${dateFrom}'`;
     if (dateTo) whereBase += ` AND 日期 <= '${dateTo}'`;
-    if (company) whereBase += ` AND 公司 = '${company}'`;
-    if (bank) whereBase += ` AND 银行 = '${bank}'`;
-    if (series) whereBase += ` AND 系列 = '${series}'`;
+    if (company) whereBase += ` AND TRIM(公司) = '${company}'`;
+    if (bank) whereBase += ` AND TRIM(银行) = '${bank}'`;
+    if (series) whereBase += ` AND TRIM(系列) = '${series}'`;
 
     // 1) 每个公司可用资金（收入-支出）
     let sqlCompany = `SELECT 公司 AS company, ROUND(SUM(收入),2) AS totalIncome, ROUND(SUM(支出),2) AS totalExpense, ROUND(SUM(收入) - SUM(支出),2) AS balance
@@ -1183,10 +1195,10 @@ router.post('/dashboard/cashOverview', async (req, res) => {
         SELECT LEFT(t.日期,10) AS date, t.公司 AS company, t.银行 AS bank, t.余额 AS balance
         FROM pt_cw_zjmxb t
         JOIN (
-          SELECT 公司, 银行, LEFT(日期,10) AS d, MAX(序号) AS maxSeq
+          SELECT 公司, 银行, more_id, LEFT(日期,10) AS d, MAX(序号) AS maxSeq
           FROM pt_cw_zjmxb ${whereBase}
-          GROUP BY 公司, 银行, LEFT(日期,10)
-        ) m ON t.公司 = m.公司 AND t.银行 = m.银行 AND LEFT(t.日期,10) = m.d AND t.序号 = m.maxSeq
+          GROUP BY 公司, 银行, more_id, LEFT(日期,10)
+        ) m ON t.公司 = m.公司 AND t.银行 = m.银行 AND t.more_id = m.more_id AND LEFT(t.日期,10) = m.d AND t.序号 = m.maxSeq
       ) s
       GROUP BY s.date
       ORDER BY s.date ASC`;
@@ -1245,7 +1257,6 @@ router.post('/dashboard/cashOverview', async (req, res) => {
       net: Number(d.net || 0),
       zScore: stdNet > 0 ? Number(((Number(d.net || 0) - meanNet) / stdNet).toFixed(2)) : 0
     })).slice(0, 20);
-
     res.send(utils.returnData({
       data: {
         companyFunds: companyRes.result || [],
@@ -1267,6 +1278,8 @@ router.post('/dashboard/cashOverview', async (req, res) => {
         }
       }
     }));
+    console.log('dashboard/cashOverview', req.body);
+
   } catch (error) {
     console.error('dashboard/cashOverview error:', error);
     res.send(utils.returnData({ code: -1, msg: '服务器异常', err: error?.message }));
@@ -1922,12 +1935,12 @@ keys = [...new Set(keys)];
       }
 
       // 遍历 cleanRow 的所有字段，将格式为 "YYYY-MM-DD" 的日期转换为 "YYYY-MM-DD 00:00:00"
-      for (const key in cleanRow) {
-        const val = cleanRow[key];
-        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
-          cleanRow[key] = val + ' 00:00:00';
-        }
-      }
+      // for (const key in cleanRow) {
+      //   const val = cleanRow[key];
+      //   if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      //     cleanRow[key] = val + ' 00:00:00';
+      //   }
+      // }
 
       // “录入人”映射成 name
       // if ("录入人" in cleanRow) cleanRow.name = cleanRow["录入人"];
