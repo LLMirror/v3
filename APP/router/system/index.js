@@ -1646,12 +1646,21 @@ router.post('/dashboard/profitTable', async (req, res) => {
         COALESCE(b.大类, '未分类') AS category,
         t.标签 AS subcategory,
         SUM(t.收入) AS income,
-        SUM(t.支出) AS expense
+        SUM(t.支出) AS expense,
+        MIN(t.日期) AS first_date
       FROM pt_cw_zjmxb t
       LEFT JOIN pt_biaoqian b ON t.标签 = b.子类
       ${whereRange}
       GROUP BY LEFT(t.日期, 7), t.公司, COALESCE(b.大类, '未分类'), t.标签
-      ORDER BY month ASC, category, subcategory
+      ORDER BY 
+        month ASC, 
+        CASE 
+          WHEN category = '收入' THEN 1 
+          WHEN category = '成本' THEN 2 
+          WHEN category = '保证金' THEN 3 
+          ELSE 4 
+        END ASC,
+        first_date ASC
     `;
 
     const { result: dataResult } = await pools({ sql: sqlData, res, req });

@@ -29,7 +29,7 @@
         </el-form-item>
         
         <el-form-item label="公司">
-          <el-select v-model="queryParams.company" placeholder="请选择公司" clearable style="width: 180px;">
+          <el-select v-model="queryParams.company" placeholder="请选择公司" clearable style="width: 380px;">
             <el-option
               v-for="item in companyOptions"
               :key="item"
@@ -75,7 +75,7 @@
             show-summary
             size="small"
           >
-            <el-table-column prop="company" label="公司" width="180" />
+            <el-table-column prop="company" label="公司" width="380" />
             <el-table-column prop="category" label="大类" width="150" />
             <el-table-column prop="subcategory" label="子类/标签" />
             <el-table-column prop="income" label="收入" width="150" align="right">
