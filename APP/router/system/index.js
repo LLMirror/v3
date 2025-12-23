@@ -1638,6 +1638,7 @@ router.post('/dashboard/profitTable', async (req, res) => {
       // Calculate initial balances for '其他' subcategories
       let sqlInitOthers = `
         SELECT 
+          t.公司 as company,
           t.标签 as subcategory,
           SUM(t.收入) - SUM(t.支出) as val
         FROM pt_cw_zjmxb t 
@@ -1645,12 +1646,13 @@ router.post('/dashboard/profitTable', async (req, res) => {
         ${whereBase} 
         AND t.日期 < '${dateFrom}'
         AND COALESCE(b.大类, '未分类') = '其他'
-        GROUP BY t.标签
+        GROUP BY t.公司, t.标签
       `;
       const { result: initOthersResult } = await pools({ sql: sqlInitOthers, res, req });
       if (initOthersResult) {
         initOthersResult.forEach(row => {
-          initialOtherBalances[row.subcategory] = Number(row.val) || 0;
+          const key = row.company + '###' + row.subcategory;
+          initialOtherBalances[key] = Number(row.val) || 0;
         });
       }
     }
@@ -1726,18 +1728,40 @@ router.post('/dashboard/profitTable', async (req, res) => {
       const monthObj = monthsMap.get(m);
       monthObj.openingBalance = Number(currentBalance.toFixed(2));
       
-      // Process details to calculate row-level opening/closing for '其他'
+      // 1. Identify existing '其他' items in this month
+      const existingKeys = new Set();
       monthObj.details.forEach(d => {
         if (d.category === '其他') {
-          const sub = d.subcategory;
-          const open = currentOtherBalances[sub] || 0;
+          existingKeys.add(d.company + '###' + d.subcategory);
+        }
+      });
+
+      // 2. Add missing items that have a non-zero running balance
+      for (const [key, val] of Object.entries(currentOtherBalances)) {
+        if (val !== 0 && !existingKeys.has(key)) {
+          const [comp, sub] = key.split('###');
+          monthObj.details.push({
+            company: comp,
+            category: '其他',
+            subcategory: sub,
+            income: 0,
+            expense: 0
+          });
+        }
+      }
+      
+      // 3. Process details to calculate row-level opening/closing for '其他'
+      monthObj.details.forEach(d => {
+        if (d.category === '其他') {
+          const key = d.company + '###' + d.subcategory;
+          const open = currentOtherBalances[key] || 0;
           const close = open + d.income - d.expense;
           
           d.opening = Number(open.toFixed(2));
           d.closing = Number(close.toFixed(2));
           
           // Update running balance
-          currentOtherBalances[sub] = close;
+          currentOtherBalances[key] = close;
         }
       });
 
