@@ -1113,15 +1113,13 @@ function initDailyChart() {
   if (!el) return;
   const chart = getOrInitChart(el);
   dailyChart.value = chart;
-  // 仅展示当月数据
-  const now = new Date();
-  const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const monthlyTrend = (dailyTrend.value || []).filter(i => String(i?.date || '').startsWith(ym));
-  const dates = monthlyTrend.map(i => i.date);
-  const incomes = monthlyTrend.map(i => Number(i.income || 0));
-  const expenses = monthlyTrend.map(i => Number(i.expense || 0));
+  // 直接使用后端返回的趋势数据（已按日期范围筛选）
+  const trendData = dailyTrend.value || [];
+  const dates = trendData.map(i => i.date);
+  const incomes = trendData.map(i => Number(i.income || 0));
+  const expenses = trendData.map(i => Number(i.expense || 0));
   // 每日实时余额（后端已提供每日日终余额）
-  const balances = monthlyTrend.map(i => Number(i.balance ?? 0));
+  const balances = trendData.map(i => Number(i.balance ?? 0));
   chart.clear();
   chart.setOption({
     tooltip: { trigger: 'axis' },
