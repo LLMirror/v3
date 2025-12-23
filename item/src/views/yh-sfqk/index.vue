@@ -80,7 +80,7 @@
             <el-table-column prop="subcategory" label="子类/标签" />
             <el-table-column label="期初" width="150" align="right">
               <template #default="scope">
-                <span v-if="scope.row.category === '保证金'">{{ formatMoney(scope.row.opening) }}</span>
+                <span v-if="scope.row.category === '其他'">{{ formatMoney(scope.row.opening) }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="income" label="收入" width="150" align="right">
@@ -95,7 +95,7 @@
             </el-table-column>
             <el-table-column label="期末" width="150" align="right">
               <template #default="scope">
-                <span v-if="scope.row.category === '保证金'">{{ formatMoney(scope.row.closing) }}</span>
+                <span v-if="scope.row.category === '其他'">{{ formatMoney(scope.row.closing) }}</span>
               </template>
             </el-table-column>
           </el-table>
@@ -172,21 +172,7 @@ const handleQuery = async () => {
     const res = await getProfitTable({ data: params }); 
     
     if (res.code === 1 || res.code === 200) {
-      const data = res.data || [];
-      // Calculate running balance for Deposit category
-      data.forEach(month => {
-        let currentDeposit = month.depositOpening || 0;
-        if (month.details) {
-          month.details.forEach(row => {
-            if (row.category === '保证金') {
-              row.opening = currentDeposit;
-              row.closing = currentDeposit + row.income - row.expense;
-              currentDeposit = row.closing;
-            }
-          });
-        }
-      });
-      profitData.value = data;
+      profitData.value = res.data || [];
       if (!res.data || res.data.length === 0) {
         ElMessage.info('未查询到数据');
       }

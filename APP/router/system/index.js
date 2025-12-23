@@ -1622,20 +1622,36 @@ router.post('/dashboard/profitTable', async (req, res) => {
 
     // 1. 计算期初余额 (Initial Opening Balance) - dateFrom 之前的所有收支
     let initialBalance = 0;
-    let initialDepositBalance = 0;
+    let initialOtherBalances = {}; // Map: subcategory -> balance
+
     if (dateFrom) {
       let sqlInit = `
-        SELECT 
-          SUM(t.收入) - SUM(t.支出) as val,
-          SUM(CASE WHEN COALESCE(b.大类, '未分类') = '保证金' THEN t.收入 - t.支出 ELSE 0 END) as deposit_val
+        SELECT SUM(t.收入) - SUM(t.支出) as val 
         FROM pt_cw_zjmxb t 
-        LEFT JOIN pt_biaoqian b ON t.标签 = b.子类
         ${whereBase} AND t.日期 < '${dateFrom}'
       `;
       const { result: initResult } = await pools({ sql: sqlInit, res, req });
       if (initResult && initResult.length > 0) {
         initialBalance = Number(initResult[0].val) || 0;
-        initialDepositBalance = Number(initResult[0].deposit_val) || 0;
+      }
+
+      // Calculate initial balances for '其他' subcategories
+      let sqlInitOthers = `
+        SELECT 
+          t.标签 as subcategory,
+          SUM(t.收入) - SUM(t.支出) as val
+        FROM pt_cw_zjmxb t 
+        LEFT JOIN pt_biaoqian b ON t.标签 = b.子类
+        ${whereBase} 
+        AND t.日期 < '${dateFrom}'
+        AND COALESCE(b.大类, '未分类') = '其他'
+        GROUP BY t.标签
+      `;
+      const { result: initOthersResult } = await pools({ sql: sqlInitOthers, res, req });
+      if (initOthersResult) {
+        initOthersResult.forEach(row => {
+          initialOtherBalances[row.subcategory] = Number(row.val) || 0;
+        });
       }
     }
 
@@ -1662,7 +1678,7 @@ router.post('/dashboard/profitTable', async (req, res) => {
         CASE 
           WHEN category = '收入' THEN 1 
           WHEN category = '成本' THEN 2 
-          WHEN category = '保证金' THEN 3 
+          WHEN category = '其他' THEN 3 
           ELSE 4 
         END ASC,
         first_date ASC
@@ -1701,42 +1717,34 @@ router.post('/dashboard/profitTable', async (req, res) => {
     const sortedMonths = Array.from(monthsMap.keys()).sort();
     const finalResult = [];
     let currentBalance = initialBalance;
-    let currentDepositBalance = initialDepositBalance;
+    
+    // Track running balances for '其他' subcategories
+    // Initialize with calculated initial balances
+    let currentOtherBalances = { ...initialOtherBalances };
 
     for (const m of sortedMonths) {
-      const monthData = monthsMap.get(m);
-      const opening = currentBalance;
-      const depositOpening = currentDepositBalance;
+      const monthObj = monthsMap.get(m);
+      monthObj.openingBalance = Number(currentBalance.toFixed(2));
       
-      const net = monthData.totalIncome - monthData.totalExpense;
-
-      let depositIncome = 0;
-      let depositExpense = 0;
-      monthData.details.forEach(d => {
-        if (d.category === '保证金') {
-          depositIncome += d.income;
-          depositExpense += d.expense;
+      // Process details to calculate row-level opening/closing for '其他'
+      monthObj.details.forEach(d => {
+        if (d.category === '其他') {
+          const sub = d.subcategory;
+          const open = currentOtherBalances[sub] || 0;
+          const close = open + d.income - d.expense;
+          
+          d.opening = Number(open.toFixed(2));
+          d.closing = Number(close.toFixed(2));
+          
+          // Update running balance
+          currentOtherBalances[sub] = close;
         }
       });
-      const depositNet = depositIncome - depositExpense;
 
-      const closing = opening + net;
-      const depositClosing = depositOpening + depositNet;
-      
-      finalResult.push({
-        month: m,
-        openingBalance: Number(opening.toFixed(2)),
-        closingBalance: Number(closing.toFixed(2)),
-        depositOpening: Number(depositOpening.toFixed(2)),
-        depositClosing: Number(depositClosing.toFixed(2)),
-        income: Number(monthData.totalIncome.toFixed(2)),
-        expense: Number(monthData.totalExpense.toFixed(2)),
-        netProfit: Number(net.toFixed(2)),
-        details: monthData.details
-      });
+      monthObj.closingBalance = Number((currentBalance + monthObj.totalIncome - monthObj.totalExpense).toFixed(2));
+      currentBalance = monthObj.closingBalance;
 
-      currentBalance = closing;
-      currentDepositBalance = depositClosing;
+      finalResult.push(monthObj);
     }
 
     res.send(utils.returnData({ data: finalResult }));
