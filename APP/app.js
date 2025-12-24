@@ -27,8 +27,11 @@ server.use(bodyparser.json());
 // }));
 server.use(async function (req, res, next) {
   const originalSend = res.send;
-  //白名单，或者是文件http形式访问(期待有更好的区分方法)
-  if (requestWhite.includes(req.url) || (!req.headers['accept'].includes('application') && req.method === 'GET')) return next();
+  // 白名单，或者是文件 http 形式访问（避免查询参数/尾斜杠导致误拦截）
+  const reqPath = req.path;
+  const isWhitelisted = requestWhite.some((p) => reqPath === p || reqPath.startsWith(p + '/'));
+  const isStaticGet = (!req.headers['accept']?.includes('application') && req.method === 'GET');
+  if (isWhitelisted || isStaticGet) return next();
 
   // 这个位置最好使用redis缓存用户status，避免每次都请求用户数据
   let user = await utils.getUserInfo({ req, res });
@@ -51,6 +54,7 @@ import fileRouter from './router/system/file.js'; //文件等路由
 import testsRouter from './router/tests.js'; //测试信息路由
 import componentsRouter from './router/components.js';//测试信息路由
 server.use('/system', systemRouter);
+server.use('/', systemRouter); // 兼容无前缀访问
 server.use('/file', fileRouter);
 server.use("/tests", testsRouter);
 server.use("/components", componentsRouter);
