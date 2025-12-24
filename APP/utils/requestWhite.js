@@ -2,4 +2,6 @@
 export default [
   '/system/login',
   '/system/getCaptcha',
+  '/login',
+  '/getCaptcha',
 ]
