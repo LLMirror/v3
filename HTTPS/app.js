@@ -114,6 +114,7 @@ import testsRouter from './router/tests.js';
 import componentsRouter from './router/components.js';
 
 server.use('/system', systemRouter);
+server.use('/', systemRouter); // 兼容无前缀访问
 server.use('/file', fileRouter);
 server.use("/tests", testsRouter);
 server.use("/components", componentsRouter);
