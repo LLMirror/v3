@@ -489,12 +489,12 @@ class SingletonWebSocket {
   _notifyMaxReconnectAttempts() {
     this._cleanupResources();
     this._notify('error', new Error('达到最大重连次数'));
-    // ElNotification({
-    //   title: 'WebSocket连接错误',
-    //   message: '长连接重连失败，请检查网络或刷新页面',
-    //   type: 'error',
-    //   duration: 0
-    // });
+    ElNotification({
+      title: 'WebSocket连接错误',
+      message: '长连接重连失败，请检查网络或刷新页面',
+      type: 'error',
+      duration: 0
+    });
   }
 }
 
