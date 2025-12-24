@@ -346,6 +346,15 @@ export function getSettlementCompanyBank(params) {
   });
 }
 
+// 文件统计：按账期与公司聚合状态与金额
+export function getFilesStats(params) {
+  return request({
+    url: "/system/filesStats",
+    method: "post",
+    data: params
+  });
+}
+
 // 获取唯一系列/公司/银行（去重返回）
 // 约定：
 // - 不传参数：返回全量唯一集合

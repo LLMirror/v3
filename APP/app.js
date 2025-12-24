@@ -28,13 +28,13 @@ server.use((req, res, next) => {
   if (req.method === 'GET') {
     let decoded = '';
     try { decoded = decodeURIComponent(req.url || ''); } catch (e) { decoded = '(decode failed)'; }
-    console.log('[Debug Static]', {
-      method: req.method,
-      url: req.url,
-      originalUrl: req.originalUrl,
-      path: req.path,
-      decoded
-    });
+    // console.log('[Debug Static]', {
+    //   method: req.method,
+    //   url: req.url,
+    //   originalUrl: req.originalUrl,
+    //   path: req.path,
+    //   decoded
+    // });
   }
   next();
 });

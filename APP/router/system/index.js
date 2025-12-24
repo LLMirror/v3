@@ -3797,5 +3797,108 @@ router.post("/hy-getMaxId", async (req, res) => {
 
 
 
+// 文件统计 API：按账期(listValue)与公司(nameValue)聚合状态数量与金额
+// 规则：
+// - 仅统计 status 非空且不等于 "电子文件" 的记录
+// - 应付金额 = 合计金额 totalAmount2 的求和
+// - 已付金额 = 状态为 "已付款" 的 totalAmount2 求和
+// - 未付金额 = 应付金额 - 已付金额
+// - 返回 period 汇总与 company 维度明细，方便前端渲染
+router.post("/filesStats", async (req, res) => {
+  try {
+    const obj = req.body || {};
+    // 基础查询（尽量只取需要字段）
+    let sql = `SELECT status, listValue, nameValue, totalAmount, totalAmount1, totalAmount2 FROM files WHERE 1=1`;
+    // 过滤掉空状态与电子文件
+    sql += ` AND status IS NOT NULL AND status <> '' AND status <> '电子文件'`;
+    const vals = [];
+
+    // 可选筛选：账期
+    if (obj.listValue) {
+      sql += ` AND listValue = ?`;
+      vals.push(obj.listValue);
+    }
+    // 可选筛选：公司（模糊）
+    if (obj.nameValue) {
+      sql += ` AND nameValue LIKE ?`;
+      vals.push(`%${obj.nameValue}%`);
+    }
+
+    // 排序：先账期再公司，方便前端分组
+    sql += ` ORDER BY listValue ASC, nameValue ASC`;
+
+    const { result: rows } = await pools({ sql, val: vals, res, req });
+    const periodsMap = new Map(); // key: listValue
+
+    const inc = (obj, key, delta = 1) => {
+      obj[key] = (obj[key] || 0) + delta;
+    };
+
+    for (const r of (rows || [])) {
+      const period = r.listValue || '未设置账期';
+      const company = r.nameValue || '未设置公司';
+      const status = r.status || '未知状态';
+      const payable = Number(r.totalAmount2 || 0);
+
+      if (!periodsMap.has(period)) {
+        periodsMap.set(period, {
+          listValue: period,
+          companiesMap: new Map(),
+          summary: {
+            statusCounts: {},
+            payable: 0,
+            paid: 0,
+            unpaid: 0
+          }
+        });
+      }
+      const p = periodsMap.get(period);
+
+      // company 维度
+      if (!p.companiesMap.has(company)) {
+        p.companiesMap.set(company, {
+          nameValue: company,
+          statusCounts: {},
+          payable: 0,
+          paid: 0,
+          unpaid: 0
+        });
+      }
+      const c = p.companiesMap.get(company);
+
+      // 计数与金额
+      inc(c.statusCounts, status, 1);
+      inc(p.summary.statusCounts, status, 1);
+      c.payable += payable;
+      p.summary.payable += payable;
+      if (status === '已付款') {
+        c.paid += payable;
+        p.summary.paid += payable;
+      }
+    }
+
+    // 计算未付金额，并构造返回结构
+    const periods = [];
+    for (const [, p] of periodsMap) {
+      const companies = [];
+      for (const [, c] of p.companiesMap) {
+        c.unpaid = (c.payable || 0) - (c.paid || 0);
+        companies.push(c);
+      }
+      p.summary.unpaid = (p.summary.payable || 0) - (p.summary.paid || 0);
+      periods.push({
+        listValue: p.listValue,
+        companies,
+        summary: p.summary
+      });
+    }
+
+    return res.send(utils.returnData({ data: { periods } }));
+  } catch (error) {
+    console.error('[filesStats] 统计接口异常:', error);
+    return res.send(utils.returnData({ code: -1, msg: '文件统计接口异常' }));
+  }
+});
+
 export default router;
   
