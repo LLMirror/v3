@@ -40,8 +40,8 @@
       </div>
     </div>
 
-    <!-- 分析预警卡 -->
-    <!-- <el-row :gutter="16" class="top-cards">
+    <!-- 分析预警卡（仅 admin 显示） -->
+    <el-row :gutter="16" class="top-cards" v-if="isAdmin">
       <el-col :span="12">
         <div class="card" :class="{ warn: analytics.runwayWarning }">
           <div class="card-title">现金跑道（天）</div>
@@ -62,10 +62,10 @@
           </div>
         </div>
       </el-col>
-    </el-row> -->
+    </el-row>
 
-    <!-- 洞察指标扩展 -->
-    <!-- <el-row :gutter="16" class="insight-cards">
+    <!-- 洞察指标扩展（仅 admin 显示） -->
+    <el-row :gutter="16" class="insight-cards" v-if="isAdmin">
       <el-col :span="6">
         <div class="card">
           <div class="card-title">应收回款率</div>
@@ -94,7 +94,7 @@
           <div class="card-sub">近{{ dailyTrend.length }}天（标准差/均值）</div>
         </div>
       </el-col>
-    </el-row> -->
+    </el-row>
 
     <!-- 顶部总览卡片 -->
     <el-row :gutter="16" class="top-cards">
@@ -159,8 +159,8 @@
       </div>
       
     </div>
-    <!-- 异常波动列表（近30天） -->
-      <!-- <div class="table-card" >
+    <!-- 异常波动列表（近30天，仅 admin 显示） -->
+      <div class="table-card" v-if="isAdmin">
         <div class="chart-title">异常波动（近30天）</div>
         <el-table :data="analytics.anomalies || []" border size="small" style="width: 100%" class="table-red-hover" highlight-current-row>
           <el-table-column prop="date" label="日期" width="140" />
@@ -174,7 +174,7 @@
             </template>
           </el-table-column>
         </el-table>
-      </div> -->
+      </div>
 
     <!-- 选定日收付明细 -->
     <div class="table-card" v-if="selectedDayDetails.length" style="margin-bottom: 20px;">
@@ -207,8 +207,8 @@
       </el-col>
     </el-row>
 
-    <!-- 应收/应付（按月） -->
-    <!-- <el-row :gutter="16" class="charts-row">
+    <!-- 应收/应付（按月，仅 admin 显示） -->
+    <el-row :gutter="16" class="charts-row" v-if="isAdmin">
       <el-col :span="12">
         <div class="chart-card">
           <div class="chart-title">应收/实收（按月）</div>
@@ -221,27 +221,27 @@
           <div ref="payableChartRef" class="chart"></div>
         </div>
       </el-col>
-    </el-row> -->
+    </el-row>
 
-    <!-- 应收/实收（公司维度） -->
-    <!-- <el-row :gutter="16" class="charts-row">
+    <!-- 应收/实收（公司维度，仅 admin 显示） -->
+    <el-row :gutter="16" class="charts-row" v-if="isAdmin">
       <el-col :span="24">
         <div class="chart-card">
           <div class="chart-title">应收/实收（公司维度）</div>
           <div ref="receivableCompanyChartRef" class="chart large"></div>
         </div>
       </el-col>
-    </el-row> -->
+    </el-row>
 
-    <!-- 应付/实付（公司维度） -->
-    <!-- <el-row :gutter="16" class="charts-row">
+    <!-- 应付/实付（公司维度，仅 admin 显示） -->
+    <el-row :gutter="16" class="charts-row" v-if="isAdmin">
       <el-col :span="24">
         <div class="chart-card">
           <div class="chart-title">应付/实付（公司维度）</div>
           <div ref="payableCompanyChartRef" class="chart large"></div>
         </div>
       </el-col>
-    </el-row> -->
+    </el-row>
 
     <!-- 每天收入支出趋势 -->
     <el-row :gutter="16" class="charts-row">
@@ -253,8 +253,8 @@
       </el-col>
     </el-row>
 
-    <!-- 占比与洞察 -->
-    <!-- <el-row :gutter="16" class="charts-row">
+    <!-- 占比与洞察（仅 admin 显示） -->
+    <el-row :gutter="16" class="charts-row" v-if="isAdmin">
       <el-col :span="12">
         <div class="chart-card">
           <div class="chart-title">公司净额占比（Top）</div>
@@ -267,15 +267,15 @@
           <div ref="bankPieChartRef" class="chart"></div>
         </div>
       </el-col>
-    </el-row> -->
-    <!-- <el-row :gutter="16" class="charts-row">
+    </el-row>
+    <el-row :gutter="16" class="charts-row" v-if="isAdmin">
       <el-col :span="24">
         <div class="chart-card">
           <div class="chart-title">Top摘要频次</div>
           <div ref="topSummaryChartRef" class="chart"></div>
         </div>
       </el-col>
-    </el-row> -->
+    </el-row>
 
     <!-- 当日收付情况 -->
     <el-row :gutter="16" class="today-row" style="margin-top: 10px;">
@@ -326,11 +326,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue';
+import { ref, onMounted, nextTick, watch, computed } from 'vue';
 import * as echarts from 'echarts';
 import { ElMessage } from 'element-plus';
 import { getCashOverview, getCompanyList, getCashRecords, getSeriesList, getReceivableList, getPayableList } from '@/api/system';
 import { Camera } from '@element-plus/icons-vue';
+import useUserStore from '@/store/modules/user.js';
 
 // 页面外观
 const isDark = ref(false);
@@ -378,6 +379,10 @@ const todayBankAggregates = ref([]);
 const totalIncome = ref(0);
 const totalExpense = ref(0);
 const totalNet = ref(0);
+
+// 仅 admin 可见的扩展模块开关
+const userStore = useUserStore();
+const isAdmin = computed(() => String(userStore.name).toLowerCase() === 'admin' && Number(userStore.id) === 1);
 
 // 扩展洞察指标
 const insights = ref({
