@@ -3297,7 +3297,6 @@ router.post("/updateSettlementData", async (req, res) => {
         data['标签'] || '',
         data['发票'] || '',
         data['序号'] || '',
-        data['系列'] || '',
         rolesId ?? '',
         validMoreId,
         validSeries,
