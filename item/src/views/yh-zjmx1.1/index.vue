@@ -602,6 +602,7 @@ async function update_SettlementData(rowData) {
         unique_key: rowData.unique_key,
         '日期': rowData['日期'] || '',
         '公司': rowData['公司'] || '',
+        '系列': rowData['系列'] || '',
         'more_id': moreMap.value[rowData['公司']] || null,
         '银行': rowData['银行'] || '',
         '摘要': rowData['摘要'] || '',
@@ -1374,6 +1375,7 @@ async function addRow() {
   if (lastRow) {
     newRow['公司'] = lastRow['公司'] ?? '';
     newRow['银行'] = lastRow['银行'] ?? '';
+    newRow['系列'] = lastRow['系列'] ?? '';
     newRow['日期'] = lastRow['日期'] ?? '';
   }
 
@@ -1423,6 +1425,7 @@ async function addRow() {
       data: {
         unique_key: newRow['unique_key'],
         '日期': newRow['日期'] || '',
+        '系列': newRow['系列'] || '',
         '公司': newRow['公司'] || '',
         '银行': newRow['银行'] || '',
         '摘要': newRow['摘要'] || '',
