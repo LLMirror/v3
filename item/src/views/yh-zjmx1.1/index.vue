@@ -1062,6 +1062,9 @@ function initTableFromObjects(objArray) {
     if (k === "id" ) {
       columnConfig.width = 1;
     }
+    if (k === "系列" ) {
+      columnConfig.width = 1;
+    }
     if (k === "日期" ) {
       
       columnConfig.className = 'htCenter';
