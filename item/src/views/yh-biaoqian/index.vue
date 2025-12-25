@@ -51,10 +51,12 @@
       <div class="pager">
         <el-pagination
           background
-          layout="prev, pager, next, jumper, ->, total"
+          layout="total, sizes, prev, pager, next, jumper"
           :total="total"
           :page-size="query.size"
+          :page-sizes="[20, 50, 100, 300]"
           :current-page="query.page"
+          @size-change="handleSizeChange"
           @current-change="(p)=>{ query.page = p; loadData(); }"
         />
       </div>
@@ -103,7 +105,7 @@ const query = reactive({
   child: '',
   remark: '',
   page: 1,
-  size: 10,
+  size: 20,
 })
 
 const dialog = reactive({ visible: false, isEdit: false })
@@ -134,6 +136,12 @@ async function loadData() {
 async function loadMoreOptions() {
   const { data } = await getMoreAll()
   moreOptions.value = Array.isArray(data) ? data : []
+}
+
+function handleSizeChange(val) {
+  query.size = val
+  query.page = 1
+  loadData()
 }
 
 function openAdd() {
@@ -249,13 +257,33 @@ onMounted(loadMoreOptions)
 <style scoped>
 .biaoqian-page {
   padding: 10px;
+  height: calc(100vh - 84px);
+  display: flex;
+  flex-direction: column;
 }
 .filter-card {
   margin-bottom: 10px;
+  flex-shrink: 0;
+}
+.table-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+:deep(.el-card__body) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+.el-table {
+  flex: 1;
 }
 .pager {
   margin-top: 10px;
   display: flex;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 </style>

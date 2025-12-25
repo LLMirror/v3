@@ -5,17 +5,7 @@
     <!-- 筛选区域 -->
     <div class="filter-container" style="margin-bottom: 20px;">
       <el-form :inline="true" :model="queryParams" class="demo-form-inline">
-        <el-form-item label="日期范围">
-          <el-date-picker
-            v-model="queryParams.dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
-            style="width: 260px;"
-          />
-        </el-form-item>
+      
 
         <el-form-item label="系列">
           <el-select v-model="queryParams.series" placeholder="请选择系列" clearable style="width: 180px;" @change="handleSeriesChange">
@@ -37,6 +27,18 @@
               :value="item"
             />
           </el-select>
+        </el-form-item>
+
+          <el-form-item label="日期范围">
+          <el-date-picker
+            v-model="queryParams.dateRange"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            style="width: 260px;"
+          />
         </el-form-item>
 
         <el-form-item>
