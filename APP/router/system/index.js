@@ -3245,7 +3245,7 @@ router.post("/updateSettlementData", async (req, res) => {
     
     // Determine valid more_id and series to avoid truncation and ensure data consistency
     let validMoreId = data.more_id;
-    let validSeries = '';
+    let validSeries = data['系列'] || '';
     
     // Always try to lookup by company name first to get the correct series and more_id
     const companyName = data['公司'] || '';
@@ -3299,7 +3299,7 @@ router.post("/updateSettlementData", async (req, res) => {
         data['序号'] || '',
         rolesId ?? '',
         validMoreId,
-        validSeries,
+         data['系列'] || '',
         data.id || ''
 
       ], 
