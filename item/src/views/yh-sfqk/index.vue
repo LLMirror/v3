@@ -182,7 +182,9 @@ const handleQuery = async () => {
         const expenseSum = details.reduce((sum, row) => sum + (row.category === '成本' ? Number(row.expense || 0) : 0), 0);
         const opening = Number(m.openingBalance || 0);
         const net = incomeSum - expenseSum;
-        const closing = opening + net;
+        // 期末余额：优先使用后端提供的值；若无则使用 opening + net 作为回退
+        const hasBackendClosing = m.closingBalance !== undefined && m.closingBalance !== null && !Number.isNaN(Number(m.closingBalance));
+        const closing = hasBackendClosing ? Number(m.closingBalance) : (opening + net);
         return {
           ...m,
           income: incomeSum,
