@@ -174,8 +174,24 @@ const handleQuery = async () => {
     const res = await getProfitTable({ data: params }); 
     
     if (res.code === 1 || res.code === 200) {
-      profitData.value = res.data || [];
-      if (!res.data || res.data.length === 0) {
+      const raw = res.data || [];
+      // 仅按“大类收入/大类成本”汇总当月收入与支出，并同步更新净收益与期末余额
+      profitData.value = raw.map(m => {
+        const details = Array.isArray(m.details) ? m.details : [];
+        const incomeSum = details.reduce((sum, row) => sum + (row.category === '收入' ? Number(row.income || 0) : 0), 0);
+        const expenseSum = details.reduce((sum, row) => sum + (row.category === '成本' ? Number(row.expense || 0) : 0), 0);
+        const opening = Number(m.openingBalance || 0);
+        const net = incomeSum - expenseSum;
+        const closing = opening + net;
+        return {
+          ...m,
+          income: incomeSum,
+          expense: expenseSum,
+          netProfit: net,
+          closingBalance: closing
+        };
+      });
+      if (raw.length === 0) {
         ElMessage.info('未查询到数据');
       }
     } else {
