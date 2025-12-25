@@ -2372,7 +2372,7 @@ router.post("/getSettlementData", async (req, res) => {
   const rolesStr = String(user.user?.rolesId || '').trim();
   const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
   const isSuper = rolesArr.some(v => [1, 2, 3].includes(v));
-  let sql = `SELECT id,日期, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\``;
+  let sql = `SELECT id,日期,系列, 公司, 银行, 摘要, 收入, 支出, 余额,标签 , 备注, 发票 FROM \`pt_cw_zjmxb\``;
   sql += ` WHERE 1=1`;
   if (!isSuper) {
     const moreIdStr = String(user.user?.moreId || '').trim();
@@ -3174,7 +3174,8 @@ router.post("/addSettlementData", async (req, res) => {
         userId,
         validMoreId,
         rolesId ?? '',
-        validSeries,
+        // validSeries,
+        data['系列'] || '',
         data['日期'] || '',
         data['公司'] || '',
         data['银行'] || '',
