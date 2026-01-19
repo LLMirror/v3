@@ -2676,23 +2676,26 @@ router.post('/getUniqueSeriesCompanyBank', async (req, res) => {
   try {
     const user = await utils.getUserRole(req, res);
     const userId = user.user.id;
+    const rolesStr = String(user.user?.rolesId || '').trim();
+    const rolesArr = rolesStr ? rolesStr.split(',').map(v => Number(v)).filter(v => !Number.isNaN(v)) : [];
+    const isSuper = rolesArr.some(v => [1, 2, 3].includes(v));
 
     const payload = (req.body && req.body.data) ? req.body.data : (req.body || {});
     const series = (payload.series || '').trim();
     const company = (payload.company || '').trim();
 
-    // 基础 WHERE 子句（限定当前用户数据）
-    const baseWhere = [
-      `user_id = ${userId}`,
-      // 按需追加过滤条件（精确匹配）
+    // 基础 WHERE 子句：超管查看全部，否则限定当前用户数据
+    const baseWhereParts = [
+      isSuper ? '1=1' : `user_id = ${userId}`,
       series ? `系列 = '${series.replace(/'/g, "''")}'` : '',
       company ? `公司 = '${company.replace(/'/g, "''")}'` : ''
-    ].filter(Boolean).join(' AND ');
+    ];
+    const baseWhere = baseWhereParts.filter(Boolean).join(' AND ');
 
     const companiesSql = `SELECT DISTINCT 公司 AS company FROM \`pt_cw_zjmxb\` WHERE ${baseWhere} ORDER BY 公司`;
     const banksSql = `SELECT DISTINCT 银行 AS bank FROM \`pt_cw_zjmxb\` WHERE ${baseWhere} ORDER BY 银行`;
     // 系列通常全局唯一集合（不受公司过滤影响）
-    const seriesWhere = `user_id = ${userId}`;
+    const seriesWhere = isSuper ? '1=1' : `user_id = ${userId}`;
     const seriesSql = `SELECT DISTINCT 系列 AS series FROM \`pt_cw_zjmxb\` WHERE ${seriesWhere} AND 系列 IS NOT NULL AND 系列 <> '' ORDER BY 系列`;
 
     // 根据传参决定查询范围：
