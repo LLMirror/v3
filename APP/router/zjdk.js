@@ -15,6 +15,26 @@ const __dirname = path.dirname(__filename);
 // 使用内存存储，不保存到磁盘
 const upload = multer({ storage: multer.memoryStorage() });
 
+const adjustmentMapping = {
+    '城市': 'cs',
+    '运力公司': 'ylgs',
+    '申请时间': 'sqsj',
+    '司机账号ID': 'sjzhID',
+    '司机姓名': 'sjxm',
+    '司机手机号': 'sjsjh',
+    '交易类目': 'jylm',
+    '关联订单': 'gldd',
+    '交易说明': 'jysm',
+    '修改金额': 'xgje',
+    '申请人': 'sqr',
+    '申请原因': 'sqyy',
+    '撤销人': 'cxr',
+    '撤销原因': 'cxyy',
+    '申请状态': 'sqzt',
+    '调款状态': 'tkzt',
+    '车队': 'cd'
+};
+
 router.post('/import', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
@@ -40,28 +60,59 @@ router.post('/import', upload.single('file'), async (req, res) => {
         
         console.log(`解析到 ${data.length} 行数据`);
 
-        // 简单的将二维数组转换为对象数组（假设第一行为表头）
         let list = [];
-        let headers = [];
+        let tableColumns = [];
+        
         if (data.length > 1) {
-            headers = data[0];
-            // 添加生成的字段表头
-            headers.push('id', 'uploadDate', 'previousDate', 'importType', 'timePeriod', 'zt');
-
+            const rawHeaders = data[0];
             const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
             const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+            const isAdjustment = type === 'rent_adjustment';
+
+            // 构建表头定义
+            if (isAdjustment) {
+                // 租金调账：使用映射，排除 ID
+                rawHeaders.forEach(header => {
+                    if (header === 'ID') return; // 忽略 ID
+                    const prop = adjustmentMapping[header];
+                    if (prop) {
+                        tableColumns.push({ prop, label: header });
+                    }
+                });
+            } else {
+                // 租金代扣：保持原样 (假设都是有效列)
+                rawHeaders.forEach(header => {
+                    tableColumns.push({ prop: header, label: header });
+                });
+            }
+
+            // 添加系统生成字段的表头
+            tableColumns.push(
+                { prop: 'id', label: 'ID (系统)' },
+                { prop: 'uploadDate', label: '上传时间' },
+                { prop: 'previousDate', label: '上一周期' },
+                { prop: 'importType', label: '导入类型' },
+                { prop: 'timePeriod', label: '时间周期' },
+                { prop: 'zt', label: '状态' }
+            );
 
             for (let i = 1; i < data.length; i++) {
                 const row = data[i];
-                // 跳过空行
                 if (!row || row.length === 0) continue;
                 
                 let obj = {};
-                // 原始数据映射
-                headers.forEach((header, index) => {
-                    // 只映射原始表头对应的数据
-                    if (index < row.length) {
-                         obj[header] = row[index];
+                
+                rawHeaders.forEach((header, index) => {
+                    if (index >= row.length) return;
+                    
+                    if (isAdjustment) {
+                        if (header === 'ID') return; // 忽略 ID
+                        const prop = adjustmentMapping[header];
+                        if (prop) {
+                            obj[prop] = row[index];
+                        }
+                    } else {
+                        obj[header] = row[index];
                     }
                 });
                 
@@ -69,9 +120,9 @@ router.post('/import', upload.single('file'), async (req, res) => {
                 obj.id = uuidv4();
                 obj.uploadDate = now;
                 obj.previousDate = yesterday;
-                obj.importType = type === 'rent_adjustment' ? '租金调账' : '租金代扣';
+                obj.importType = isAdjustment ? '租金调账' : '租金代扣';
                 obj.timePeriod = `${startDate} 至 ${endDate}`;
-                obj.zt = type === 'rent_adjustment' ? '调账' : '是';
+                obj.zt = isAdjustment ? '调账' : '是';
 
                 list.push(obj);
             }
@@ -81,7 +132,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
             msg: "导入成功", 
             data: {
                 list,
-                headers,
+                tableColumns,
                 period: `${startDate} 至 ${endDate}`,
                 type: type === 'rent_adjustment' ? '租金调账' : '租金代扣'
             }

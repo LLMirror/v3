@@ -66,10 +66,10 @@
           :header-cell-style="{ background: '#f5f7fa', color: '#606266', fontWeight: 'bold' }"
         >
            <el-table-column
-            v-for="header in tableHeaders"
-            :key="header"
-            :prop="header"
-            :label="header"
+            v-for="col in tableColumns"
+            :key="col.prop"
+            :prop="col.prop"
+            :label="col.label"
             min-width="120"
             show-overflow-tooltip
           />
@@ -107,7 +107,7 @@ const handleImportRef = ref(null);
 const tableRef = ref(null);
 const allTableData = ref([]); // 存储所有导入的数据
 const tableData = ref([]);    // 当前页显示的数据
-const tableHeaders = ref([]);
+const tableColumns = ref([]); // 表格列定义
 const total = ref(0);
 const queryParams = ref({
   pageNum: 1,
@@ -206,7 +206,7 @@ const importRes = (res) => {
   console.log('导入结果', res);
   if (res && res.data && res.data.list) {
     allTableData.value = res.data.list;
-    tableHeaders.value = res.data.headers || [];
+    tableColumns.value = res.data.tableColumns || [];
     total.value = res.data.list.length;
     
     // 重置分页并显示第一页
