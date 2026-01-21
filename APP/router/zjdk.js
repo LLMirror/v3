@@ -1,6 +1,7 @@
 import express from 'express';
 import utils from '../utils/index.js';
 import xlsx from 'node-xlsx';
+import ExcelJS from 'exceljs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
@@ -144,7 +145,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
     }
 });
 
-router.get('/template', (req, res) => {
+router.get('/template', async (req, res) => {
     try {
         const { type } = req.query;
         let headers = [];
@@ -160,17 +161,57 @@ router.get('/template', (req, res) => {
             ];
             fileName = '租金调账导入模板.xlsx';
         } else {
-            // 默认或其他类型的模板（暂时给个空或者基础的）
+            // 默认或其他类型的模板
             headers = ['列1', '列2'];
             fileName = '通用导入模板.xlsx';
         }
 
-        // 构建 buffer
-        const buffer = xlsx.build([{ name: 'Sheet1', data: [headers] }]);
+        // 使用 ExcelJS 生成带有样式的 Excel
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Sheet1');
+
+        // 设置表头
+        sheet.columns = headers.map(h => ({ header: h, key: h, width: 20 }));
+
+        // 样式定义
+        const borderStyle = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+
+        const headerFill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFB8B8EA' } // rgb(184, 184, 234) -> Hex B8B8EA
+        };
+
+        // 遍历前 50 行设置样式
+        const columnCount = headers.length;
+        for (let r = 1; r <= 50; r++) {
+            const row = sheet.getRow(r);
+            
+            for (let c = 1; c <= columnCount; c++) {
+                const cell = row.getCell(c);
+                
+                // 设置边框
+                cell.border = borderStyle;
+
+                // 如果是第一行（表头），设置背景色和居中
+                if (r === 1) {
+                    cell.fill = headerFill;
+                    cell.font = { bold: true };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            }
+        }
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(fileName)}`);
-        res.send(buffer);
+
+        await workbook.xlsx.write(res);
+        res.end();
 
     } catch (err) {
         console.error('模板下载出错:', err);
