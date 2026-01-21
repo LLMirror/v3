@@ -170,8 +170,23 @@ router.get('/template', async (req, res) => {
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet('Sheet1');
 
+        // 计算文本宽度的辅助函数
+        const calculateWidth = (text) => {
+            let length = 0;
+            if (text) {
+                for (const char of text.toString()) {
+                    length += char.charCodeAt(0) > 255 ? 2 : 1;
+                }
+            }
+            return Math.max(length * 1.5 + 2, 12); // 最小宽度 12
+        };
+
         // 设置表头
-        sheet.columns = headers.map(h => ({ header: h, key: h, width: 20 }));
+        sheet.columns = headers.map(h => ({ 
+            header: h, 
+            key: h, 
+            width: calculateWidth(h) 
+        }));
 
         // 样式定义
         const borderStyle = {
