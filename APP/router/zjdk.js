@@ -107,10 +107,25 @@ CREATE TABLE IF NOT EXISTS \`pt-dz-zjdkdk_copy1\` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 `;
 
+const createFilesTable = `
+CREATE TABLE IF NOT EXISTS \`files_copy1\` (
+  \`addid\` VARCHAR(255) PRIMARY KEY,
+  \`status\` VARCHAR(50),
+  \`update_time\` DATETIME,
+  \`nameValue\` VARCHAR(255),
+  \`totalAmount\` DECIMAL(10, 2),
+  \`totalAmount1\` DECIMAL(10, 2),
+  \`totalAmount2\` DECIMAL(10, 2),
+  \`ApplicationNotes\` TEXT,
+  \`listValue\` VARCHAR(255)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`;
+
 async function ensureTables() {
     try {
         await pools({ sql: createAdjustmentTable, res: { send() {} }, req: {} });
         await pools({ sql: createWithholdingTable, res: { send() {} }, req: {} });
+        await pools({ sql: createFilesTable, res: { send() {} }, req: {} });
         console.log('租金代扣相关表检查完成');
     } catch (err) {
         console.error('初始化表失败:', err);
