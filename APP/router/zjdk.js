@@ -144,4 +144,38 @@ router.post('/import', upload.single('file'), async (req, res) => {
     }
 });
 
+router.get('/template', (req, res) => {
+    try {
+        const { type } = req.query;
+        let headers = [];
+        let fileName = 'template.xlsx';
+
+        if (type === 'rent_adjustment') {
+            // 租金调账模板表头
+            headers = [
+                '城市', '运力公司', 'ID', '申请时间', '司机账号ID', '司机姓名', 
+                '司机手机号', '交易类目', '关联订单', '交易说明', '修改金额', 
+                '申请人', '申请原因', '撤销人', '撤销原因', '申请状态', 
+                '调款状态', '车队'
+            ];
+            fileName = '租金调账导入模板.xlsx';
+        } else {
+            // 默认或其他类型的模板（暂时给个空或者基础的）
+            headers = ['列1', '列2'];
+            fileName = '通用导入模板.xlsx';
+        }
+
+        // 构建 buffer
+        const buffer = xlsx.build([{ name: 'Sheet1', data: [headers] }]);
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(fileName)}`);
+        res.send(buffer);
+
+    } catch (err) {
+        console.error('模板下载出错:', err);
+        res.status(500).send("下载模板失败");
+    }
+});
+
 export default router;

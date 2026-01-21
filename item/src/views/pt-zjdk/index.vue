@@ -35,6 +35,16 @@
 
         <div class="filter-item">
           <el-button type="primary" icon="Upload" @click="handleImport" class="action-btn">上传文件</el-button>
+          <el-button 
+            v-if="importType === 'rent_adjustment'" 
+            type="warning" 
+            plain 
+            icon="Download" 
+            @click="handleDownloadTemplate" 
+            class="action-btn"
+          >
+            下载模板
+          </el-button>
         </div>
       </div>
       
@@ -96,6 +106,7 @@
 </template>
 
 <script setup>
+import request from '@/utils/request';
 import { ref, computed, onMounted, nextTick } from 'vue';
 import HandleImport from "@/components/handleImport";
 import Pagination from '@/components/Pagination';
@@ -199,6 +210,27 @@ const handleImport = () => {
     return;
   }
   handleImportRef.value.show();
+};
+
+const handleDownloadTemplate = () => {
+  request({
+    url: '/zjdk/template',
+    method: 'get',
+    params: { type: importType.value },
+    responseType: 'blob'
+  }).then(res => {
+    const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = '租金调账导入模板.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
+  }).catch(err => {
+    console.error('下载模板失败:', err);
+    ElMessage.error('下载模板失败');
+  });
 };
 
 const importRes = (res) => {
