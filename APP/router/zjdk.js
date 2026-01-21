@@ -119,6 +119,77 @@ async function ensureTables() {
 
 await ensureTables();
 
+router.post('/check-period', async (req, res) => {
+    try {
+        const { startDate, endDate, type } = req.body;
+        const isAdjustment = type === 'rent_adjustment';
+        const tableName = isAdjustment ? 'pt-dz-zjdktz_copy1' : 'pt-dz-zjdkdk_copy1';
+        const timePeriod = `${startDate} 至 ${endDate}`;
+        
+        // 统计查询
+        const countSql = `SELECT COUNT(*) as total FROM \`${tableName}\` WHERE timePeriod = ?`;
+        // 运力公司字段: 调账是 ylgs, 代扣是 ylgsmc
+        const companyField = isAdjustment ? 'ylgs' : 'ylgsmc';
+        const companiesSql = `SELECT DISTINCT ${companyField} FROM \`${tableName}\` WHERE timePeriod = ?`;
+        // 金额字段: 调账是 xgje, 代扣是 kkje
+        const amountField = isAdjustment ? 'xgje' : 'kkje';
+        const amountSql = `SELECT SUM(${amountField}) as totalAmount FROM \`${tableName}\` WHERE timePeriod = ?`;
+
+        const { result: countResult } = await pools({ sql: countSql, val: [timePeriod], res, req });
+        
+        if (countResult[0].total > 0) {
+            // 查询详细统计：公司、条数、金额
+            const detailSql = `
+                SELECT ${companyField} as company, COUNT(*) as count, SUM(${amountField}) as amount 
+                FROM \`${tableName}\` 
+                WHERE timePeriod = ? 
+                GROUP BY ${companyField}
+            `;
+            const { result: detailResult } = await pools({ sql: detailSql, val: [timePeriod], res, req });
+            
+            const companies = detailResult.map(row => row.company);
+            const totalAmount = detailResult.reduce((sum, row) => sum + (row.amount || 0), 0);
+
+            return res.send(utils.returnData({
+                msg: "查询成功",
+                data: {
+                    exists: true,
+                    count: countResult[0].total,
+                    companies: companies,
+                    companyStats: detailResult,
+                    totalAmount: totalAmount
+                }
+            }));
+        }
+
+        res.send(utils.returnData({
+            msg: "查询成功",
+            data: { exists: false }
+        }));
+
+    } catch (err) {
+        console.error('查询周期数据出错:', err);
+        res.send(utils.returnData({ code: -1, msg: "查询失败", err: err.message }));
+    }
+});
+
+router.post('/delete-period', async (req, res) => {
+    try {
+        const { startDate, endDate, type } = req.body;
+        const isAdjustment = type === 'rent_adjustment';
+        const tableName = isAdjustment ? 'pt-dz-zjdktz_copy1' : 'pt-dz-zjdkdk_copy1';
+        const timePeriod = `${startDate} 至 ${endDate}`;
+
+        const sql = `DELETE FROM \`${tableName}\` WHERE timePeriod = ?`;
+        await pools({ sql, val: [timePeriod], res, req });
+
+        res.send(utils.returnData({ msg: "删除成功" }));
+    } catch (err) {
+        console.error('删除周期数据出错:', err);
+        res.send(utils.returnData({ code: -1, msg: "删除失败", err: err.message }));
+    }
+});
+
 router.post('/save', async (req, res) => {
     try {
         const { list, type } = req.body;

@@ -110,6 +110,27 @@
       @importRes="importRes"
       :showTemplate="false"
     />
+
+    <!-- 保存进度对话框 -->
+    <el-dialog
+      v-model="saveProgressVisible"
+      title="正在保存数据"
+      width="400px"
+      :close-on-click-modal="false"
+      :show-close="false"
+      center
+    >
+      <div style="text-align: center; margin-bottom: 20px;">
+        <el-progress 
+          type="circle" 
+          :percentage="savePercentage" 
+          :status="saveStatus"
+        />
+        <div style="margin-top: 10px; color: #606266;">
+          {{ savePercentage === 100 ? '保存完成' : '数据写入中，请勿关闭页面...' }}
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -133,6 +154,11 @@ const queryParams = ref({
   pageSize: 20
 });
 const tableHeight = ref(500);
+
+// 保存进度相关
+const saveProgressVisible = ref(false);
+const savePercentage = ref(0);
+const saveStatus = ref('');
 
 // 计算表格高度
 const calcTableHeight = () => {
@@ -241,35 +267,159 @@ const handleDownloadTemplate = () => {
   });
 };
 
-const handleSave = () => {
+const handleSave = async () => {
   if (allTableData.value.length === 0) return;
   
-  ElMessageBox.confirm(
-    `确认将 ${allTableData.value.length} 条数据保存到数据库吗？`,
-    '提示',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
+  try {
+    if (!weekDate.value) {
+      ElMessage.warning('请先选择时间周期');
+      return;
     }
-  )
-    .then(() => {
-      request({
-        url: '/zjdk/save',
+    const range = getWeekRange(weekDate.value);
+    
+    // 1. 检查是否存在重复数据
+    const checkRes = await request({
+      url: '/zjdk/check-period',
+      method: 'post',
+      data: {
+        startDate: range.start,
+        endDate: range.end,
+        type: importType.value
+      }
+    });
+
+    if (checkRes.code === 1 && checkRes.data.exists) {
+      // 格式化金额
+      const formatAmount = (amount) => {
+        return Number(amount).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' });
+      };
+
+      const { count, companyStats, totalAmount } = checkRes.data;
+      
+      let tableHtml = `
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px;">
+          <thead>
+            <tr style="background-color: #f5f7fa;">
+              <th style="border: 1px solid #ebeef5; padding: 8px; text-align: left;">公司</th>
+              <th style="border: 1px solid #ebeef5; padding: 8px; text-align: center; width: 60px;">条数</th>
+              <th style="border: 1px solid #ebeef5; padding: 8px; text-align: right; width: 100px;">金额</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      if (companyStats && companyStats.length > 0) {
+        companyStats.forEach(item => {
+          tableHtml += `
+              <tr>
+                <td style="border: 1px solid #ebeef5; padding: 8px;">${item.company}</td>
+                <td style="border: 1px solid #ebeef5; padding: 8px; text-align: center;">${item.count}</td>
+                <td style="border: 1px solid #ebeef5; padding: 8px; text-align: right;">${formatAmount(item.amount)}</td>
+              </tr>
+          `;
+        });
+      }
+      
+      tableHtml += `</tbody></table>`;
+
+      const msg = `
+        <div style="text-align: left; max-height: 400px; overflow-y: auto;">
+          <p>检测到该周期（${range.start} 至 ${range.end}）已存在数据：</p>
+          <p><strong>数据条数：</strong>${count} 条</p>
+          <p><strong>总金额：</strong>${formatAmount(totalAmount)}</p>
+          ${tableHtml}
+          <br/>
+          <p style="color: #F56C6C;">确认删除现有数据并保存当前上传的数据吗？</p>
+        </div>
+      `;
+
+      await ElMessageBox.confirm(msg, '数据重复提示', {
+        confirmButtonText: '删除并保存',
+        cancelButtonText: '取消',
+        type: 'warning',
+        dangerouslyUseHTMLString: true,
+        width: '900px'
+      });
+
+      // 二次确认
+      await ElMessageBox.confirm('确认覆盖数据？此操作将永久删除旧数据并保存新数据，不可恢复。', '确认覆盖', {
+        confirmButtonText: '确认覆盖',
+        cancelButtonText: '取消',
+        type: 'warning'
+      });
+
+      // 用户确认删除
+      await request({
+        url: '/zjdk/delete-period',
         method: 'post',
         data: {
-          list: allTableData.value,
+          startDate: range.start,
+          endDate: range.end,
           type: importType.value
         }
-      }).then(res => {
-        if (res.code === 1) {
-           ElMessage.success(res.msg || '保存成功');
-        } else {
-           ElMessage.error(res.msg || '保存失败');
-        }
       });
-    })
-    .catch(() => {});
+      
+    } else {
+      // 不存在重复数据，显示普通确认框
+      await ElMessageBox.confirm(
+        `确认将 ${allTableData.value.length} 条数据保存到数据库吗？`,
+        '提示',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning',
+        }
+      );
+    }
+
+    // 2. 执行保存逻辑
+    saveProgressVisible.value = true;
+    savePercentage.value = 0;
+    saveStatus.value = '';
+
+    const chunkSize = 1000;
+    const total = allTableData.value.length;
+    const chunks = Math.ceil(total / chunkSize);
+
+    for (let i = 0; i < chunks; i++) {
+      const start = i * chunkSize;
+      const end = Math.min(start + chunkSize, total);
+      const chunkData = allTableData.value.slice(start, end);
+
+      try {
+        const res = await request({
+          url: '/zjdk/save',
+          method: 'post',
+          data: {
+            list: chunkData,
+            type: importType.value
+          }
+        });
+
+        if (res.code !== 1) {
+          throw new Error(res.msg || '保存失败');
+        }
+
+        savePercentage.value = Math.floor(((i + 1) / chunks) * 100);
+      } catch (err) {
+        saveStatus.value = 'exception';
+        ElMessage.error(`第 ${i + 1} 批次保存失败: ${err.message}`);
+        setTimeout(() => {
+          saveProgressVisible.value = false;
+        }, 2000);
+        return;
+      }
+    }
+
+    saveStatus.value = 'success';
+    ElMessage.success('所有数据保存成功');
+    setTimeout(() => {
+      saveProgressVisible.value = false;
+    }, 1500);
+
+  } catch (e) {
+    if (e !== 'cancel') console.error(e);
+  }
 };
 
 const importRes = (res) => {

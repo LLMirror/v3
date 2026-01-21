@@ -31,6 +31,9 @@
       </template>
 
     </el-upload>
+    <div v-if="upLoading" style="margin-top: 15px">
+      <el-progress :percentage="uploadPercent" :format="percentage => percentage === 100 ? '处理中...' : `${percentage}%`"></el-progress>
+    </div>
     <template #footer>
       <div class="dialog-footer" v-loading="upLoading">
         <el-button @click="open=false">取 消</el-button>
@@ -85,6 +88,7 @@
   });
   const open=ref(false);
   const upLoading=ref(false);
+  const uploadPercent = ref(0);
   const impLoading=ref(false);
   const headers={ Token: getToken() };
   const action=ref("");
@@ -111,10 +115,12 @@
   // 文件上传中处理
   function handleFileUploadProgress(event, file, fileList) {
     upLoading.value = true;
+    uploadPercent.value = Math.floor(event.percent);
   }
   // 文件上传成功处理
   function handleFileSuccess(response, file, fileList) {
     upLoading.value = false;
+    uploadPercent.value = 0;
     uploadRef.value.clearFiles();
     if(response.code==203){
       proxy.$modal.msgError("登陆失效，请重新登陆！");
