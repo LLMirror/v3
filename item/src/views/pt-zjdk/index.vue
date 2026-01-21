@@ -262,7 +262,7 @@ const handleSave = () => {
           type: importType.value
         }
       }).then(res => {
-        if (res.code === 200) {
+        if (res.code === 1) {
            ElMessage.success(res.msg || '保存成功');
         } else {
            ElMessage.error(res.msg || '保存失败');
