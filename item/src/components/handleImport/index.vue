@@ -10,6 +10,7 @@
         :on-progress="handleFileUploadProgress"
         :on-success="handleFileSuccess"
         :on-error="handleFileError"
+        :before-upload="handleBeforeUpload"
         :auto-upload="false"
         drag
         :disabled="upLoading"
@@ -84,6 +85,11 @@
     downloadApi:{
       type:Function,
       default:async ()=>{}
+    },
+    // 上传前校验
+    beforeUpload: {
+      type: Function,
+      default: null
     }
   });
   const open=ref(false);
@@ -111,6 +117,13 @@
   function handleFileError(){
     open.value=false;
     upLoading.value=false;
+  }
+  // 上传前校验处理
+  function handleBeforeUpload(file) {
+    if (props.beforeUpload) {
+      return props.beforeUpload(file);
+    }
+    return true;
   }
   // 文件上传中处理
   function handleFileUploadProgress(event, file, fileList) {

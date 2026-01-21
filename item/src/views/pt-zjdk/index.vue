@@ -109,6 +109,7 @@
       :parentParams="importParams"
       @importRes="importRes"
       :showTemplate="false"
+      :beforeUpload="beforeUpload"
     />
 
     <!-- 保存进度对话框 -->
@@ -140,6 +141,7 @@ import { ref, computed, onMounted, nextTick } from 'vue';
 import HandleImport from "@/components/handleImport";
 import Pagination from '@/components/Pagination';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import * as XLSX from 'xlsx';
 
 const weekDate = ref(null);
 const importType = ref('rent_withholding'); // 默认选中租金代扣
@@ -244,6 +246,48 @@ const handleImport = () => {
     return;
   }
   handleImportRef.value.show();
+};
+
+const beforeUpload = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target.result;
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const header = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0];
+        
+        if (!header || header.length === 0) {
+           ElMessage.error('文件为空或无法解析表头');
+           reject();
+           return;
+        }
+
+        const isAdjustment = importType.value === 'rent_adjustment';
+        // 关键字段校验，避免传错表
+        const requiredFields = isAdjustment 
+          ? ['交易类目', '修改金额', '司机账号ID'] 
+          : ['规则名称', '扣款金额', '司机编号'];
+        
+        const missing = requiredFields.filter(field => !header.includes(field));
+        
+        if (missing.length > 0) {
+           const typeName = isAdjustment ? '租金调账' : '租金代扣';
+           ElMessage.error(`文件校验失败！当前选择导入“${typeName}”，但文件中缺失关键字段：${missing.join(', ')}。请确认是否上传了正确类型的文件。`);
+           reject();
+        } else {
+           resolve(true);
+        }
+      } catch (err) {
+        console.error('文件解析失败', err);
+        ElMessage.error('文件解析失败');
+        reject();
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
 };
 
 const handleDownloadTemplate = () => {
