@@ -31,6 +31,30 @@
           </template>
         </el-alert>
       </div>
+
+      <div v-if="allTableData.length > 0" style="margin-top: 20px;">
+        <div style="margin-bottom: 10px; font-weight: bold;">
+          导入数据预览 ({{ allTableData.length }} 条)
+        </div>
+        <el-table ref="tableRef" :data="tableData" border style="width: 100%" :height="tableHeight">
+           <el-table-column
+            v-for="header in tableHeaders"
+            :key="header"
+            :prop="header"
+            :label="header"
+            min-width="120"
+            show-overflow-tooltip
+          />
+        </el-table>
+        
+        <Pagination
+          v-if="total > 0"
+          :total="total"
+          v-model:page="queryParams.pageNum"
+          v-model:limit="queryParams.pageSize"
+          @pagination="handlePagination"
+        />
+      </div>
     </el-card>
 
     <HandleImport
@@ -44,12 +68,44 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import HandleImport from "@/components/handleImport";
+import Pagination from '@/components/Pagination';
 import { ElMessage } from 'element-plus';
 
 const weekDate = ref(null);
 const handleImportRef = ref(null);
+const tableRef = ref(null);
+const allTableData = ref([]); // 存储所有导入的数据
+const tableData = ref([]);    // 当前页显示的数据
+const tableHeaders = ref([]);
+const total = ref(0);
+const queryParams = ref({
+  pageNum: 1,
+  pageSize: 20
+});
+const tableHeight = ref(500);
+
+// 计算表格高度
+const calcTableHeight = () => {
+  if (!tableRef.value) return;
+  // 获取表格顶部的绝对位置
+  const rect = tableRef.value.$el.getBoundingClientRect();
+  // 视口高度 - 表格顶部位置 - 分页器高度及底部留白
+  // 分页器组件 padding 32px * 2 + 内容高度 ≈ 90px，加上底部留白 20px，预留 110px
+  const height = window.innerHeight - rect.top - 110;
+  tableHeight.value = height > 200 ? height : 200;
+};
+
+// 监听窗口大小变化
+window.addEventListener('resize', calcTableHeight);
+
+// 监听分页变化
+const handlePagination = () => {
+  const start = (queryParams.value.pageNum - 1) * queryParams.value.pageSize;
+  const end = start + queryParams.value.pageSize;
+  tableData.value = allTableData.value.slice(start, end);
+};
 
 // 格式化日期 YYYY-MM-DD
 const formatDate = (date) => {
@@ -83,7 +139,6 @@ const getWeekRange = (dateObj) => {
 const initLastWeek = () => {
   const today = new Date();
   // 获取上周的某一天（比如上周一）
-  // 当前日期减去 (当前星期几 + 6) 天 -> 上周一?
   // 简单点：当前时间减去 7 天，就是上周同一时间，以此为基准获取该周
   const lastWeekPoint = new Date(today.getTime() - 7 * 24 * 3600 * 1000);
   weekDate.value = lastWeekPoint;
@@ -119,10 +174,25 @@ const handleImport = () => {
 const importRes = (res) => {
   ElMessage.success('导入成功');
   console.log('导入结果', res);
+  if (res && res.data && res.data.list) {
+    allTableData.value = res.data.list;
+    tableHeaders.value = res.data.headers || [];
+    total.value = res.data.list.length;
+    
+    // 重置分页并显示第一页
+    queryParams.value.pageNum = 1;
+    handlePagination();
+    
+    // 数据加载后重新计算高度
+    nextTick(() => {
+      calcTableHeight();
+    });
+  }
 };
 
 onMounted(() => {
   initLastWeek();
+  calcTableHeight();
 });
 </script>
 
