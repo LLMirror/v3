@@ -6,7 +6,7 @@
           <span>租金代扣导入</span>
         </div>
       </template>
-      <div style="display: flex; align-items: center; gap: 20px;">
+      <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
         <div>
           <span style="margin-right: 10px; font-weight: bold;">选择周期</span>
           <el-date-picker
@@ -19,15 +19,24 @@
             {{ dateRangeText }}
           </span>
         </div>
+        
+        <div>
+          <span style="margin-right: 10px; font-weight: bold;">导入类型</span>
+          <el-select v-model="importType" placeholder="请选择导入类型" style="width: 200px;">
+            <el-option label="租金代扣" value="rent_withholding" />
+            <el-option label="租金调账" value="rent_adjustment" />
+          </el-select>
+        </div>
+
         <el-button type="primary" icon="Upload" @click="handleImport">导入数据</el-button>
       </div>
       
       <div style="margin-top: 20px;">
         <el-alert title="操作提示" type="info" :closable="false" show-icon>
           <template #default>
-            <p>1. 请先选择数据所属的时间周期（默认为上周一至上周日）。</p>
+            <p>1. 请先选择数据所属的时间周期（默认为上周一至上周日）和导入类型。</p>
             <p>2. 点击“导入数据”按钮上传 Excel 文件。</p>
-            <p>3. 系统将自动处理租金代扣数据。</p>
+            <p>3. 系统将自动处理{{ importType === 'rent_withholding' ? '租金代扣' : '租金调账' }}数据。</p>
           </template>
         </el-alert>
       </div>
@@ -74,6 +83,7 @@ import Pagination from '@/components/Pagination';
 import { ElMessage } from 'element-plus';
 
 const weekDate = ref(null);
+const importType = ref('rent_withholding'); // 默认选中租金代扣
 const handleImportRef = ref(null);
 const tableRef = ref(null);
 const allTableData = ref([]); // 存储所有导入的数据
@@ -159,7 +169,8 @@ const importParams = computed(() => {
   }
   return {
     startDate: range.start,
-    endDate: range.end
+    endDate: range.end,
+    type: importType.value
   };
 });
 

@@ -21,9 +21,10 @@ router.post('/import', upload.single('file'), async (req, res) => {
              return res.send(utils.returnData({ code: -1, msg: "未上传文件" }));
         }
 
-        const { startDate, endDate } = req.body;
+        const { startDate, endDate, type } = req.body;
         
-        console.log('收到租金代扣导入请求:', {
+        console.log('收到导入请求:', {
+            type,
             period: `${startDate} - ${endDate}`,
             fileSize: req.file.size
         });
@@ -45,7 +46,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
         if (data.length > 1) {
             headers = data[0];
             // 添加生成的字段表头
-            headers.push('id', 'uploadDate', 'previousDate');
+            headers.push('id', 'uploadDate', 'previousDate', 'importType');
 
             const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
             const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
@@ -68,6 +69,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
                 obj.id = uuidv4();
                 obj.uploadDate = now;
                 obj.previousDate = yesterday;
+                obj.importType = type === 'rent_adjustment' ? '租金调账' : '租金代扣';
 
                 list.push(obj);
             }
@@ -78,7 +80,8 @@ router.post('/import', upload.single('file'), async (req, res) => {
             data: {
                 list,
                 headers,
-                period: `${startDate} 至 ${endDate}`
+                period: `${startDate} 至 ${endDate}`,
+                type: type === 'rent_adjustment' ? '租金调账' : '租金代扣'
             }
         }));
 
