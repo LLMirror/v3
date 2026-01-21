@@ -448,4 +448,201 @@ router.get('/template', async (req, res) => {
     }
 });
 
+router.post('/list', async (req, res) => {
+    try {
+        const { type, pageNum = 1, pageSize = 20, startDate, endDate } = req.body;
+        const isAdjustment = type === 'rent_adjustment';
+        const tableName = isAdjustment ? 'pt-dz-zjdktz_copy1' : 'pt-dz-zjdkdk_copy1';
+        
+        let where = 'WHERE 1=1';
+        let params = [];
+        
+        if (startDate && endDate) {
+             where += ' AND uploadDate BETWEEN ? AND ?';
+             params.push(`${startDate} 00:00:00`, `${endDate} 23:59:59`);
+        }
+
+        const offset = (Number(pageNum) - 1) * Number(pageSize);
+        const limit = Number(pageSize);
+        
+        const sql = `SELECT * FROM \`${tableName}\` ${where} ORDER BY uploadDate DESC LIMIT ? OFFSET ?`;
+        const countSql = `SELECT COUNT(*) as total FROM \`${tableName}\` ${where}`;
+        
+        const { result: list } = await pools({ sql, val: [...params, limit, offset], res, req });
+        const { result: countRes } = await pools({ sql: countSql, val: params, res, req });
+        
+        res.send(utils.returnData({
+            msg: "查询成功",
+            data: {
+                list,
+                total: countRes[0].total
+            }
+        }));
+    } catch (err) {
+        console.error('查询列表失败:', err);
+        res.send(utils.returnData({ code: -1, msg: "查询失败", err: err.message }));
+    }
+});
+
+router.post('/generate-statement', async (req, res) => {
+    try {
+        // 1. Delete old data for current period
+        const deleteSql = `
+            DELETE FROM files_copy1 WHERE listValue = CONCAT(
+                DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), '%Y-%m-%d'),
+                '至',
+                DATE_FORMAT(CURDATE() - INTERVAL 1 DAY, '%Y-%m-%d')
+            )
+        `;
+        await pools({ sql: deleteSql, val: [], res, req });
+
+        // 2. Insert new data
+        const insertSql = `
+ INSERT INTO files_copy1 
+ (addid, status, update_time, nameValue, totalAmount, totalAmount1,totalAmount2, ApplicationNotes, listValue) 
+ SELECT 
+   CONCAT(current.nameValue, current.listValue) AS addid, 
+   CASE 
+     WHEN current.nameValue IS NULL THEN '其他' 
+     ELSE '未提交' 
+   END AS status, 
+   NOW() AS update_time, 
+   COALESCE(current.nameValue, previous.nameValue) AS nameValue, 
+   IFNULL(current.totalAmount, 0) AS totalAmount, 
+   IFNULL(current.totalAmount1, 0) AS totalAmount1, 
+ 	 ROUND(IFNULL(current.totalAmount1, 0)+IFNULL(current.totalAmount, 0),2) AS totalAmount2, 
+   CONCAT( 
+     IFNULL(previous.g, ''), 
+     IFNULL(current.g, '') 
+   ) AS ApplicationNotes, 
+   IFNULL(current.listValue, '') AS listValue 
+ FROM ( 
+   -- 当前账期数据 
+   SELECT 
+   公司名称 AS nameValue, 
+   ROUND(SUM(CASE WHEN 扣款_状态 = '是' THEN 扣款_金额 ELSE 0 END), 2) AS totalAmount, 
+   ROUND(SUM(CASE WHEN 扣款_状态 = '调账' THEN 扣款_金额 ELSE 0 END), 2) AS totalAmount1, 
+ 	 	 	 城市, 
+   CONCAT( 
+     公司名称, 
+ 
+     DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY), '%Y-%m-%d'), 
+     '至', 
+     DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY), '%Y-%m-%d'), 
+     '租金代扣', 
+     ROUND(SUM(CASE WHEN 扣款_状态 = '是' THEN 扣款_金额 ELSE 0 END), 2), 
+     '元，调账金额', 
+     ROUND(SUM(CASE WHEN 扣款_状态 = '调账' THEN 扣款_金额 ELSE 0 END), 2), 
+     '元（本期）故本次付合计', 
+     ROUND(SUM(扣款_金额), 2), 
+     '元  ', 
+ 	 	 IF(城市 = '南京市', '注：南京区域所有运力公司都由南京沛途科技有限公司代收代付。', "") 
+   ) AS g, 
+   CONCAT( 
+     DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY), '%Y-%m-%d'), 
+     '至', 
+     DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY), '%Y-%m-%d') 
+   ) AS listValue 
+ FROM ( 
+   -- 上周明细数据 
+   SELECT 
+ -- 	 TRIM(SUBSTRING_INDEX(ylgsmc, '（', 1)) AS 公司名称, 
+ IF(cs = '南京市', '南京沛途科技有限公司', TRIM(SUBSTRING_INDEX(ylgsmc, '（', 1))) AS 公司名称, 
+ 	 	 	 	 	 cs AS 城市, 
+          ROUND(kkje * 1, 2) AS 扣款_金额, 
+          zt AS 扣款_状态 
+   FROM \`pt-dz-zjdkdk_copy1\` 
+   WHERE DATE(STR_TO_DATE(REPLACE(kksj, ' ', ''), '%Y-%m-%d%H:%i:%s')) 
+         BETWEEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY) 
+             AND DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY) 
+   
+   UNION ALL 
+   
+   SELECT 
+ -- 	 TRIM(SUBSTRING_INDEX(ylgs, '（', 1)) AS 公司名称, 
+ IF(cs = '南京市', '南京沛途科技有限公司', TRIM(SUBSTRING_INDEX(ylgs, '（', 1))) AS 公司名称, 
+ 	 	 	 	 cs AS 城市, 
+          ROUND(xgje * -1, 2) AS 扣款_金额, 
+          zt AS 扣款_状态 
+   FROM \`pt-dz-zjdktz_copy1\` 
+   WHERE DATE(STR_TO_DATE(REPLACE(sqsj, ' ', ''), '%Y-%m-%d%H:%i:%s')) 
+         BETWEEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY) 
+             AND DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY) 
+     AND sqyy NOT LIKE '%司机违规扣款%' 
+     AND sqr != '系统操作' 
+     AND sqzt = '申请成功' 
+     AND tkzt = '调账成功' 
+ ) AS current_data 
+ GROUP BY 公司名称,城市 
+ ) AS current 
+ 
+ LEFT JOIN ( 
+   -- 上期数据 
+  SELECT 
+     公司名称 AS nameValue, 
+     CONCAT( 
+       公司名称, 
+       DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 14) DAY), '%Y-%m-%d'), 
+       '至', 
+       DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 8) DAY), '%Y-%m-%d'), 
+       '租金代扣', 
+       ROUND(SUM(CASE WHEN 扣款_状态 = '是' THEN 扣款_金额 ELSE 0 END), 2), 
+       '元，调账金额', 
+       ROUND(SUM(CASE WHEN 扣款_状态 = '调账' THEN 扣款_金额 ELSE 0 END), 2), 
+       '元（上期）' 
+     ) AS g 
+   FROM ( 
+     SELECT 
+ -- 	 	 TRIM(SUBSTRING_INDEX(ylgsmc, '（', 1)) AS 公司名称, 
+ IF(cs = '南京市', '南京沛途科技有限公司', TRIM(SUBSTRING_INDEX(ylgsmc, '（', 1))) AS 公司名称, 
+            ROUND(kkje * 1, 2) AS 扣款_金额, 
+            zt AS 扣款_状态 
+     FROM \`pt-dz-zjdkdk_copy1\` 
+     WHERE DATE(STR_TO_DATE(REPLACE(kksj, ' ', ''), '%Y-%m-%d%H:%i:%s')) 
+           BETWEEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 14) DAY) 
+           AND DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 8) DAY) 
+     UNION ALL 
+     SELECT 
+ -- 	 	 TRIM(SUBSTRING_INDEX(ylgs, '（', 1)) AS 公司名称, 
+ IF(cs = '南京市', '南京沛途科技有限公司', TRIM(SUBSTRING_INDEX(ylgs, '（', 1))) AS 公司名称, 
+            ROUND(xgje * -1, 2) AS 扣款_金额, 
+            zt AS 扣款_状态 
+     FROM \`pt-dz-zjdktz_copy1\` 
+     WHERE DATE(STR_TO_DATE(REPLACE(sqsj, ' ', ''), '%Y-%m-%d%H:%i:%s')) 
+           BETWEEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 14) DAY) 
+           AND DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 8) DAY) 
+       AND sqyy NOT LIKE '%司机违规扣款%' 
+       AND sqr != '系统操作' 
+       AND sqzt = '申请成功' 
+       AND tkzt = '调账成功' 
+   ) AS previous_data 
+   GROUP BY 公司名称 
+ 
+ ) AS previous 
+ ON current.nameValue = previous.nameValue 
+ 
+ -- 仅插入本期有数据的公司 
+ WHERE current.nameValue IS NOT NULL 
+ 
+ -- 处理重复键值时更新字段 
+ ON DUPLICATE KEY UPDATE 
+     status = VALUES(status), 
+     update_time = VALUES(update_time), 
+     nameValue = VALUES(nameValue), 
+     totalAmount = VALUES(totalAmount), 
+     totalAmount1 = VALUES(totalAmount1), 
+     ApplicationNotes = VALUES(ApplicationNotes), 
+     listValue = VALUES(listValue);
+        `;
+        
+        await pools({ sql: insertSql, val: [], res, req });
+        
+        res.send(utils.returnData({ msg: "生成对账单成功" }));
+
+    } catch (err) {
+        console.error('生成对账单失败:', err);
+        res.send(utils.returnData({ code: -1, msg: "生成失败", err: err.message }));
+    }
+});
+
 export default router;
