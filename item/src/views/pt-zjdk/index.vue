@@ -340,40 +340,35 @@ const handleSave = async () => {
 
       const { count, companyStats, totalAmount } = checkRes.data;
       
-      let tableHtml = `
-        <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px;">
-          <thead>
-            <tr style="background-color: #f5f7fa;">
-              <th style="border: 1px solid #ebeef5; padding: 8px; text-align: left;">公司</th>
-              <th style="border: 1px solid #ebeef5; padding: 8px; text-align: center; width: 60px;">条数</th>
-              <th style="border: 1px solid #ebeef5; padding: 8px; text-align: right; width: 100px;">金额</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
-      
-      if (companyStats && companyStats.length > 0) {
-        companyStats.forEach(item => {
-          tableHtml += `
-              <tr>
-                <td style="border: 1px solid #ebeef5; padding: 8px;">${item.company}</td>
-                <td style="border: 1px solid #ebeef5; padding: 8px; text-align: center;">${item.count}</td>
-                <td style="border: 1px solid #ebeef5; padding: 8px; text-align: right;">${formatAmount(item.amount)}</td>
+      const tableHtml = `
+         <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px;">
+            <thead>
+              <tr style="background-color: #f5f7fa;">
+                <th style="border: 1px solid #ebeef5; padding: 8px; text-align: left;">公司</th>
+                <th style="border: 1px solid #ebeef5; padding: 8px; width: 60px; text-align: center;">条数</th>
+                <th style="border: 1px solid #ebeef5; padding: 8px; width: 100px; text-align: right;">总金额</th>
               </tr>
-          `;
-        });
-      }
-      
-      tableHtml += `</tbody></table>`;
+            </thead>
+            <tbody>
+              ${companyStats.map(item => `
+                <tr>
+                  <td style="border: 1px solid #ebeef5; padding: 8px; word-break: break-word;">${item.company}</td>
+                  <td style="border: 1px solid #ebeef5; padding: 8px; text-align: center;">${item.count}</td>
+                  <td style="border: 1px solid #ebeef5; padding: 8px; text-align: right;">${formatAmount(item.amount)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+         </table>
+      `;
 
       const msg = `
         <div style="text-align: left; max-height: 400px; overflow-y: auto;">
-          <p>检测到该周期（${range.start} 至 ${range.end}）已存在数据：</p>
-          <p><strong>数据条数：</strong>${count} 条</p>
-          <p><strong>总金额：</strong>${formatAmount(totalAmount)}</p>
-          ${tableHtml}
-          <br/>
-          <p style="color: #F56C6C;">确认删除现有数据并保存当前上传的数据吗？</p>
+           <p>检测到该周期（${range.start} 至 ${range.end}）已存在数据：</p>
+           <p><strong>数据条数：</strong>${count} 条</p>
+           <p><strong>总金额：</strong>${formatAmount(totalAmount)}</p>
+           ${tableHtml}
+           <br/>
+           <p style="color: #F56C6C;">确认删除现有数据并保存当前上传的数据吗？</p>
         </div>
       `;
 
@@ -382,7 +377,8 @@ const handleSave = async () => {
         cancelButtonText: '取消',
         type: 'warning',
         dangerouslyUseHTMLString: true,
-        width: '900px'
+        width: 'auto',
+        customStyle: { maxWidth: '500px', minWidth: '400px' }
       });
 
       // 二次确认
