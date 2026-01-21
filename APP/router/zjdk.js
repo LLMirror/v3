@@ -46,7 +46,7 @@ router.post('/import', upload.single('file'), async (req, res) => {
         if (data.length > 1) {
             headers = data[0];
             // 添加生成的字段表头
-            headers.push('id', 'uploadDate', 'previousDate', 'importType');
+            headers.push('id', 'uploadDate', 'previousDate', 'importType', 'timePeriod', 'zt');
 
             const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
             const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
@@ -70,6 +70,8 @@ router.post('/import', upload.single('file'), async (req, res) => {
                 obj.uploadDate = now;
                 obj.previousDate = yesterday;
                 obj.importType = type === 'rent_adjustment' ? '租金调账' : '租金代扣';
+                obj.timePeriod = `${startDate} 至 ${endDate}`;
+                obj.zt = type === 'rent_adjustment' ? '调账' : '是';
 
                 list.push(obj);
             }
