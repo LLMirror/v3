@@ -65,31 +65,6 @@ export const constantRoutes = [
       }
     ]
   }
-  // {
-  //   path: '/yh-zjmxjsc',
-  //   component: Layout,
-  //   children: [
-  //     {
-  //       path: '/yh-zjmxjsc',
-  //       component: () => import('@/views/yh-zjmxjsc/index.vue'),
-  //       name: 'YhZjmxJsc',
-  //       meta: { title: '资金驾驶舱', icon: 'data-line' }
-  //     }
-  //   ]
-  // }
-  // ,
-  // {
-  //   path: '/yh-biaoqian',
-  //   component: Layout,
-  //   children: [
-  //     {
-  //       path: '/yh-biaoqian',
-  //       component: () => import('@/views/yh-biaoqian/index.vue'),
-  //       name: 'YhBiaoqian',
-  //       meta: { title: '标签维护', icon: 'collection-tag' }
-  //     }
-  //   ]
-  // }
 ]
 
 // 动态路由，基于用户权限动态去加载

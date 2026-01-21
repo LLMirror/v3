@@ -75,11 +75,13 @@ import systemRouter from './router/system/index.js'; //管理菜单等路由
 import fileRouter from './router/system/file.js'; //文件等路由
 import testsRouter from './router/tests.js'; //测试信息路由
 import componentsRouter from './router/components.js';//测试信息路由
+import zjdkRouter from './router/zjdk.js'; //租金代扣路由
 server.use('/system', systemRouter);
 server.use('/', systemRouter); // 兼容无前缀访问
 server.use('/file', fileRouter);
 server.use("/tests", testsRouter);
 server.use("/components", componentsRouter);
+server.use("/zjdk", zjdkRouter);
 
 // 并行启动 HTTP 与 HTTPS 服务
 // 1) HTTP 保持使用 config.apiPort，确保兼容现有客户端
