@@ -36,14 +36,13 @@
         <div class="filter-item">
           <el-button type="primary" icon="Upload" @click="handleImport" class="action-btn">上传文件</el-button>
           <el-button 
-            v-if="importType === 'rent_adjustment'" 
             type="warning" 
             plain 
             icon="Download" 
             @click="handleDownloadTemplate" 
             class="action-btn"
           >
-            下载模板
+            {{ importType === 'rent_adjustment' ? '租金调账模板下载' : '租金代扣模板下载' }}
           </el-button>
         </div>
       </div>

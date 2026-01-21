@@ -36,6 +36,23 @@ const adjustmentMapping = {
     '车队': 'cd'
 };
 
+const withholdingMapping = {
+    '司机姓名': 'sjxm',
+    '司机编号': 'sjbh',
+    '城市': 'cs',
+    '运力公司': 'ylgsmc',
+    '规则名称': 'gzmc',
+    '规则ID': 'gzID',
+    '扣款时间': 'kksj',
+    '扣款金额': 'kkje',
+    '账单编号': 'zdbh',
+    '账单周期': 'zdzq',
+    '租金类型': 'zjlx',
+    '账单开始时间': 'zdkssj',
+    '账单结束时间': 'zdjssj',
+    '车队': 'cd'
+};
+
 router.post('/import', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
@@ -81,9 +98,12 @@ router.post('/import', upload.single('file'), async (req, res) => {
                     }
                 });
             } else {
-                // 租金代扣：保持原样 (假设都是有效列)
+                // 租金代扣：使用映射
                 rawHeaders.forEach(header => {
-                    tableColumns.push({ prop: header, label: header });
+                    const prop = withholdingMapping[header];
+                    if (prop) {
+                        tableColumns.push({ prop, label: header });
+                    }
                 });
             }
 
@@ -113,7 +133,11 @@ router.post('/import', upload.single('file'), async (req, res) => {
                             obj[prop] = row[index];
                         }
                     } else {
-                        obj[header] = row[index];
+                        // 租金代扣
+                        const prop = withholdingMapping[header];
+                        if (prop) {
+                            obj[prop] = row[index];
+                        }
                     }
                 });
                 
@@ -161,9 +185,13 @@ router.get('/template', async (req, res) => {
             ];
             fileName = '租金调账导入模板.xlsx';
         } else {
-            // 默认或其他类型的模板
-            headers = ['列1', '列2'];
-            fileName = '通用导入模板.xlsx';
+            // 租金代扣模板表头
+            headers = [
+                '司机姓名', '司机编号', '城市', '运力公司', '规则名称', '规则ID', 
+                '扣款时间', '扣款金额', '账单编号', '账单周期', '租金类型', 
+                '账单开始时间', '账单结束时间', '车队'
+            ];
+            fileName = '租金代扣导入模板.xlsx';
         }
 
         // 使用 ExcelJS 生成带有样式的 Excel
