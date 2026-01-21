@@ -1,5 +1,6 @@
 import express from 'express';
 import utils from '../utils/index.js';
+import pools from '../utils/pools.js';
 import xlsx from 'node-xlsx';
 import ExcelJS from 'exceljs';
 import path from 'path';
@@ -52,6 +53,107 @@ const withholdingMapping = {
     '账单结束时间': 'zdjssj',
     '车队': 'cd'
 };
+
+const createAdjustmentTable = `
+CREATE TABLE IF NOT EXISTS \`pt-dz-zjdktz_copy1\` (
+  \`id\` VARCHAR(64) PRIMARY KEY,
+  \`uploadDate\` DATETIME,
+  \`previousDate\` VARCHAR(50),
+  \`importType\` VARCHAR(50),
+  \`timePeriod\` VARCHAR(100),
+  \`zt\` VARCHAR(50),
+  \`cs\` VARCHAR(100),
+  \`ylgs\` VARCHAR(255),
+  \`sqsj\` VARCHAR(100),
+  \`sjzhID\` VARCHAR(100),
+  \`sjxm\` VARCHAR(100),
+  \`sjsjh\` VARCHAR(100),
+  \`jylm\` VARCHAR(100),
+  \`gldd\` VARCHAR(255),
+  \`jysm\` TEXT,
+  \`xgje\` VARCHAR(50),
+  \`sqr\` VARCHAR(100),
+  \`sqyy\` TEXT,
+  \`cxr\` VARCHAR(100),
+  \`cxyy\` TEXT,
+  \`sqzt\` VARCHAR(50),
+  \`tkzt\` VARCHAR(50),
+  \`cd\` VARCHAR(255)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`;
+
+const createWithholdingTable = `
+CREATE TABLE IF NOT EXISTS \`pt-dz-zjdkdk_copy1\` (
+  \`id\` VARCHAR(64) PRIMARY KEY,
+  \`uploadDate\` DATETIME,
+  \`previousDate\` VARCHAR(50),
+  \`importType\` VARCHAR(50),
+  \`timePeriod\` VARCHAR(100),
+  \`zt\` VARCHAR(50),
+  \`sjxm\` VARCHAR(100),
+  \`sjbh\` VARCHAR(100),
+  \`cs\` VARCHAR(100),
+  \`ylgsmc\` VARCHAR(255),
+  \`gzmc\` VARCHAR(255),
+  \`gzID\` VARCHAR(100),
+  \`kksj\` VARCHAR(100),
+  \`kkje\` VARCHAR(50),
+  \`zdbh\` VARCHAR(100),
+  \`zdzq\` VARCHAR(100),
+  \`zjlx\` VARCHAR(100),
+  \`zdkssj\` VARCHAR(100),
+  \`zdjssj\` VARCHAR(100),
+  \`cd\` VARCHAR(255)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+`;
+
+async function ensureTables() {
+    try {
+        await pools({ sql: createAdjustmentTable, res: { send() {} }, req: {} });
+        await pools({ sql: createWithholdingTable, res: { send() {} }, req: {} });
+        console.log('租金代扣相关表检查完成');
+    } catch (err) {
+        console.error('初始化表失败:', err);
+    }
+}
+
+await ensureTables();
+
+router.post('/save', async (req, res) => {
+    try {
+        const { list, type } = req.body;
+        if (!list || list.length === 0) {
+            return res.send(utils.returnData({ code: -1, msg: "没有数据需要保存" }));
+        }
+
+        const isAdjustment = type === 'rent_adjustment';
+        const tableName = isAdjustment ? 'pt-dz-zjdktz_copy1' : 'pt-dz-zjdkdk_copy1';
+        
+        let columns = [];
+        if (isAdjustment) {
+            columns = ['id', 'uploadDate', 'previousDate', 'timePeriod', 'zt', ...Object.values(adjustmentMapping)];
+        } else {
+            columns = ['id', 'uploadDate', 'previousDate', 'timePeriod', 'zt', ...Object.values(withholdingMapping)];
+        }
+        
+        // 过滤空值
+        columns = columns.filter(c => c);
+
+        const values = list.map(item => {
+            return columns.map(col => item[col] || null);
+        });
+
+        const sql = `INSERT INTO \`${tableName}\` (${columns.map(c => `\`${c}\``).join(',')}) VALUES ?`;
+        
+        await pools({ sql, val: [values], res, req });
+        
+        res.send(utils.returnData({ msg: "保存成功" }));
+
+    } catch (err) {
+        console.error('保存出错:', err);
+        res.send(utils.returnData({ code: -1, msg: "保存失败", err: err.message }));
+    }
+});
 
 router.post('/import', upload.single('file'), async (req, res) => {
     try {
@@ -112,7 +214,6 @@ router.post('/import', upload.single('file'), async (req, res) => {
                 { prop: 'id', label: 'ID (系统)' },
                 { prop: 'uploadDate', label: '上传时间' },
                 { prop: 'previousDate', label: '上一周期' },
-                { prop: 'importType', label: '导入类型' },
                 { prop: 'timePeriod', label: '时间周期' },
                 { prop: 'zt', label: '状态' }
             );
@@ -145,7 +246,6 @@ router.post('/import', upload.single('file'), async (req, res) => {
                 obj.id = uuidv4();
                 obj.uploadDate = now;
                 obj.previousDate = yesterday;
-                obj.importType = isAdjustment ? '租金调账' : '租金代扣';
                 obj.timePeriod = `${startDate} 至 ${endDate}`;
                 obj.zt = isAdjustment ? '调账' : '是';
 

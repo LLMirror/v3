@@ -44,6 +44,15 @@
           >
             {{ importType === 'rent_adjustment' ? '租金调账模板下载' : '租金代扣模板下载' }}
           </el-button>
+          <el-button 
+            v-if="allTableData.length > 0" 
+            type="success" 
+            icon="Check" 
+            @click="handleSave" 
+            class="action-btn"
+          >
+            确认上传
+          </el-button>
         </div>
       </div>
       
@@ -109,7 +118,7 @@ import request from '@/utils/request';
 import { ref, computed, onMounted, nextTick } from 'vue';
 import HandleImport from "@/components/handleImport";
 import Pagination from '@/components/Pagination';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 const weekDate = ref(null);
 const importType = ref('rent_withholding'); // 默认选中租金代扣
@@ -221,7 +230,7 @@ const handleDownloadTemplate = () => {
     const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const link = document.createElement('a');
     link.href = window.URL.createObjectURL(blob);
-    link.download = '租金调账导入模板.xlsx';
+    link.download = importType.value === 'rent_adjustment' ? '租金调账导入模板.xlsx' : '租金代扣导入模板.xlsx';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -230,6 +239,37 @@ const handleDownloadTemplate = () => {
     console.error('下载模板失败:', err);
     ElMessage.error('下载模板失败');
   });
+};
+
+const handleSave = () => {
+  if (allTableData.value.length === 0) return;
+  
+  ElMessageBox.confirm(
+    `确认将 ${allTableData.value.length} 条数据保存到数据库吗？`,
+    '提示',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  )
+    .then(() => {
+      request({
+        url: '/zjdk/save',
+        method: 'post',
+        data: {
+          list: allTableData.value,
+          type: importType.value
+        }
+      }).then(res => {
+        if (res.code === 200) {
+           ElMessage.success(res.msg || '保存成功');
+        } else {
+           ElMessage.error(res.msg || '保存失败');
+        }
+      });
+    })
+    .catch(() => {});
 };
 
 const importRes = (res) => {
