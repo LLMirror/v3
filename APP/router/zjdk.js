@@ -450,13 +450,19 @@ router.get('/template', async (req, res) => {
 
 router.post('/list', async (req, res) => {
     try {
-        const { type, pageNum = 1, pageSize = 20, startDate, endDate } = req.body;
+        const { type, pageNum = 1, pageSize = 20, startDate, endDate, companyName } = req.body;
         const isAdjustment = type === 'rent_adjustment';
         const tableName = isAdjustment ? 'pt-dz-zjdktz_copy1' : 'pt-dz-zjdkdk_copy1';
         
         let where = 'WHERE 1=1';
         let params = [];
         
+        if (companyName) {
+            const column = isAdjustment ? 'ylgs' : 'ylgsmc';
+            where += ` AND ${column} LIKE ?`;
+            params.push(`%${companyName}%`);
+        }
+
         if (startDate && endDate) {
              where += ' AND uploadDate BETWEEN ? AND ?';
              params.push(`${startDate} 00:00:00`, `${endDate} 23:59:59`);
@@ -484,22 +490,125 @@ router.post('/list', async (req, res) => {
     }
 });
 
+router.post('/statement-list', async (req, res) => {
+    try {
+        const { pageNum = 1, pageSize = 20, startDate, endDate } = req.body;
+        const offset = (Number(pageNum) - 1) * Number(pageSize);
+        const limit = Number(pageSize);
+
+        let periodSql;
+        if (startDate && endDate) {
+            // Use provided custom period
+            periodSql = `'${startDate}至${endDate}'`;
+        } else {
+            // Default to Last Week
+            periodSql = `
+                CONCAT(
+                    DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY), '%Y-%m-%d'),
+                    '至',
+                    DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY), '%Y-%m-%d')
+                )
+            `;
+        }
+
+        const sql = `
+            SELECT *
+            FROM files_copy1 
+            WHERE listValue = ${periodSql}
+            ORDER BY update_time DESC
+            LIMIT ? OFFSET ?
+        `;
+        
+        const countSql = `
+            SELECT COUNT(*) as total 
+            FROM files_copy1 
+            WHERE listValue = ${periodSql}
+        `;
+        
+        const { result: list } = await pools({ sql, val: [limit, offset], res, req });
+        const { result: countRes } = await pools({ sql: countSql, val: [], res, req });
+        
+        res.send(utils.returnData({
+            msg: "查询成功",
+            data: {
+                list,
+                total: countRes[0].total
+            }
+        }));
+    } catch (err) {
+        console.error('查询对账单数据失败:', err);
+        res.send(utils.returnData({ code: -1, msg: "查询失败", err: err.message }));
+    }
+});
+
 router.post('/generate-statement', async (req, res) => {
     try {
-        // 1. Delete old data for current period
-        const deleteSql = `
-            DELETE FROM files_copy1 WHERE listValue = CONCAT(
-                DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), '%Y-%m-%d'),
-                '至',
-                DATE_FORMAT(CURDATE() - INTERVAL 1 DAY, '%Y-%m-%d')
-            )
+        const { companyNames, startDate, endDate } = req.body;
+        
+        let periodSql, periodStart, periodEnd;
+        let prevPeriodStart, prevPeriodEnd;
+
+        if (startDate && endDate) {
+            // Use provided custom period
+            periodStart = `'${startDate}'`;
+            periodEnd = `'${endDate}'`;
+            periodSql = `'${startDate}至${endDate}'`;
+            
+            // Calculate previous period (assuming 7 days prior for now, or maybe just based on the difference?)
+            // If the user selects a custom range, "Previous Period" logic is tricky. 
+            // For now, let's assume the user selects a week.
+            // If we strictly follow "Previous Week" logic based on the selected start date:
+            // But if the user selects a random range (e.g. 3 days), "Previous Period" might mean the 3 days before that?
+            // To keep it simple and consistent with the "Weekly" concept, let's assume we shift back 7 days for "Previous Period" 
+            // if it looks like a week, or just shift back by the duration.
+            // However, the original logic was strictly "Last Week" vs "Week Before Last".
+            // Let's stick to 7-day shift for "Previous Period" relative to the Custom Period Start.
+             
+             // We need to calculate dates in SQL or JS. Let's do it in SQL for consistency with previous logic, 
+             // but we need to inject the strings.
+             // Actually, it's better to pass the dates as strings to SQL.
+             
+             // Previous period: startDate - 7 days, endDate - 7 days (Simple assumption for "Weekly" cycles)
+             // Or better: If the user selects Monday-Sunday, previous is last Monday-Sunday.
+             
+             prevPeriodStart = `DATE_SUB('${startDate}', INTERVAL 7 DAY)`;
+             prevPeriodEnd = `DATE_SUB('${endDate}', INTERVAL 7 DAY)`;
+             
+        } else {
+            // Default to Last Week (Monday to Sunday)
+            periodStart = `DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY)`;
+            periodEnd = `DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY)`;
+            
+            periodSql = `
+                CONCAT(
+                    DATE_FORMAT(${periodStart}, '%Y-%m-%d'),
+                    '至',
+                    DATE_FORMAT(${periodEnd}, '%Y-%m-%d')
+                )
+            `;
+            
+            prevPeriodStart = `DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 14) DAY)`;
+            prevPeriodEnd = `DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 8) DAY)`;
+        }
+
+        // 1. Delete old data for the target period
+        let deleteSql = `
+            DELETE FROM files_copy1 WHERE listValue = ${periodSql}
         `;
-        await pools({ sql: deleteSql, val: [], res, req });
+        
+        let deleteParams = [];
+        if (companyNames && companyNames.length > 0) {
+            deleteSql += ` AND nameValue IN (?)`;
+            deleteParams.push(companyNames);
+        }
+
+        await pools({ sql: deleteSql, val: deleteParams, res, req });
 
         // 2. Insert new data
-        const insertSql = `
+        let insertSql = `
  INSERT INTO files_copy1 
  (addid, status, update_time, nameValue, totalAmount, totalAmount1,totalAmount2, ApplicationNotes, listValue) 
+ SELECT * FROM (
  SELECT 
    CONCAT(current.nameValue, current.listValue) AS addid, 
    CASE 
@@ -525,10 +634,10 @@ router.post('/generate-statement', async (req, res) => {
  	 	 	 城市, 
    CONCAT( 
      公司名称, 
- 
-     DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY), '%Y-%m-%d'), 
+     
+     DATE_FORMAT(${periodStart}, '%Y-%m-%d'), 
      '至', 
-     DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY), '%Y-%m-%d'), 
+     DATE_FORMAT(${periodEnd}, '%Y-%m-%d'), 
      '租金代扣', 
      ROUND(SUM(CASE WHEN 扣款_状态 = '是' THEN 扣款_金额 ELSE 0 END), 2), 
      '元，调账金额', 
@@ -539,12 +648,12 @@ router.post('/generate-statement', async (req, res) => {
  	 	 IF(城市 = '南京市', '注：南京区域所有运力公司都由南京沛途科技有限公司代收代付。', "") 
    ) AS g, 
    CONCAT( 
-     DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY), '%Y-%m-%d'), 
+     DATE_FORMAT(${periodStart}, '%Y-%m-%d'), 
      '至', 
-     DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY), '%Y-%m-%d') 
+     DATE_FORMAT(${periodEnd}, '%Y-%m-%d') 
    ) AS listValue 
  FROM ( 
-   -- 上周明细数据 
+   -- 本期明细数据 
    SELECT 
  -- 	 TRIM(SUBSTRING_INDEX(ylgsmc, '（', 1)) AS 公司名称, 
  IF(cs = '南京市', '南京沛途科技有限公司', TRIM(SUBSTRING_INDEX(ylgsmc, '（', 1))) AS 公司名称, 
@@ -553,8 +662,7 @@ router.post('/generate-statement', async (req, res) => {
           zt AS 扣款_状态 
    FROM \`pt-dz-zjdkdk_copy1\` 
    WHERE DATE(STR_TO_DATE(REPLACE(kksj, ' ', ''), '%Y-%m-%d%H:%i:%s')) 
-         BETWEEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY) 
-             AND DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY) 
+         BETWEEN ${periodStart} AND ${periodEnd} 
    
    UNION ALL 
    
@@ -566,8 +674,7 @@ router.post('/generate-statement', async (req, res) => {
           zt AS 扣款_状态 
    FROM \`pt-dz-zjdktz_copy1\` 
    WHERE DATE(STR_TO_DATE(REPLACE(sqsj, ' ', ''), '%Y-%m-%d%H:%i:%s')) 
-         BETWEEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 7) DAY) 
-             AND DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 1) DAY) 
+         BETWEEN ${periodStart} AND ${periodEnd} 
      AND sqyy NOT LIKE '%司机违规扣款%' 
      AND sqr != '系统操作' 
      AND sqzt = '申请成功' 
@@ -575,67 +682,72 @@ router.post('/generate-statement', async (req, res) => {
  ) AS current_data 
  GROUP BY 公司名称,城市 
  ) AS current 
- 
  LEFT JOIN ( 
    -- 上期数据 
-  SELECT 
-     公司名称 AS nameValue, 
-     CONCAT( 
-       公司名称, 
-       DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 14) DAY), '%Y-%m-%d'), 
-       '至', 
-       DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 8) DAY), '%Y-%m-%d'), 
-       '租金代扣', 
-       ROUND(SUM(CASE WHEN 扣款_状态 = '是' THEN 扣款_金额 ELSE 0 END), 2), 
-       '元，调账金额', 
-       ROUND(SUM(CASE WHEN 扣款_状态 = '调账' THEN 扣款_金额 ELSE 0 END), 2), 
-       '元（上期）' 
-     ) AS g 
+   SELECT 
+   公司名称 AS nameValue, 
+   CONCAT( 
+     公司名称, 
+     DATE_FORMAT(${prevPeriodStart}, '%Y-%m-%d'), 
+     '至', 
+     DATE_FORMAT(${prevPeriodEnd}, '%Y-%m-%d'), 
+     '租金代扣', 
+     ROUND(SUM(CASE WHEN 扣款_状态 = '是' THEN 扣款_金额 ELSE 0 END), 2), 
+     '元，调账金额', 
+     ROUND(SUM(CASE WHEN 扣款_状态 = '调账' THEN 扣款_金额 ELSE 0 END), 2), 
+     '元（上期）' 
+   ) AS g 
    FROM ( 
      SELECT 
  -- 	 	 TRIM(SUBSTRING_INDEX(ylgsmc, '（', 1)) AS 公司名称, 
  IF(cs = '南京市', '南京沛途科技有限公司', TRIM(SUBSTRING_INDEX(ylgsmc, '（', 1))) AS 公司名称, 
-            ROUND(kkje * 1, 2) AS 扣款_金额, 
-            zt AS 扣款_状态 
+          ROUND(kkje * 1, 2) AS 扣款_金额, 
+          zt AS 扣款_状态 
      FROM \`pt-dz-zjdkdk_copy1\` 
      WHERE DATE(STR_TO_DATE(REPLACE(kksj, ' ', ''), '%Y-%m-%d%H:%i:%s')) 
-           BETWEEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 14) DAY) 
-           AND DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 8) DAY) 
+           BETWEEN ${prevPeriodStart} AND ${prevPeriodEnd} 
+     
      UNION ALL 
+     
      SELECT 
  -- 	 	 TRIM(SUBSTRING_INDEX(ylgs, '（', 1)) AS 公司名称, 
  IF(cs = '南京市', '南京沛途科技有限公司', TRIM(SUBSTRING_INDEX(ylgs, '（', 1))) AS 公司名称, 
-            ROUND(xgje * -1, 2) AS 扣款_金额, 
-            zt AS 扣款_状态 
+          ROUND(xgje * -1, 2) AS 扣款_金额, 
+          zt AS 扣款_状态 
      FROM \`pt-dz-zjdktz_copy1\` 
      WHERE DATE(STR_TO_DATE(REPLACE(sqsj, ' ', ''), '%Y-%m-%d%H:%i:%s')) 
-           BETWEEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 14) DAY) 
-           AND DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 8) DAY) 
+           BETWEEN ${prevPeriodStart} AND ${prevPeriodEnd} 
        AND sqyy NOT LIKE '%司机违规扣款%' 
        AND sqr != '系统操作' 
        AND sqzt = '申请成功' 
        AND tkzt = '调账成功' 
    ) AS previous_data 
    GROUP BY 公司名称 
- 
- ) AS previous 
- ON current.nameValue = previous.nameValue 
- 
+ ) AS previous ON current.nameValue = previous.nameValue 
  -- 仅插入本期有数据的公司 
  WHERE current.nameValue IS NOT NULL 
- 
- -- 处理重复键值时更新字段 
- ON DUPLICATE KEY UPDATE 
-     status = VALUES(status), 
-     update_time = VALUES(update_time), 
-     nameValue = VALUES(nameValue), 
-     totalAmount = VALUES(totalAmount), 
-     totalAmount1 = VALUES(totalAmount1), 
-     ApplicationNotes = VALUES(ApplicationNotes), 
-     listValue = VALUES(listValue);
+ ) AS final_data
+ `;
+
+        let insertParams = [];
+        if (companyNames && companyNames.length > 0) {
+            insertSql += ` WHERE nameValue IN (?)`;
+            insertParams.push(companyNames);
+        }
+
+        // Add ON DUPLICATE KEY UPDATE just in case
+        insertSql += `
+         ON DUPLICATE KEY UPDATE 
+         status = VALUES(status), 
+         update_time = NOW(), 
+         nameValue = VALUES(nameValue), 
+         totalAmount = VALUES(totalAmount), 
+         totalAmount1 = VALUES(totalAmount1), 
+         ApplicationNotes = VALUES(ApplicationNotes), 
+         listValue = VALUES(listValue);
         `;
         
-        await pools({ sql: insertSql, val: [], res, req });
+        await pools({ sql: insertSql, val: insertParams, res, req });
         
         res.send(utils.returnData({ msg: "生成对账单成功" }));
 

@@ -24,6 +24,7 @@
     "axios": "0.27.2",
     "compressorjs": "^1.2.1",
     "crypto-js": "^4.2.0",
+    "dayjs": "^1.11.19",
     "echarts": "^5.4.3",
     "element-plus": "^2.9.2",
     "exceljs": "^4.4.0",
