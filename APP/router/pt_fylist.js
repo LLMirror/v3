@@ -228,7 +228,7 @@ router.post('/import-preview', upload.single('file'), async (req, res) => {
             const { result: tableExists } = await pools({ sql: checkTableSql, res, req });
             
             if (tableExists.length > 0) {
-                const checkSql = `SELECT COUNT(*) as total, MAX(upload_time) as lastTime FROM ${tableName} WHERE year_month = ?`;
+                const checkSql = `SELECT COUNT(*) as total, MAX(\`upload_time\`) as lastTime FROM \`${tableName}\` WHERE \`year_month\` = ?`;
                 const { result } = await pools({ sql: checkSql, val: [yearMonth], res, req });
                 if (result[0].total > 0) {
                     exists = true;
@@ -296,31 +296,27 @@ router.post('/save-data', async (req, res) => {
         const mapping = FIELD_MAPPINGS[typeId];
         const tableName = TABLE_MAP[typeId];
 
-        if (!mapping || !tableName) return res.send(utils.returnData({ code: -1, msg: "无效的数据类型" }));
-        if (!list || list.length === 0) return res.send(utils.returnData({ code: -1, msg: "没有数据需要保存" }));
+        if (!mapping || !tableName) return res.send(utils.returnData({ code: 1, data: { success: false, msg: "无效的数据类型" } }));
+        if (!list || list.length === 0) return res.send(utils.returnData({ code: 1, data: { success: false, msg: "没有数据需要保存" } }));
 
         // Ensure table exists
         const checkTableSql = `SHOW TABLES LIKE '${tableName}'`;
         const { result: tableExists } = await pools({ sql: checkTableSql, res, req });
 
         if (tableExists.length === 0) {
-            let createSql = `CREATE TABLE ${tableName} (
-                id VARCHAR(64) PRIMARY KEY,
-                upload_time DATETIME,
-                year_month VARCHAR(20),
-            `;
-            
-            Object.values(mapping).forEach(col => {
-                createSql += `\`${col}\` TEXT,`;
-            });
-
-            createSql = createSql.slice(0, -1) + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+            const cols = [
+                'id VARCHAR(64) NOT NULL PRIMARY KEY',
+                '`upload_time` DATETIME',
+                '`year_month` VARCHAR(20)'
+            ];
+            Object.values(mapping).forEach(col => cols.push(`\`${col}\` TEXT`));
+            const createSql = `CREATE TABLE \`${tableName}\` (${cols.join(',')}) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
             await pools({ sql: createSql, res, req });
         }
 
         // Handle overwrite
         if (overwrite) {
-            const deleteSql = `DELETE FROM ${tableName} WHERE year_month = ?`;
+            const deleteSql = `DELETE FROM \`${tableName}\` WHERE \`year_month\` = ?`;
             await pools({ sql: deleteSql, val: [yearMonth], res, req });
         }
 
@@ -332,28 +328,32 @@ router.post('/save-data', async (req, res) => {
         
         for (let i = 0; i < list.length; i += BATCH_SIZE) {
             const batch = list.slice(i, i + BATCH_SIZE);
-            let batchSql = `INSERT INTO ${tableName} (${colsStr}) VALUES `;
+            let batchSql = `INSERT INTO \`${tableName}\` (${colsStr}) VALUES `;
             let batchVals = [];
             
             batch.forEach(item => {
                 const placeholders = dbCols.map(() => '?').join(',');
                 batchSql += `(${placeholders}),`;
                 
-                // Map object properties to array values based on dbCols order
-                dbCols.forEach(col => {
-                    batchVals.push(item[col]);
-                });
+                const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+                const rowVals = [
+                    uuidv4(),
+                    now,
+                    yearMonth,
+                    ...Object.values(mapping).map(col => item[col] !== undefined ? item[col] : null)
+                ];
+                batchVals.push(...rowVals);
             });
             
             batchSql = batchSql.slice(0, -1);
             await pools({ sql: batchSql, val: batchVals, res, req });
         }
 
-        res.send(utils.returnData({ msg: "导入成功", data: { count: list.length } }));
+        res.send(utils.returnData({ msg: "导入成功", data: { success: true, count: list.length } }));
 
     } catch (err) {
         console.error(err);
-        res.send(utils.returnData({ code: -1, msg: "保存失败", err: err.message }));
+        res.send(utils.returnData({ code: 1, data: { success: false, msg: "保存失败: " + err.message } }));
     }
 });
 

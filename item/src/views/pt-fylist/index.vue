@@ -59,8 +59,17 @@
             {{ downloadBtnText }}
           </el-button>
 
+          <el-switch
+            v-if="allTableData.length > 0"
+            v-model="overwriteSwitch"
+            inline-prompt
+            active-text="覆盖现有账期数据"
+            inactive-text="追加导入"
+            class="action-btn"
+          />
+
           <el-button 
-            v-if="previewData.length > 0" 
+            v-if="allTableData.length > 0" 
             type="success" 
             icon="Check" 
             @click="handleSave" 
@@ -99,6 +108,7 @@
         <div class="progress-content">
           <el-progress type="circle" :percentage="uploadPercentage" />
           <div class="progress-text">{{ progressStatusText }}</div>
+          <el-button type="danger" plain @click="cancelUpload" style="margin-top: 12px" :disabled="!uploading">取消上传</el-button>
         </div>
       </el-dialog>
 
@@ -228,6 +238,11 @@ const resetPreview = () => {
   importStatus.msg = '请选择数据类型和账期，然后上传 Excel 文件进行预览。';
 };
 
+// Overwrite control
+const overwriteSwitch = ref(false);
+const importExists = ref(false);
+let uploadController = null;
+
 const handleDownloadTemplate = async () => {
   if (!formData.tableType) {
     ElMessage.warning('请先选择数据类型');
@@ -302,6 +317,7 @@ const customUpload = async (options) => {
   progressVisible.value = true;
   uploadPercentage.value = 0;
   progressStatusText.value = '准备上传...';
+  uploadController = new AbortController();
 
   try {
     // Need to use axios directly to get upload progress if request wrapper doesn't support it easily
@@ -316,7 +332,8 @@ const customUpload = async (options) => {
       url: '/pt_fylist/import-preview',
       method: 'post',
       data: fd,
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { 'Content-Type': 'multipart/form-data', repeatSubmit: false },
+      signal: uploadController.signal,
       onUploadProgress: (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
         if (percentCompleted < 100) {
@@ -349,10 +366,14 @@ const customUpload = async (options) => {
           importStatus.title = '数据重复警告';
           importStatus.type = 'warning';
           importStatus.msg = `该账期 (${formData.yearMonth}) 已存在数据。<br/>上次上传: ${lastTime}<br/>已存条数: ${totalCount} 条。`;
+          importExists.value = true;
+          overwriteSwitch.value = true;
         } else {
           importStatus.title = '解析成功';
           importStatus.type = 'success';
           importStatus.msg = `文件解析成功，共 ${total} 条数据。`;
+          importExists.value = false;
+          overwriteSwitch.value = false;
         }
         
         ElMessage.success('解析成功，请确认数据');
@@ -387,7 +408,7 @@ const customUpload = async (options) => {
     
     importStatus.title = '上传失败';
     importStatus.type = 'error';
-    importStatus.msg = '上传失败: ' + (error.message || '未知错误');
+    importStatus.msg = (error.name === 'AbortError') ? '已取消上传' : ('上传失败: ' + (error.message || '未知错误'));
   } finally {
     uploading.value = false;
     setTimeout(() => {
@@ -396,7 +417,19 @@ const customUpload = async (options) => {
   }
 };
 
-const handleSave = async () => {
+const cancelUpload = () => {
+  try {
+    if (uploadController) uploadController.abort();
+  } catch (e) {}
+  uploading.value = false;
+  progressStatusText.value = '已取消上传';
+  uploadPercentage.value = 0;
+  setTimeout(() => {
+    progressVisible.value = false;
+  }, 300);
+};
+
+async function handleSave() {
   if (allTableData.value.length === 0) {
     ElMessage.error('没有可保存的数据，请重新上传');
     return;
@@ -416,30 +449,63 @@ const handleSave = async () => {
       dangerouslyUseHTMLString: true
     });
 
+    // Chunked upload: 5000 rows per request
     saving.value = true;
-    const res = await request.post('/pt_fylist/save-data', {
-      tableType: formData.tableType,
-      yearMonth: formData.yearMonth,
-      list: allTableData.value, // Send full data list
-      overwrite: true // Always overwrite if confirmed
-    });
-
-    if (res.code === 200) {
-      ElMessage.success(`导入成功，共保存 ${res.data.count} 条数据`);
-      resetPreview();
-    } else {
-      ElMessage.error(res.msg || '保存失败');
+    progressVisible.value = true;
+    progressStatusText.value = '准备导入...';
+    uploadPercentage.value = 0;
+    const chunkSize = 1000;
+    const total = allTableData.value.length;
+    const totalChunks = Math.ceil(total / chunkSize);
+    let savedCount = 0;
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * chunkSize;
+      const end = Math.min(start + chunkSize, total);
+      const chunk = allTableData.value.slice(start, end);
+      const isFirst = i === 0;
+      const payload = {
+        tableType: formData.tableType,
+        yearMonth: formData.yearMonth,
+        list: chunk,
+        overwrite: isFirst ? overwriteSwitch.value : false
+      };
+      progressStatusText.value = `正在导入第 ${i + 1}/${totalChunks} 批，已保存 ${savedCount} 条...`;
+      const res = await request.post('/pt_fylist/save-data', payload, { headers: { repeatSubmit: false } });
+      if (!(res.code === 1 && res.data && res.data.success)) {
+        const errMsg = (res && res.data && res.data.msg) ? res.data.msg : (res.msg || '保存失败');
+        ElMessage.error(errMsg);
+        importStatus.title = '保存失败';
+        importStatus.type = 'error';
+        importStatus.msg = errMsg;
+        throw new Error(errMsg);
+      }
+      savedCount += chunk.length;
+      const percent = Math.floor(((i + 1) / totalChunks) * 100);
+      uploadPercentage.value = percent < 100 ? percent : 99;
     }
+    uploadPercentage.value = 100;
+    progressStatusText.value = '导入完成！';
+    ElMessage.success(`导入成功，共保存 ${savedCount} 条数据`);
+    importStatus.title = '导入成功';
+    importStatus.type = 'success';
+    importStatus.msg = `导入成功，共保存 ${savedCount} 条数据。`;
+    resetPreview();
 
   } catch (err) {
     if (err !== 'cancel') {
       console.error(err);
       ElMessage.error('系统错误');
+      importStatus.title = '保存失败';
+      importStatus.type = 'error';
+      importStatus.msg = (err && err.message) ? ('保存失败：' + err.message) : '保存失败：未知错误';
     }
   } finally {
+    setTimeout(() => {
+      progressVisible.value = false;
+    }, 500);
     saving.value = false;
   }
-};
+}
 </script>
 
 <style scoped>
