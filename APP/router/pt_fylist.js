@@ -1,50 +1,126 @@
 import express from 'express';
 import utils from '../utils/index.js';
 import pools from '../utils/pools.js';
-import fileEvent from '../utils/file.js';
 import xlsx from 'node-xlsx';
 import ExcelJS from 'exceljs';
-import fs from 'fs';
-import path from 'path';
-import config from '../utils/config.js';
+import multer from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import dayjs from 'dayjs';
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
 const TABLE_MAP = {
-    1: 'pt_fy_table_1',
-    2: 'pt_fy_table_2',
-    3: 'pt_fy_table_3',
-    4: 'pt_fy_table_4'
+    1: 'pt_fy_driver_flow',       // 司机流水
+    2: 'pt_fy_settlement_order',  // 结算明细-订单
+    3: 'pt_fy_platform_activity', // 平台活动
+    4: 'pt_fy_discount_bill'      // 优惠账单
+};
+
+// Field Mappings (Header -> DB Column)
+const FIELD_MAPPINGS = {
+    1: { // Driver Flow
+        '司机ID': 'driver_id',
+        '司机名称': 'driver_name',
+        '城市': 'city',
+      
+        '运力公司': 'company',
+        '结算时间': 'settle_time',
+        '交易类目': 'category',
+        '交易金额': 'amount',
+        '关联类型': 'rel_type',
+        '关联编号': 'rel_id',
+        '关联流水': 'rel_flow',
+        '余额': 'balance',
+        '处置ID': 'handle_id',
+        '备注': 'remark',
+        '车队': 'team'
+    },
+    2: { // Settlement Order
+        '运力公司城市': 'company_city',
+       
+        '运力公司': 'company',
+        '业务类型': 'biz_type',
+        '订单号': 'order_id',
+        '渠道': 'channel',
+        '司机编号': 'driver_no',
+        '司机名称': 'driver_name',
+        '司机手机号': 'driver_phone',
+        '佣金补贴类型': 'subsidy_type',
+        '订单创建时间': 'order_create_time',
+        '支付完成时间': 'pay_finish_time',
+        '订单完成时间': 'order_finish_time',
+        '支付状态': 'pay_status',
+        '服务形式': 'service_type',
+        '行程费': 'trip_fee',
+        '远程调度费': 'dispatch_fee',
+        '悦享服务费': 'enjoy_fee',
+        '司机结算悦享服务费': 'driver_enjoy_fee',
+        '悦享服务费抽成比例': 'enjoy_fee_ratio',
+        '综合能耗费': 'energy_fee',
+        '节假日服务费': 'holiday_fee',
+        '红包': 'red_packet',
+        '跨城费': 'cross_city_fee',
+        '附加费结算给司机': 'surcharge_driver',
+        '附加费结算给运力公司': 'surcharge_company',
+        '司机结算行程费': 'driver_trip_fee',
+        '行程费抽成比例': 'trip_fee_ratio',
+        '佣金补贴': 'subsidy',
+        '车队': 'team'
+    },
+    3: { // Platform Activity
+        '完成活动时间': 'finish_time',
+        '发放奖励时间': 'reward_time',
+        '城市': 'city',
+        '运力公司': 'company',
+        '车队': 'team',
+        '司机信息': 'driver_info',
+        '司机编号': 'driver_no',
+        '平台活动ID': 'activity_id',
+        '活动来源': 'source',
+        '共补类型': 'subsidy_share_type',
+        '活动类型': 'activity_type',
+        '奖励类目': 'reward_category',
+        '活动名称': 'activity_name',
+        '达标条件': 'target_condition',
+        '实际达标数据': 'actual_data',
+        '奖励金额': 'reward_amount'
+    },
+    4: { // Discount Bill
+        '优惠抵扣时间': 'deduct_time',
+        '使用城市': 'city',
+       
+        '运力公司': 'company',
+        '订单号': 'order_id',
+        '渠道订单号': 'channel_order_id',
+        '优惠id': 'discount_id',
+        '优惠类型': 'discount_type',
+        '抵扣金额': 'deduct_amount',
+        '优惠成本方': 'cost_bearer',
+        '车队': 'team'
+    }
 };
 
 router.get('/template', async (req, res) => {
     try {
         const { tableType } = req.query;
         console.log(`收到下载模板请求: tableType=${tableType}`);
-        let headers = [];
-        let fileName = 'template.xlsx';
+        
+        const typeId = Number(tableType);
+        const mapping = FIELD_MAPPINGS[typeId];
+        
+        if (!mapping) {
+            return res.send(utils.returnData({ code: -1, msg: "无效的表格类型" }));
+        }
 
-        // Headers based on table type
-        switch (Number(tableType)) {
-            case 1: // Driver Data
-                headers = ['司机姓名', '特价单量', '普通单量', '优惠单量', '免单量', '总单量', '特价金额', '普通金额', '优惠金额', '免单金额', '总金额'];
-                fileName = '司机端数据导入模板.xlsx';
-                break;
-            case 2: // Client Data
-                headers = ['客户名称', '特价单量', '普通单量', '优惠单量', '免单量', '总单量', '特价金额', '普通金额', '优惠金额', '免单金额', '总金额'];
-                fileName = '客户端数据导入模板.xlsx';
-                break;
-            case 3: // Driver Transaction Flow
-                headers = ['司机姓名', '订单量', '流水收入', '奖励收入', '总收入'];
-                fileName = '司机流水详情导入模板.xlsx';
-                break;
-            case 4: // Business Rules
-                headers = ['规则名称', '规则值'];
-                fileName = '商务规则导入模板.xlsx';
-                break;
-            default:
-                headers = ['Column1', 'Column2'];
-                fileName = '通用导入模板.xlsx';
+        const headers = Object.keys(mapping);
+        
+        let fileName = 'template.xlsx';
+        switch (typeId) {
+            case 1: fileName = '司机流水导入模板.xlsx'; break;
+            case 2: fileName = '结算明细-订单导入模板.xlsx'; break;
+            case 3: fileName = '平台活动导入模板.xlsx'; break;
+            case 4: fileName = '优惠账单导入模板.xlsx'; break;
         }
 
         const workbook = new ExcelJS.Workbook();
@@ -76,7 +152,7 @@ router.get('/template', async (req, res) => {
         const headerFill = {
             type: 'pattern',
             pattern: 'solid',
-            fgColor: { argb: 'FFB8B8EA' } // Same color as rent template
+            fgColor: { argb: 'FFB8B8EA' } 
         };
 
         const columnCount = headers.length;
@@ -101,92 +177,141 @@ router.get('/template', async (req, res) => {
 
     } catch (err) {
         console.error('Template download error:', err);
-        res.status(500).send("下载模板失败");
+        res.send(utils.returnData({ code: -1, msg: "下载模板失败" }));
     }
 });
 
-// Check if data exists for the given year_month
-router.post('/checkData', async (req, res) => {
+// Import Preview (Parse & Check)
+router.post('/import-preview', upload.single('file'), async (req, res) => {
     try {
-        const { tableType, yearMonth } = req.body;
-        const tableName = TABLE_MAP[tableType];
-
-        if (!tableName) return res.send(utils.returnData({ code: -1, msg: "Invalid table type" }));
-
-        // Check if table exists
-        const checkTableSql = `SHOW TABLES LIKE '${tableName}'`;
-        const { result: tableExists } = await pools({ sql: checkTableSql, res, req });
-
-        if (tableExists.length === 0) {
-            return res.send(utils.returnData({ data: { exists: false } }));
+        if (!req.file) {
+            return res.send(utils.returnData({ code: 1, data: { success: false, msg: "未上传文件" } }));
         }
-
-        // Check data
-        const sql = `SELECT COUNT(*) as total, MAX(upload_time) as lastTime FROM ${tableName} WHERE year_month = ?`;
-        const { result } = await pools({ sql, val: [yearMonth], res, req });
-
-        if (result[0].total > 0) {
-            return res.send(utils.returnData({ 
-                data: { 
-                    exists: true, 
-                    total: result[0].total, 
-                    lastTime: result[0].lastTime 
-                } 
-            }));
-        } else {
-            return res.send(utils.returnData({ data: { exists: false } }));
-        }
-
-    } catch (err) {
-        console.error(err);
-        res.send(utils.returnData({ code: -1, msg: "Server error", err: err.message }));
-    }
-});
-
-// Import data
-router.post('/importData', async (req, res) => {
-    try {
-        // Upload file first
-        const files = await fileEvent(req, res);
-        if (!files || files.length === 0) return; // Error already handled in fileEvent
-
-        const fileInfo = files[0];
-        const filePath = path.join(config.fileSite, fileInfo.url); // Adjust path logic based on fileEvent return
-
-        // Parse params (passed as body fields by multer)
-        const { tableType, yearMonth, overwrite } = req.body;
-        const tableName = TABLE_MAP[tableType];
         
-        if (!tableName) return res.send(utils.returnData({ code: -1, msg: "Invalid table type" }));
+        const { tableType, yearMonth } = req.body;
+        const typeId = Number(tableType);
+        const mapping = FIELD_MAPPINGS[typeId];
+        const tableName = TABLE_MAP[typeId];
 
-        // Parse Excel
-        const workSheets = xlsx.parse(fs.readFileSync(filePath));
+        if (!mapping || !tableName) {
+            return res.send(utils.returnData({ code: 1, data: { success: false, msg: "无效的数据类型" } }));
+        }
+
+        // Parse Excel from Buffer
+        const workSheets = xlsx.parse(req.file.buffer);
         const sheet = workSheets[0];
         const data = sheet.data;
 
         if (data.length < 2) {
-            return res.send(utils.returnData({ code: -1, msg: "Empty or invalid Excel file" }));
+            return res.send(utils.returnData({ code: 1, data: { success: false, msg: "Excel文件为空或格式不正确" } }));
         }
 
-        const headers = data[0]; // First row as headers
-        const rows = data.slice(1);
+        const headers = data[0].map(h => h ? h.toString().trim() : '');
+        const requiredHeaders = Object.keys(mapping);
+        
+        // Validate Headers
+        const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+        if (missingHeaders.length > 0) {
+            return res.send(utils.returnData({ 
+                code: 1, 
+                data: { success: false, msg: `表头校验失败，缺失字段: ${missingHeaders.join(', ')}` }
+            }));
+        }
 
-        // Check if table exists, if not create it
+        // Check if data exists for this month
+        let exists = false;
+        let lastTime = '';
+        let totalCount = 0;
+        
+        try {
+            const checkTableSql = `SHOW TABLES LIKE '${tableName}'`;
+            const { result: tableExists } = await pools({ sql: checkTableSql, res, req });
+            
+            if (tableExists.length > 0) {
+                const checkSql = `SELECT COUNT(*) as total, MAX(upload_time) as lastTime FROM ${tableName} WHERE year_month = ?`;
+                const { result } = await pools({ sql: checkSql, val: [yearMonth], res, req });
+                if (result[0].total > 0) {
+                    exists = true;
+                    totalCount = result[0].total;
+                    lastTime = result[0].lastTime;
+                }
+            }
+        } catch (e) {
+            console.warn('Table check failed, likely table does not exist yet', e);
+        }
+
+        // Process All Data
+        const list = [];
+        const rawRows = data.slice(1);
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        
+        // Map data to object
+        const headerIndexMap = {};
+        headers.forEach((h, idx) => {
+            if (mapping[h]) {
+                headerIndexMap[mapping[h]] = idx;
+            }
+        });
+
+        rawRows.forEach(row => {
+            if (!row || row.length === 0) return;
+            
+            const item = {
+                id: uuidv4(),
+                upload_time: now,
+                year_month: yearMonth
+            };
+            
+            Object.keys(headerIndexMap).forEach(key => {
+                const idx = headerIndexMap[key];
+                item[key] = row[idx] !== undefined ? row[idx] : null;
+            });
+            list.push(item);
+        });
+
+        res.send(utils.returnData({
+            msg: "解析成功",
+            data: {
+                success: true,
+                exists,
+                lastTime,
+                totalCount,
+                list, // Return all data
+                previewHeaders: Object.keys(mapping).map(k => ({ prop: mapping[k], label: k })),
+                totalRows: list.length
+            }
+        }));
+
+    } catch (err) {
+        console.error(err);
+        res.send(utils.returnData({ code: 1, data: { success: false, msg: "解析失败: " + err.message } }));
+    }
+});
+
+// Save Data
+router.post('/save-data', async (req, res) => {
+    try {
+        const { tableType, yearMonth, list, overwrite } = req.body;
+        const typeId = Number(tableType);
+        const mapping = FIELD_MAPPINGS[typeId];
+        const tableName = TABLE_MAP[typeId];
+
+        if (!mapping || !tableName) return res.send(utils.returnData({ code: -1, msg: "无效的数据类型" }));
+        if (!list || list.length === 0) return res.send(utils.returnData({ code: -1, msg: "没有数据需要保存" }));
+
+        // Ensure table exists
         const checkTableSql = `SHOW TABLES LIKE '${tableName}'`;
         const { result: tableExists } = await pools({ sql: checkTableSql, res, req });
 
         if (tableExists.length === 0) {
-            // Create table
             let createSql = `CREATE TABLE ${tableName} (
-                id INT AUTO_INCREMENT PRIMARY KEY,
+                id VARCHAR(64) PRIMARY KEY,
                 upload_time DATETIME,
                 year_month VARCHAR(20),
             `;
             
-            headers.forEach(header => {
-                // Sanitize header name
-                const colName = header.toString().replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '_');
-                createSql += `\`${colName}\` TEXT,`;
+            Object.values(mapping).forEach(col => {
+                createSql += `\`${col}\` TEXT,`;
             });
 
             createSql = createSql.slice(0, -1) + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
@@ -194,57 +319,41 @@ router.post('/importData', async (req, res) => {
         }
 
         // Handle overwrite
-        if (overwrite === 'true' || overwrite === true) {
+        if (overwrite) {
             const deleteSql = `DELETE FROM ${tableName} WHERE year_month = ?`;
             await pools({ sql: deleteSql, val: [yearMonth], res, req });
         }
 
-        // Insert Data
-        if (rows.length > 0) {
-            // Get columns from table (in case table structure changed or we created it)
-            // For simplicity, we assume the Excel columns match the table columns (except id, upload_time, year_month)
-            // But if the table was just created, it matches. If it existed, we might have issues if columns differ.
-            // "If table exists, upload. If not, create." implies we assume consistent structure.
+        // Batch Insert
+        const dbCols = ['id', 'upload_time', 'year_month', ...Object.values(mapping)];
+        const colsStr = dbCols.map(c => `\`${c}\``).join(',');
+        
+        const BATCH_SIZE = 1000;
+        
+        for (let i = 0; i < list.length; i += BATCH_SIZE) {
+            const batch = list.slice(i, i + BATCH_SIZE);
+            let batchSql = `INSERT INTO ${tableName} (${colsStr}) VALUES `;
+            let batchVals = [];
             
-            // Construct insert SQL
-            const safeHeaders = headers.map(h => h.toString().replace(/[^a-zA-Z0-9_\u4e00-\u9fa5]/g, '_'));
-            const cols = ['upload_time', 'year_month', ...safeHeaders].map(c => `\`${c}\``).join(',');
-            
-            const now = new Date();
-            const placeholders = ['?', '?', ...headers.map(() => '?')].join(',');
-            const insertSql = `INSERT INTO ${tableName} (${cols}) VALUES (${placeholders})`;
-
-            // Batch insert is better, but pools might not support complex batch array. 
-            // We'll iterate or use a simpler approach. 
-            // Given potential size, let's try to batch manually or just loop. 
-            // Loop is safer for pools wrapper usually unless we construct a giant SQL.
-            // Let's construct a giant SQL for performance (batch size 1000).
-            
-            const BATCH_SIZE = 1000;
-            for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-                const batch = rows.slice(i, i + BATCH_SIZE);
-                let batchSql = `INSERT INTO ${tableName} (${cols}) VALUES `;
-                let batchVals = [];
+            batch.forEach(item => {
+                const placeholders = dbCols.map(() => '?').join(',');
+                batchSql += `(${placeholders}),`;
                 
-                batch.forEach(row => {
-                    batchSql += `(?, ?, ${headers.map(() => '?').join(',')}),`;
-                    batchVals.push(now, yearMonth);
-                    // Ensure row has enough columns, pad with null if needed
-                    headers.forEach((_, idx) => {
-                        batchVals.push(row[idx] !== undefined ? row[idx] : null);
-                    });
+                // Map object properties to array values based on dbCols order
+                dbCols.forEach(col => {
+                    batchVals.push(item[col]);
                 });
-                
-                batchSql = batchSql.slice(0, -1);
-                await pools({ sql: batchSql, val: batchVals, res, req });
-            }
+            });
+            
+            batchSql = batchSql.slice(0, -1);
+            await pools({ sql: batchSql, val: batchVals, res, req });
         }
 
-        res.send(utils.returnData({ msg: "Import successful", data: { count: rows.length } }));
+        res.send(utils.returnData({ msg: "导入成功", data: { count: list.length } }));
 
     } catch (err) {
         console.error(err);
-        res.send(utils.returnData({ code: -1, msg: "Import failed", err: err.message }));
+        res.send(utils.returnData({ code: -1, msg: "保存失败", err: err.message }));
     }
 });
 
