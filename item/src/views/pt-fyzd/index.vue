@@ -159,9 +159,7 @@
 
     <!-- Right Side: Caliber Data -->
       <div class="caliber-panel no-print">
-        <div class="panel-header">
-          <h3>口径数据参考</h3>
-        </div>
+  
         
         <!-- Driver Side Table -->
         <div class="caliber-section">
