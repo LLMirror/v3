@@ -113,8 +113,9 @@
         border
         style="width: 100%; max-height: 500px; overflow-y: auto;"
         @selection-change="handleSelectionChange"
+        :row-class-name="tableRowClassName"
       >
-        <el-table-column type="selection" width="55" />
+        <el-table-column type="selection" width="55" :selectable="checkSelectable" />
         <el-table-column prop="nameValue" label="公司" min-width="150" show-overflow-tooltip />
         <el-table-column prop="totalAmount" label="租金代扣金额" width="120" />
         <el-table-column prop="totalAmount1" label="调账金额" width="120" />
@@ -388,6 +389,17 @@ const handleSelectionChange = (val) => {
   selectedRows.value = val;
 };
 
+const checkSelectable = (row) => {
+  return row.status === '未提交';
+};
+
+const tableRowClassName = ({ row }) => {
+  if (row.status !== '未提交') {
+    return 'disabled-row';
+  }
+  return '';
+};
+
 const handleOverwriteSelected = async () => {
   if (selectedRows.value.length === 0) {
     ElMessage.warning('请先勾选要覆盖的公司');
@@ -419,5 +431,10 @@ onMounted(() => {
 .pagination-container {
   margin-top: 20px;
   text-align: right;
+}
+:deep(.disabled-row) {
+  color: #999;
+  text-decoration: line-through;
+  background-color: #f5f7fa;
 }
 </style>

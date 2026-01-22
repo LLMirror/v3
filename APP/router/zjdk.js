@@ -593,7 +593,7 @@ router.post('/generate-statement', async (req, res) => {
 
         // 1. Delete old data for the target period
         let deleteSql = `
-            DELETE FROM files_copy1 WHERE listValue = ${periodSql}
+            DELETE FROM files_copy1 WHERE listValue = ${periodSql} AND status = '未提交'
         `;
         
         let deleteParams = [];
@@ -606,7 +606,7 @@ router.post('/generate-statement', async (req, res) => {
 
         // 2. Insert new data
         let insertSql = `
- INSERT INTO files_copy1 
+ INSERT IGNORE INTO files_copy1 
  (addid, status, update_time, nameValue, totalAmount, totalAmount1,totalAmount2, ApplicationNotes, listValue) 
  SELECT * FROM (
  SELECT 
@@ -736,6 +736,7 @@ router.post('/generate-statement', async (req, res) => {
         }
 
         // Add ON DUPLICATE KEY UPDATE just in case
+        /*
         insertSql += `
          ON DUPLICATE KEY UPDATE 
          status = VALUES(status), 
@@ -743,9 +744,11 @@ router.post('/generate-statement', async (req, res) => {
          nameValue = VALUES(nameValue), 
          totalAmount = VALUES(totalAmount), 
          totalAmount1 = VALUES(totalAmount1), 
+         totalAmount2 = VALUES(totalAmount2), 
          ApplicationNotes = VALUES(ApplicationNotes), 
          listValue = VALUES(listValue);
         `;
+        */
         
         await pools({ sql: insertSql, val: insertParams, res, req });
         
