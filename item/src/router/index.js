@@ -64,6 +64,18 @@ export const constantRoutes = [
         meta: { title: '首页', icon: 'dashboard', affix: true }
       }
     ]
+  },
+  {
+    path: '/pt-fyzd',
+    component: Layout,
+    children: [
+      {
+        path: 'index',
+        component: () => import('@/views/pt-fyzd/index'),
+        name: 'PtFyzd',
+        meta: { title: '加盟商结算对账单', icon: 'money' }
+      }
+    ]
   }
 ]
 
