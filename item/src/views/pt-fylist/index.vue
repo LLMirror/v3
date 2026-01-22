@@ -333,6 +333,7 @@ const customUpload = async (options) => {
       method: 'post',
       data: fd,
       headers: { 'Content-Type': 'multipart/form-data', repeatSubmit: false },
+      timeout: 600000,
       signal: uploadController.signal,
       onUploadProgress: (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -470,7 +471,7 @@ async function handleSave() {
         overwrite: isFirst ? overwriteSwitch.value : false
       };
       progressStatusText.value = `正在导入第 ${i + 1}/${totalChunks} 批，已保存 ${savedCount} 条...`;
-      const res = await request.post('/pt_fylist/save-data', payload, { headers: { repeatSubmit: false } });
+      const res = await request.post('/pt_fylist/save-data', payload, { headers: { repeatSubmit: false }, timeout: 600000 });
       if (!(res.code === 1 && res.data && res.data.success)) {
         const errMsg = (res && res.data && res.data.msg) ? res.data.msg : (res.msg || '保存失败');
         ElMessage.error(errMsg);
