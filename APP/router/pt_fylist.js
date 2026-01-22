@@ -101,6 +101,11 @@ const FIELD_MAPPINGS = {
     }
 };
 
+// Numeric fields that need normalization per table type
+const NUMERIC_FIELDS = {
+    3: ['reward_amount'] // 平台活动：奖励金额
+};
+
 router.get('/template', async (req, res) => {
     try {
         const { tableType } = req.query;
@@ -252,6 +257,15 @@ router.post('/import-preview', upload.single('file'), async (req, res) => {
                 headerIndexMap[mapping[h]] = idx;
             }
         });
+        const numericSet = new Set(NUMERIC_FIELDS[typeId] || []);
+        const toNumber = (val) => {
+            if (val === null || val === undefined) return null;
+            if (typeof val === 'number') return val;
+            const s = String(val).trim();
+            if (!s) return null;
+            const parsed = parseFloat(s.replace(/[^\d.\-\.]/g, ''));
+            return Number.isNaN(parsed) ? null : parsed;
+        };
 
         rawRows.forEach(row => {
             if (!row || row.length === 0) return;
@@ -264,7 +278,8 @@ router.post('/import-preview', upload.single('file'), async (req, res) => {
             
             Object.keys(headerIndexMap).forEach(key => {
                 const idx = headerIndexMap[key];
-                item[key] = row[idx] !== undefined ? row[idx] : null;
+                const rawVal = row[idx] !== undefined ? row[idx] : null;
+                item[key] = numericSet.has(key) ? toNumber(rawVal) : rawVal;
             });
             list.push(item);
         });
