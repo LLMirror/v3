@@ -29,7 +29,7 @@
         <!-- Settlement Period -->
         <tr>
           <td class="label-cell">结算周期：</td>
-          <td colspan="8" class="value-cell-center">2025-12-01至2025-12-31</td>
+          <td colspan="8" class="value-cell-center">{{ statementData.period }}</td>
         </tr>
         
         <!-- Detail Headers -->
@@ -55,14 +55,14 @@
           <td class="data-cell">0.00</td>
           <td class="data-cell">0.00</td>
           <td class="data-cell">0.00</td>
-          <td class="data-cell red-text bold">4.73</td>
+          <td class="data-cell red-text bold">{{ statementData.amount }}</td>
         </tr>
         
         <!-- Invoice Information -->
         <tr>
           <td class="label-cell-vertical">发票信息：</td>
           <td colspan="8" class="content-cell-left">
-            <div class="info-row"><span class="info-label">单位名称：</span>四川沛途快行科技有限公司</div>
+            <div class="info-row"><span class="info-label">单位名称：</span>{{ statementData.companyName }}</div>
             <div class="info-row"><span class="info-label">信用代码：</span>91510107MAC46XL84H</div>
             <div class="info-row"><span class="info-label">地址：</span>四川省成都市武侯区二环路南四段69号2栋1层2号</div>
           </td>
@@ -116,9 +116,16 @@
 </template>
 
 <script setup>
+import { ref, reactive } from 'vue';
 import { ElMessage } from 'element-plus';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+
+const statementData = reactive({
+  companyName: '四川沛途快行科技有限公司',
+  period: '2025-12-01至2025-12-31',
+  amount: '4.73'
+});
 
 const handlePrint = () => {
   const printContent = document.getElementById('statement-content');
@@ -175,7 +182,11 @@ const handleDownloadPDF = async () => {
     const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
     
     pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-    pdf.save('加盟商结算对账单.pdf');
+    
+    // Construct filename: Company + Period + 结算金额： + Amount
+    const filename = `${statementData.companyName} ${statementData.period} 结算金额：${statementData.amount}.pdf`;
+    pdf.save(filename);
+    
     ElMessage.success('PDF 下载成功');
   } catch (error) {
     console.error('PDF generation error:', error);
@@ -293,32 +304,37 @@ const handleDownloadPDF = async () => {
 .intro-text {
   text-align: left;
   text-indent: 2em;
-  padding: 10px;
+  padding: 15px;
+  line-height: 1.8;
+  font-size: 13px;
 }
 
 .label-cell {
   font-weight: bold;
   width: 100px; /* Reduced width */
   text-align: center;
+  background-color: #f8f9fa;
 }
 
 .value-cell-center {
   text-align: center;
   font-weight: bold;
+  font-size: 14px;
 }
 
 .col-header {
   text-align: center;
-  padding: 8px 4px;
+  padding: 10px 4px;
   font-weight: bold;
   background-color: #E2EFDA;
-  font-size: 11px; /* Smaller font for headers */
+  font-size: 12px;
+  color: #333;
 }
 
 .data-cell {
   text-align: center;
-  padding: 8px 4px;
-  font-size: 12px;
+  padding: 10px 4px;
+  font-size: 13px;
 }
 
 .bold {
@@ -326,24 +342,29 @@ const handleDownloadPDF = async () => {
 }
 
 .red-text {
-  color: red;
+  color: #d9001b;
 }
 
 .label-cell-vertical {
-  width: 130px; /* Reduced width */
+  width: 40px;
   text-align: center;
   vertical-align: middle;
   font-weight: bold;
+  background-color: #f8f9fa;
+  padding: 10px;
+  line-height: 1.2;
 }
 
 .content-cell-left {
   text-align: left;
   vertical-align: middle;
-  padding: 10px 15px;
+  padding: 12px 20px;
 }
 
 .info-row {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
 }
 .info-row:last-child {
   margin-bottom: 0;
@@ -353,25 +374,31 @@ const handleDownloadPDF = async () => {
   display: inline-block;
   text-align: right;
   font-weight: normal;
+  width: 110px;
+  flex-shrink: 0;
+  color: #666;
 }
 
 .label-cell-center {
   text-align: center;
   vertical-align: middle;
-  height: 50px; /* Reduced height */
+  height: 50px;
   font-weight: bold;
+  background-color: #f8f9fa;
 }
 
 .signature-area {
   text-align: center;
   vertical-align: middle;
   position: relative;
+  height: 150px;
 }
 
 .signature-text {
-  color: red;
-  font-size: 18px;
+  color: #d9001b;
+  font-size: 20px;
   font-weight: bold;
+  letter-spacing: 2px;
 }
 </style>
 
