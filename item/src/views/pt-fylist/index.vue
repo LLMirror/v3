@@ -98,15 +98,15 @@
       >
         <div class="progress-content">
           <el-progress type="circle" :percentage="uploadPercentage" />
-          <div class="progress-text">文件上传解析中...</div>
+          <div class="progress-text">{{ progressStatusText }}</div>
         </div>
       </el-dialog>
 
       <!-- 预览表格 -->
-      <div v-if="previewData.length > 0" class="table-container">
+      <div v-if="allTableData.length > 0" class="table-container">
         <div class="table-header">
-          <span class="table-title">数据预览 (前 {{ previewData.length }} 条 / 共 {{ totalRows }} 条)</span>
-          <el-tag type="info" effect="plain">仅预览前100条数据，确认无误后请点击“确认导入数据库”</el-tag>
+          <span class="table-title">数据预览 (共 {{ totalRows }} 条)</span>
+          <!-- <el-tag type="info" effect="plain">仅预览前100条数据，确认无误后请点击“确认导入数据库”</el-tag> -->
         </div>
         
         <el-table 
@@ -126,6 +126,18 @@
             show-overflow-tooltip
           />
         </el-table>
+
+        <div class="pagination-container">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[100, 200, 500]"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="totalRows"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
       </div>
 
     </el-card>
@@ -149,11 +161,21 @@ const uploading = ref(false);
 const saving = ref(false);
 const progressVisible = ref(false);
 const uploadPercentage = ref(0);
+const progressStatusText = ref('文件上传解析中...');
 
-const previewData = ref([]);
+// Pagination
+const currentPage = ref(1);
+const pageSize = ref(100);
+
+const allTableData = ref([]); // Store all parsed data
+const previewData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return allTableData.value.slice(start, end);
+});
+
 const previewHeaders = ref([]);
 const totalRows = ref(0);
-const allTableData = ref([]); // Store all parsed data
 
 const importStatus = reactive({
   title: '操作提示',
@@ -185,11 +207,22 @@ const handleDateChange = () => {
   resetPreview();
 };
 
+const handleSizeChange = (val) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+};
+
+const handleCurrentChange = (val) => {
+  currentPage.value = val;
+};
+
 const resetPreview = () => {
-  previewData.value = [];
-  previewHeaders.value = [];
+  // previewData is computed, so we clear source data
   allTableData.value = [];
+  previewHeaders.value = [];
   totalRows.value = 0;
+  currentPage.value = 1;
+  
   importStatus.title = '操作提示';
   importStatus.type = 'info';
   importStatus.msg = '请选择数据类型和账期，然后上传 Excel 文件进行预览。';
@@ -268,6 +301,7 @@ const customUpload = async (options) => {
   uploading.value = true;
   progressVisible.value = true;
   uploadPercentage.value = 0;
+  progressStatusText.value = '准备上传...';
 
   try {
     // Need to use axios directly to get upload progress if request wrapper doesn't support it easily
@@ -285,9 +319,19 @@ const customUpload = async (options) => {
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-        uploadPercentage.value = percentCompleted;
+        if (percentCompleted < 100) {
+            uploadPercentage.value = percentCompleted;
+            progressStatusText.value = `正在上传文件... ${percentCompleted}%`;
+        } else {
+            uploadPercentage.value = 99; // Hold at 99%
+            progressStatusText.value = '上传完成，正在服务器解析数据，请稍候...';
+        }
       }
     });
+    
+    // Only when we get response, we set to 100
+    uploadPercentage.value = 100;
+    progressStatusText.value = '解析完成！';
 
     // Check response structure
     if (res.code === 1) {
@@ -295,27 +339,27 @@ const customUpload = async (options) => {
         const { list, previewHeaders: headers, totalRows: total, exists, lastTime, totalCount } = res.data;
         
         allTableData.value = list;
-        previewData.value = list.slice(0, 100); // Preview first 100 rows
+        // previewData is computed, no need to set manually
         previewHeaders.value = headers;
         totalRows.value = total;
+        currentPage.value = 1;
 
         // Update Alert
         if (exists) {
           importStatus.title = '数据重复警告';
           importStatus.type = 'warning';
-          importStatus.msg = `该账期 (${formData.yearMonth}) 已存在数据。<br/>上次上传: ${lastTime}<br/>已存条数: ${totalCount} 条。<br/><strong>点击“确认导入数据库”将覆盖现有数据！</strong>`;
+          importStatus.msg = `该账期 (${formData.yearMonth}) 已存在数据。<br/>上次上传: ${lastTime}<br/>已存条数: ${totalCount} 条。`;
         } else {
           importStatus.title = '解析成功';
           importStatus.type = 'success';
-          importStatus.msg = `文件解析成功，共 ${total} 条数据。请预览下方数据，确认无误后点击“确认导入数据库”按钮进行保存。`;
+          importStatus.msg = `文件解析成功，共 ${total} 条数据。`;
         }
         
         ElMessage.success('解析成功，请确认数据');
       } else {
         // Soft error (Validation failed, etc.)
-        previewData.value = [];
-        previewHeaders.value = [];
         allTableData.value = [];
+        previewHeaders.value = [];
         totalRows.value = 0;
         
         importStatus.title = '解析失败';
@@ -324,9 +368,8 @@ const customUpload = async (options) => {
       }
     } else {
       // Clear data but show error in alert area
-      previewData.value = [];
-      previewHeaders.value = [];
       allTableData.value = [];
+      previewHeaders.value = [];
       totalRows.value = 0;
       
       importStatus.title = '解析失败';
@@ -338,9 +381,8 @@ const customUpload = async (options) => {
     console.error('Upload error:', error);
     
     // Clear data but show error in alert area
-    previewData.value = [];
-    previewHeaders.value = [];
     allTableData.value = [];
+    previewHeaders.value = [];
     totalRows.value = 0;
     
     importStatus.title = '上传失败';
