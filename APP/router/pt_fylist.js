@@ -3,6 +3,7 @@ import utils from '../utils/index.js';
 import pools from '../utils/pools.js';
 import fileEvent from '../utils/file.js';
 import xlsx from 'node-xlsx';
+import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
 import config from '../utils/config.js';
@@ -15,6 +16,94 @@ const TABLE_MAP = {
     3: 'pt_fy_table_3',
     4: 'pt_fy_table_4'
 };
+
+router.get('/template', async (req, res) => {
+    try {
+        const { tableType } = req.query;
+        console.log(`收到下载模板请求: tableType=${tableType}`);
+        let headers = [];
+        let fileName = 'template.xlsx';
+
+        // Headers based on table type
+        switch (Number(tableType)) {
+            case 1: // Driver Data
+                headers = ['司机姓名', '特价单量', '普通单量', '优惠单量', '免单量', '总单量', '特价金额', '普通金额', '优惠金额', '免单金额', '总金额'];
+                fileName = '司机端数据导入模板.xlsx';
+                break;
+            case 2: // Client Data
+                headers = ['客户名称', '特价单量', '普通单量', '优惠单量', '免单量', '总单量', '特价金额', '普通金额', '优惠金额', '免单金额', '总金额'];
+                fileName = '客户端数据导入模板.xlsx';
+                break;
+            case 3: // Driver Transaction Flow
+                headers = ['司机姓名', '订单量', '流水收入', '奖励收入', '总收入'];
+                fileName = '司机流水详情导入模板.xlsx';
+                break;
+            case 4: // Business Rules
+                headers = ['规则名称', '规则值'];
+                fileName = '商务规则导入模板.xlsx';
+                break;
+            default:
+                headers = ['Column1', 'Column2'];
+                fileName = '通用导入模板.xlsx';
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Sheet1');
+
+        const calculateWidth = (text) => {
+            let length = 0;
+            if (text) {
+                for (const char of text.toString()) {
+                    length += char.charCodeAt(0) > 255 ? 2 : 1;
+                }
+            }
+            return Math.max(length * 1.5 + 2, 12);
+        };
+
+        sheet.columns = headers.map(h => ({ 
+            header: h, 
+            key: h, 
+            width: calculateWidth(h) 
+        }));
+
+        const borderStyle = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+
+        const headerFill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFB8B8EA' } // Same color as rent template
+        };
+
+        const columnCount = headers.length;
+        for (let r = 1; r <= 50; r++) {
+            const row = sheet.getRow(r);
+            for (let c = 1; c <= columnCount; c++) {
+                const cell = row.getCell(c);
+                cell.border = borderStyle;
+                if (r === 1) {
+                    cell.fill = headerFill;
+                    cell.font = { bold: true };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            }
+        }
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(fileName)}`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (err) {
+        console.error('Template download error:', err);
+        res.status(500).send("下载模板失败");
+    }
+});
 
 // Check if data exists for the given year_month
 router.post('/checkData', async (req, res) => {

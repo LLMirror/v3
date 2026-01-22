@@ -17,6 +17,17 @@
           </el-select>
         </el-form-item>
 
+        <el-form-item>
+           <el-button 
+            type="warning" 
+            plain 
+            icon="Download" 
+            @click="handleDownloadTemplate" 
+          >
+            {{ formData.tableType ? (formData.tableType === 1 ? '司机端数据模板下载' : formData.tableType === 2 ? '客户端数据模板下载' : formData.tableType === 3 ? '司机流水详情模板下载' : '商务规则模板下载') : '下载导入模板' }}
+          </el-button>
+        </el-form-item>
+
         <el-form-item label="所属账期" prop="yearMonth">
           <el-date-picker
             v-model="formData.yearMonth"
@@ -81,6 +92,57 @@ const rules = {
   tableType: [{ required: true, message: '请选择数据类型', trigger: 'change' }],
   yearMonth: [{ required: true, message: '请选择账期', trigger: 'change' }],
   file: [{ required: true, message: '请上传文件', trigger: 'change' }]
+};
+
+const handleDownloadTemplate = async () => {
+  if (!formData.tableType) {
+    ElMessage.warning('请先选择数据类型');
+    return;
+  }
+  
+  loading.value = true;
+  try {
+    const res = await request({
+      url: '/pt_fylist/template',
+      method: 'get',
+      params: { tableType: formData.tableType },
+      responseType: 'blob'
+    });
+
+    const blob = new Blob([res.data]);
+    // Check if the blob is actually an error message (JSON)
+    if (blob.type === 'application/json') {
+        const text = await blob.text();
+        const result = JSON.parse(text);
+        ElMessage.error(result.msg || '下载失败');
+        return;
+    }
+
+    const fileNameMap = {
+      1: '司机端数据导入模板.xlsx',
+      2: '客户端数据导入模板.xlsx',
+      3: '司机流水详情导入模板.xlsx',
+      4: '商务规则导入模板.xlsx'
+    };
+    
+    const fileName = fileNameMap[formData.tableType] || '模板.xlsx';
+    
+    // Create download link
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
+    
+  } catch (error) {
+    console.error('Download error:', error);
+    ElMessage.error('下载模板失败');
+  } finally {
+    loading.value = false;
+  }
 };
 
 const handleFileChange = (uploadFile, uploadFiles) => {
