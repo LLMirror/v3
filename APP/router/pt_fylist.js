@@ -961,10 +961,17 @@ router.get('/company-rules', async (req, res) => {
             year_month VARCHAR(7),
             base_policy_id VARCHAR(64),
             ladder_policy_id VARCHAR(64),
+            bind_teams TEXT,
             upload_time DATETIME,
             updated_time DATETIME
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
         await pools({ sql: ensureSql, res, req });
+        // ensure column exists if table pre-created
+        const { result: cols } = await pools({ sql: 'SHOW COLUMNS FROM `pt_fy_company_rule`', res, req });
+        const existing = new Set(cols.map(c => c.Field));
+        if (!existing.has('bind_teams')) {
+            await pools({ sql: 'ALTER TABLE `pt_fy_company_rule` ADD COLUMN `bind_teams` TEXT', res, req });
+        }
         let sql = 'SELECT * FROM `pt_fy_company_rule`';
         let vals = [];
         if (yearMonth) {
@@ -989,10 +996,16 @@ router.post('/company-rules-save', async (req, res) => {
             year_month VARCHAR(7),
             base_policy_id VARCHAR(64),
             ladder_policy_id VARCHAR(64),
+            bind_teams TEXT,
             upload_time DATETIME,
             updated_time DATETIME
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
         await pools({ sql: ensureSql, res, req });
+        const { result: cols } = await pools({ sql: 'SHOW COLUMNS FROM `pt_fy_company_rule`', res, req });
+        const existing = new Set(cols.map(c => c.Field));
+        if (!existing.has('bind_teams')) {
+            await pools({ sql: 'ALTER TABLE `pt_fy_company_rule` ADD COLUMN `bind_teams` TEXT', res, req });
+        }
         if (overwrite) {
             await pools({ sql: 'DELETE FROM `pt_fy_company_rule` WHERE `year_month` = ?', val: [yearMonth], res, req });
         }
@@ -1007,14 +1020,40 @@ router.post('/company-rules-save', async (req, res) => {
         for (const it of items) {
             const cleanCompany = sanitize(it.company);
             await pools({ sql: 'DELETE FROM `pt_fy_company_rule` WHERE `company` = ? AND `year_month` = ?', val: [cleanCompany, yearMonth], res, req });
-            const sql = 'INSERT INTO `pt_fy_company_rule` (`id`,`company`,`year_month`,`base_policy_id`,`ladder_policy_id`,`upload_time`,`updated_time`) VALUES (?,?,?,?,?,?,?)';
-            const val = [uuidv4(), cleanCompany || null, yearMonth, it.base_policy_id || null, it.ladder_policy_id || null, now, now];
+            const bindTeams = Array.isArray(it.bind_teams) ? JSON.stringify(it.bind_teams) : null;
+            const sql = 'INSERT INTO `pt_fy_company_rule` (`id`,`company`,`year_month`,`base_policy_id`,`ladder_policy_id`,`bind_teams`,`upload_time`,`updated_time`) VALUES (?,?,?,?,?,?,?,?)';
+            const val = [uuidv4(), cleanCompany || null, yearMonth, it.base_policy_id || null, it.ladder_policy_id || null, bindTeams, now, now];
             await pools({ sql, val, res, req });
             saved++;
         }
         return res.send(utils.returnData({ msg: '保存成功', data: { success: true, saved } }));
     } catch (err) {
         return res.send(utils.returnData({ code: 1, data: { success: false, msg: '保存失败: ' + err.message } }));
+    }
+});
+
+router.get('/company-teams', async (req, res) => {
+    try {
+        const { yearMonth, company } = req.query;
+        if (!yearMonth || !company) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少参数' } }));
+        const sanitize = (name) => {
+            if (!name) return '';
+            let s = String(name).trim();
+            s = s.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '');
+            s = s.split(/[-－—–]/)[0];
+            return s.trim();
+        };
+        const clean = sanitize(company);
+        const checkSql = 'SHOW TABLES LIKE \'pt_fy_settlement_order\'';
+        const { result: exists } = await pools({ sql: checkSql, res, req });
+        if (exists.length === 0) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '结算明细表不存在' } }));
+        // match rows whose company starts with clean name
+        const sql = 'SELECT DISTINCT `team` FROM `pt_fy_settlement_order` WHERE `year_month` = ? AND `company` LIKE CONCAT(?, \'%\') AND `team` IS NOT NULL';
+        const { result } = await pools({ sql, val: [yearMonth, clean], res, req });
+        const teams = result.map(r => r.team).filter(Boolean);
+        return res.send(utils.returnData({ msg: '查询成功', data: { success: true, teams } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
     }
 });
 export default router;

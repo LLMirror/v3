@@ -30,6 +30,13 @@
         </div>
         <el-table :data="companies" border stripe height="500" :header-cell-style="{ background: '#f5f7fa', color: '#606266', fontWeight: 'bold' }">
           <el-table-column prop="company" label="公司" min-width="220" />
+          <el-table-column label="绑定车队" min-width="280">
+            <template #default="scope">
+              <el-select v-model="scope.row.bindTeams" multiple filterable collapse-tags placeholder="选择车队" style="width:260px" @visible-change="(v)=>v&&loadTeams(scope.row)">
+                <el-option v-for="t in scope.row.teamsOptions" :key="t" :label="t" :value="t" />
+              </el-select>
+            </template>
+          </el-table-column>
           <el-table-column label="基础配置" min-width="220">
             <template #default="scope">
               <el-select v-model="scope.row.base_policy_id" filterable placeholder="选择基础配置" style="width:200px">
@@ -98,7 +105,7 @@ const loadCompanies = async () => {
   try {
     const res = await request({ url: '/pt_fylist/company-by-month', method: 'get', params: { yearMonth: yearMonth.value } });
     if (res.code === 1 && res.data && res.data.success) {
-      companies.value = (res.data.companies || []).map(c => ({ company: c, base_policy_id: '', ladder_policy_id: '' }));
+      companies.value = (res.data.companies || []).map(c => ({ company: c, bindTeams: [], teamsOptions: [], base_policy_id: '', ladder_policy_id: '' }));
       status.title = '公司加载成功';
       status.type = 'success';
       status.msg = `共加载 ${companies.value.length} 个公司，选择基础/阶梯配置后保存。`;
@@ -132,11 +139,12 @@ const loadExistingRules = async () => {
       const map = new Map((res.data.list || []).map(r => [r.company, r]));
       companies.value = (companies.value.length ? companies.value : []).map(row => {
         const m = map.get(row.company);
-        return m ? { company: row.company, base_policy_id: m.base_policy_id || '', ladder_policy_id: m.ladder_policy_id || '' } : row;
+        const bindTeams = m && m.bind_teams ? JSON.parse(m.bind_teams) : [];
+        return m ? { company: row.company, bindTeams, teamsOptions: row.teamsOptions || [], base_policy_id: m.base_policy_id || '', ladder_policy_id: m.ladder_policy_id || '' } : row;
       });
       if (companies.value.length === 0) {
         // if companies not loaded yet, construct from mapping
-        companies.value = (res.data.list || []).map(r => ({ company: r.company, base_policy_id: r.base_policy_id || '', ladder_policy_id: r.ladder_policy_id || '' }));
+        companies.value = (res.data.list || []).map(r => ({ company: r.company, bindTeams: r.bind_teams ? JSON.parse(r.bind_teams) : [], teamsOptions: [], base_policy_id: r.base_policy_id || '', ladder_policy_id: r.ladder_policy_id || '' }));
       }
       status.title = '绑定加载成功';
       status.type = 'success';
@@ -163,7 +171,7 @@ const handleSave = async () => {
   uploadPercentage.value = 0;
   progressStatusText.value = '正在保存公司绑定...';
   try {
-    const items = companies.value.map(r => ({ company: r.company, base_policy_id: r.base_policy_id || '', ladder_policy_id: r.ladder_policy_id || '' }));
+    const items = companies.value.map(r => ({ company: r.company, bind_teams: r.bindTeams || [], base_policy_id: r.base_policy_id || '', ladder_policy_id: r.ladder_policy_id || '' }));
     const res = await request.post('/pt_fylist/company-rules-save', { yearMonth: yearMonth.value, items, overwrite: overwrite.value }, { headers: { repeatSubmit: false }, timeout: 600000 });
     if (res.code === 1 && res.data && res.data.success) {
       uploadPercentage.value = 100;
@@ -187,6 +195,19 @@ const handleSave = async () => {
   } finally {
     setTimeout(() => { progressVisible.value = false; }, 500);
   }
+};
+const loadTeams = async (row) => {
+  if (!yearMonth.value) {
+    ElMessage.warning('请选择生效月份');
+    return;
+  }
+  if (row.teamsOptions && row.teamsOptions.length > 0) return;
+  try {
+    const res = await request({ url: '/pt_fylist/company-teams', method: 'get', params: { yearMonth: yearMonth.value, company: row.company } });
+    if (res.code === 1 && res.data && res.data.success) {
+      row.teamsOptions = res.data.teams || [];
+    }
+  } catch {}
 };
 </script>
 
