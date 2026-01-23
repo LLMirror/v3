@@ -857,4 +857,48 @@ router.post('/save-data', async (req, res) => {
     }
 });
 
+router.post('/rules-update', async (req, res) => {
+    try {
+        const { baseUpdates = [], ladderUpdates = [] } = req.body || {};
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        let updatedBase = 0, updatedLadder = 0;
+        for (const r of Array.isArray(baseUpdates) ? baseUpdates : []) {
+            const sql = 'UPDATE `pt_fy_rules_base_simple` SET `policy_id`=?,`category`=?,`port`=?,`base_metric`=?,`subtract_free`=?,`method`=?,`rate_value`=?,`remark`=?,`updated_time`=? WHERE `id`=?';
+            const val = [r.policy_id ?? null, r.category ?? null, r.port ?? null, r.base_metric ?? null, r.subtract_free ? 1 : 0, r.method ?? null, r.rate_value ?? null, r.remark ?? null, now, r.id];
+            await pools({ sql, val, res, req });
+            updatedBase++;
+        }
+        for (const r of Array.isArray(ladderUpdates) ? ladderUpdates : []) {
+            const sql = 'UPDATE `pt_fy_rules_ladder` SET `policy_id`=?,`rule_type`=?,`dimension`=?,`metric`=?,`min_val`=?,`max_val`=?,`method`=?,`rule_value`=?,`subtract_free`=?,`updated_time`=? WHERE `id`=?';
+            const val = [r.policy_id ?? null, r.rule_type ?? null, r.dimension ?? null, r.metric ?? null, r.min_val ?? null, r.max_val ?? null, r.method ?? null, r.rule_value ?? null, r.subtract_free ? 1 : 0, now, r.id];
+            await pools({ sql, val, res, req });
+            updatedLadder++;
+        }
+        return res.send(utils.returnData({ msg: '更新成功', data: { success: true, updatedBase, updatedLadder } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '更新失败: ' + err.message } }));
+    }
+});
+
+router.post('/rules-delete-by-id', async (req, res) => {
+    try {
+        const { baseIds = [], ladderIds = [] } = req.body || {};
+        let deletedBase = 0, deletedLadder = 0;
+        if (Array.isArray(baseIds) && baseIds.length > 0) {
+            const placeholders = baseIds.map(() => '?').join(',');
+            const sql = `DELETE FROM \`pt_fy_rules_base_simple\` WHERE \`id\` IN (${placeholders})`;
+            const { result } = await pools({ sql, val: baseIds, res, req });
+            deletedBase = result?.affectedRows || 0;
+        }
+        if (Array.isArray(ladderIds) && ladderIds.length > 0) {
+            const placeholders = ladderIds.map(() => '?').join(',');
+            const sql = `DELETE FROM \`pt_fy_rules_ladder\` WHERE \`id\` IN (${placeholders})`;
+            const { result } = await pools({ sql, val: ladderIds, res, req });
+            deletedLadder = result?.affectedRows || 0;
+        }
+        return res.send(utils.returnData({ msg: '按ID删除成功', data: { success: true, deletedBase, deletedLadder } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '按ID删除失败: ' + err.message } }));
+    }
+});
 export default router;

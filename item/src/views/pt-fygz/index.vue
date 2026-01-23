@@ -25,6 +25,98 @@
           </el-upload>
         </div>
       </div>
+      <div class="table-container">
+        <div class="table-header">
+          <span class="table-title">已上传规则</span>
+          <div>
+            <el-button type="primary" @click="loadBaseOnline">刷新基础</el-button>
+            <el-button type="primary" @click="loadLadderOnline">刷新阶梯</el-button>
+            <el-button type="success" @click="saveOnlineEdits">保存修改</el-button>
+            <el-button type="danger" @click="deleteSelectedOnline">删除选中</el-button>
+            <el-button @click="addNewBase">新增基础</el-button>
+            <el-button @click="addNewLadder">新增阶梯</el-button>
+          </div>
+        </div>
+        <el-tabs type="border-card" v-model="activeOnline">
+          <el-tab-pane label="基础配置" name="online-base">
+            <el-table :data="baseOnlineRows" border stripe height="400" @selection-change="sel=>baseSelectedIds=sel.map(r=>r.id)">
+              <el-table-column type="selection" width="55" />
+              <el-table-column prop="policy_id" label="政策ID" width="140">
+                <template #default="scope"><el-input v-model="scope.row.policy_id" /></template>
+              </el-table-column>
+              <el-table-column prop="category" label="分类" width="120">
+                <template #default="scope"><el-input v-model="scope.row.category" /></template>
+              </el-table-column>
+              <el-table-column prop="port" label="端口" width="120">
+                <template #default="scope"><el-input v-model="scope.row.port" /></template>
+              </el-table-column>
+              <el-table-column prop="base_metric" label="基数" width="120">
+                <template #default="scope"><el-input v-model="scope.row.base_metric" /></template>
+              </el-table-column>
+              <el-table-column prop="subtract_free" label="是否减免佣" width="120">
+                <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" /></template>
+              </el-table-column>
+              <el-table-column prop="method" label="返佣方式" width="120">
+                <template #default="scope"><el-select v-model="scope.row.method"><el-option label="百分比" value="百分比" /><el-option label="单价" value="单价" /></el-select></template>
+              </el-table-column>
+              <el-table-column prop="rate_value" label="费率/单价" width="140">
+                <template #default="scope"><el-input v-model="scope.row.rate_display" @blur="formatRate(scope.row)" /></template>
+              </el-table-column>
+              <el-table-column prop="remark" label="备注" min-width="180">
+                <template #default="scope"><el-input v-model="scope.row.remark" /></template>
+              </el-table-column>
+            </el-table>
+            <div class="pagination-container">
+              <el-pagination v-model:current-page="basePage" v-model:page-size="baseSize" :total="baseTotal" @current-change="loadBaseOnline" @size-change="loadBaseOnline" layout="total, sizes, prev, pager, next, jumper" />
+            </div>
+          </el-tab-pane>
+          <el-tab-pane label="阶梯规则" name="online-ladder">
+            <el-table :data="ladderOnlineRows" border stripe height="400" @selection-change="sel=>ladderSelectedIds=sel.map(r=>r.id)">
+              <el-table-column type="selection" width="55" />
+              <el-table-column prop="policy_id" label="政策ID" width="140">
+                <template #default="scope"><el-input v-model="scope.row.policy_id" /></template>
+              </el-table-column>
+              <el-table-column prop="rule_type" label="规则类型" width="160">
+                <template #default="scope">
+                  <el-select v-model="scope.row.rule_type" style="width:140px">
+                    <el-option label="阶梯《基础》规则" value="阶梯《基础》规则" />
+                    <el-option label="阶梯《激励》规则" value="阶梯《激励》规则" />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column prop="dimension" label="维度" width="120">
+                <template #default="scope"><el-input v-model="scope.row.dimension" /></template>
+              </el-table-column>
+              <el-table-column prop="metric" label="基数" width="120">
+                <template #default="scope"><el-input v-model="scope.row.metric" /></template>
+              </el-table-column>
+              <el-table-column prop="min_val" label="最小值(>=)" width="140">
+                <template #default="scope"><el-input v-model="scope.row.min_val" @blur="formatNumber(scope.row,'min_val')" /></template>
+              </el-table-column>
+              <el-table-column prop="max_val" label="最大值(<)" width="140">
+                <template #default="scope"><el-input v-model="scope.row.max_val" @blur="formatNumber(scope.row,'max_val')" /></template>
+              </el-table-column>
+              <el-table-column prop="range_preview" label="范围预览" min-width="180" />
+              <el-table-column prop="method" label="返佣方式" width="120">
+                <template #default="scope">
+                  <el-select v-model="scope.row.method" style="width:110px">
+                    <el-option label="百分比" value="百分比" />
+                    <el-option label="单价" value="单价" />
+                    <el-option label="返现" value="返现" />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column prop="rule_value" label="费率/单价" width="140">
+                <template #default="scope"><el-input v-model="scope.row.rule_display" @blur="formatRule(scope.row)" /></template>
+              </el-table-column>
+              <el-table-column prop="unit" label="单位" width="100" />
+            </el-table>
+            <div class="pagination-container">
+              <el-pagination v-model:current-page="ladderPage" v-model:page-size="ladderSize" :total="ladderTotal" @current-change="loadLadderOnline" @size-change="loadLadderOnline" layout="total, sizes, prev, pager, next, jumper" />
+            </div>
+          </el-tab-pane>
+        </el-tabs>
+      </div>
       <div class="alert-container" v-if="importStatus.msg">
         <el-alert :title="importStatus.title" :type="importStatus.type" :closable="false" show-icon class="custom-alert">
           <template #default>
@@ -364,6 +456,114 @@ const confirmDupAndSave = async () => {
     }, 500);
   }
 };
+
+const activeOnline = ref('online-base');
+const baseOnlineRows = ref([]);
+const ladderOnlineRows = ref([]);
+const baseSelectedIds = ref([]);
+const ladderSelectedIds = ref([]);
+const basePage = ref(1);
+const baseSize = ref(20);
+const baseTotal = ref(0);
+const ladderPage = ref(1);
+const ladderSize = ref(20);
+const ladderTotal = ref(0);
+const loadBaseOnline = async () => {
+  try {
+    const res = await request.post('/pt_fylist/rules-query', { table: 'base', page: basePage.value, size: baseSize.value }, { headers: { repeatSubmit: false } });
+    if (res.code === 1) {
+      baseOnlineRows.value = (res.data?.list || []).map(r => ({ ...r, rate_display: (r.method === '百分比' && r.rate_value != null) ? ((Number(r.rate_value) * 100).toFixed(2) + '%') : (r.rate_value != null ? Number(r.rate_value).toFixed(2) : '') }));
+      baseTotal.value = res.total || 0;
+    }
+  } catch {}
+};
+const loadLadderOnline = async () => {
+  try {
+    const res = await request.post('/pt_fylist/rules-query', { table: 'ladder', page: ladderPage.value, size: ladderSize.value }, { headers: { repeatSubmit: false } });
+    if (res.code === 1) {
+      ladderOnlineRows.value = (res.data?.list || []).map(r => ({
+        ...r,
+        range_preview: `${Number(r.min_val ?? 0).toFixed(2)} ≤ x < ${Number(r.max_val ?? 0).toFixed(2)}`,
+        unit: r.method === '百分比' ? '%' : (r.method === '返现' ? '元/人' : '元/单'),
+        rule_display: (r.method === '百分比' && r.rule_value != null) ? ((Number(r.rule_value) * 100).toFixed(2) + '%') : (r.rule_value != null ? Number(r.rule_value).toFixed(2) : '')
+      }));
+      ladderTotal.value = res.total || 0;
+    }
+  } catch {}
+};
+const formatRate = (row) => {
+  const s = String(row.rate_display || '').trim();
+  if (row.method === '百分比') {
+    let n = s.endsWith('%') ? parseFloat(s.replace('%','')) : parseFloat(s);
+    if (Number.isNaN(n)) n = 0;
+    row.rate_display = n.toFixed(2) + '%';
+    row.rate_value = n / 100;
+  } else {
+    let n = parseFloat(s.replace(/[^\d.\-\.]/g,''));
+    if (Number.isNaN(n)) n = 0;
+    row.rate_display = n.toFixed(2);
+    row.rate_value = n;
+  }
+};
+const formatRule = (row) => {
+  const s = String(row.rule_display || '').trim();
+  if (row.method === '百分比') {
+    let n = s.endsWith('%') ? parseFloat(s.replace('%','')) : parseFloat(s);
+    if (Number.isNaN(n)) n = 0;
+    row.rule_display = n.toFixed(2) + '%';
+    row.rule_value = n / 100;
+  } else {
+    let n = parseFloat(s.replace(/[^\d.\-\.]/g,''));
+    if (Number.isNaN(n)) n = 0;
+    row.rule_display = n.toFixed(2);
+    row.rule_value = n;
+  }
+};
+const formatNumber = (row, key) => {
+  let n = parseFloat(String(row[key] || '').replace(/[^\d.\-\.]/g,''));
+  if (Number.isNaN(n)) n = 0;
+  row[key] = Number(n.toFixed(2));
+};
+const saveOnlineEdits = async () => {
+  try {
+    const res = await request.post('/pt_fylist/rules-update', {
+      baseUpdates: baseOnlineRows.value.map(r => ({ id: r.id, policy_id: r.policy_id, category: r.category, port: r.port, base_metric: r.base_metric, subtract_free: r.subtract_free, method: r.method, rate_value: r.rate_value, remark: r.remark })),
+      ladderUpdates: ladderOnlineRows.value.map(r => ({ id: r.id, policy_id: r.policy_id, rule_type: r.rule_type, dimension: r.dimension, metric: r.metric, min_val: r.min_val, max_val: r.max_val, method: r.method, rule_value: r.rule_value, subtract_free: r.subtract_free }))
+    }, { headers: { repeatSubmit: false }, timeout: 600000 });
+    if (res.code === 1 && res.data && res.data.success) {
+      ElMessage.success('保存修改成功');
+      loadBaseOnline();
+      loadLadderOnline();
+    } else {
+      ElMessage.error(res.data?.msg || res.msg || '保存修改失败');
+    }
+  } catch {
+    ElMessage.error('保存修改失败');
+  }
+};
+const deleteSelectedOnline = async () => {
+  try {
+    const res = await request.post('/pt_fylist/rules-delete-by-id', { baseIds: baseSelectedIds.value, ladderIds: ladderSelectedIds.value }, { headers: { repeatSubmit: false } });
+    if (res.code === 1 && res.data && res.data.success) {
+      ElMessage.success('删除成功');
+      loadBaseOnline();
+      loadLadderOnline();
+    } else {
+      ElMessage.error(res.data?.msg || res.msg || '删除失败');
+    }
+  } catch {
+    ElMessage.error('删除失败');
+  }
+};
+const addNewBase = () => {
+  baseOnlineRows.value.unshift({ id: undefined, policy_id: '', category: '', port: '', base_metric: '', subtract_free: 0, method: '单价', rate_display: '', rate_value: null, remark: '' });
+};
+const addNewLadder = () => {
+  ladderOnlineRows.value.unshift({ id: undefined, policy_id: '', rule_type: '', dimension: '', metric: '', min_val: null, max_val: null, method: '单价', rule_display: '', rule_value: null, subtract_free: 0 });
+};
+
+loadBaseOnline();
+loadLadderOnline();
 </script>
 
 <style scoped>
@@ -472,5 +672,8 @@ const confirmDupAndSave = async () => {
 .dup-title {
   font-weight: 600;
   margin-bottom: 8px;
+}
+.pagination-container {
+  margin-top: 8px;
 }
 </style>
