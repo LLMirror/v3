@@ -902,129 +902,83 @@ router.post('/rules-delete-by-id', async (req, res) => {
     }
 });
 
-router.get('/company-by-month', async (req, res) => {
+router.get('/company-policy/template', async (req, res) => {
     try {
-        const { yearMonth } = req.query;
-        if (!yearMonth) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少 yearMonth' } }));
-        const checkSql = 'SHOW TABLES LIKE \'pt_fy_settlement_order\'';
-        const { result: exists } = await pools({ sql: checkSql, res, req });
-        if (exists.length === 0) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '结算明细表不存在' } }));
-        const sql = 'SELECT DISTINCT `company` FROM `pt_fy_settlement_order` WHERE `year_month` = ? ORDER BY `company`';
-        const { result } = await pools({ sql, val: [yearMonth], res, req });
-        const sanitize = (name) => {
-            if (!name) return '';
-            let s = String(name).trim();
-            // remove content in (), （）
-            s = s.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '');
-            // cut off at - or fullwidth/emdash
-            s = s.split(/[-－—–]/)[0];
-            return s.trim();
-        };
-        const companiesSet = new Set();
-        result.forEach(r => {
-            const clean = sanitize(r.company);
-            if (clean) companiesSet.add(clean);
+        const workbook = new ExcelJS.Workbook();
+        const w = (t) => { let n = 0; if (t) for (const c of String(t)) n += c.charCodeAt(0) > 255 ? 2 : 1; return Math.max(n * 1.5 + 2, 12); };
+        const sheet = workbook.addWorksheet('公司返佣配置');
+        const h = ['公司','绑定车队','基础政策ID','阶梯政策ID','生效月份'];
+        sheet.columns = h.map(x => ({ header: x, key: x, width: w(x) }));
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent('公司返佣配置模板.xlsx')}`);
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (err) {
+        res.send(utils.returnData({ code: 1, data: { success: false, msg: '下载模板失败: ' + err.message } }));
+    }
+});
+
+router.post('/company-policy/import', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '未上传文件' } }));
+        const month = req.body.month;
+        const ws = xlsx.parse(req.file.buffer);
+        const sheet = ws[0];
+        const data = sheet?.data || [];
+        if (data.length < 2) return res.send(utils.returnData({ code: 1, data: { success: false, msg: 'Excel为空或格式不正确' } }));
+        const headers = (data[0] || []).map(v => v ? String(v).trim() : '');
+        const expected = ['公司','绑定车队','基础政策ID','阶梯政策ID','生效月份'];
+        const missing = expected.filter(h => !headers.includes(h));
+        if (missing.length > 0) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺失字段: ' + missing.join(', ') } }));
+        const idx = (name) => headers.indexOf(name);
+        const list = [];
+        data.slice(1).forEach(r => {
+            if (!r || r.length === 0) return;
+            list.push({
+                company: r[idx('公司')] || '',
+                team: r[idx('绑定车队')] || '',
+                base_policy_id: r[idx('基础政策ID')] || '',
+                ladder_policy_id: r[idx('阶梯政策ID')] || '',
+                month: String(r[idx('生效月份')] || month || '').trim()
+            });
         });
-        return res.send(utils.returnData({ msg: '查询成功', data: { success: true, companies: Array.from(companiesSet) } }));
+        return res.send(utils.returnData({ msg: '解析成功', data: { success: true, list } }));
     } catch (err) {
-        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '解析失败: ' + err.message } }));
     }
 });
 
-router.get('/rules-options', async (req, res) => {
+router.post('/company-policy/save', async (req, res) => {
     try {
-        const baseSql = 'SHOW TABLES LIKE \'pt_fy_rules_base_simple\'';
-        const ladderSql = 'SHOW TABLES LIKE \'pt_fy_rules_ladder\'';
-        const { result: baseExists } = await pools({ sql: baseSql, res, req });
-        const { result: ladderExists } = await pools({ sql: ladderSql, res, req });
-        let baseOptions = [], ladderOptions = [];
-        if (baseExists.length > 0) {
-            const { result } = await pools({ sql: 'SELECT DISTINCT `policy_id` FROM `pt_fy_rules_base_simple` WHERE `policy_id` IS NOT NULL ORDER BY `policy_id`', res, req });
-            baseOptions = result.map(r => ({ policy_id: r.policy_id }));
-        }
-        if (ladderExists.length > 0) {
-            const { result } = await pools({ sql: 'SELECT DISTINCT `policy_id` FROM `pt_fy_rules_ladder` WHERE `policy_id` IS NOT NULL ORDER BY `policy_id`', res, req });
-            ladderOptions = result.map(r => ({ policy_id: r.policy_id }));
-        }
-        return res.send(utils.returnData({ msg: '查询成功', data: { success: true, baseOptions, ladderOptions } }));
-    } catch (err) {
-        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
-    }
-});
-
-router.get('/company-rules', async (req, res) => {
-    try {
-        const { yearMonth } = req.query;
-        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_rule\` (
+        const { month, list = [], append } = req.body || {};
+        if (!month) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少生效月份' } }));
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_policy\` (
             id VARCHAR(64) NOT NULL PRIMARY KEY,
             company VARCHAR(128),
-            year_month VARCHAR(7),
+            team VARCHAR(128),
             base_policy_id VARCHAR(64),
             ladder_policy_id VARCHAR(64),
-            bind_teams TEXT,
+            month VARCHAR(10),
             upload_time DATETIME,
             updated_time DATETIME
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
         await pools({ sql: ensureSql, res, req });
-        // ensure column exists if table pre-created
-        const { result: cols } = await pools({ sql: 'SHOW COLUMNS FROM `pt_fy_company_rule`', res, req });
-        const existing = new Set(cols.map(c => c.Field));
-        if (!existing.has('bind_teams')) {
-            await pools({ sql: 'ALTER TABLE `pt_fy_company_rule` ADD COLUMN `bind_teams` TEXT', res, req });
+        if (!append) {
+            await pools({ sql: 'DELETE FROM `pt_fy_company_policy` WHERE `month` = ?', val: [month], res, req });
         }
-        let sql = 'SELECT * FROM `pt_fy_company_rule`';
-        let vals = [];
-        if (yearMonth) {
-            sql += ' WHERE `year_month` = ?';
-            vals = [yearMonth];
-        }
-        const { result } = await pools({ sql, val: vals, res, req });
-        return res.send(utils.returnData({ msg: '查询成功', data: { success: true, list: result } }));
-    } catch (err) {
-        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
-    }
-});
-
-router.post('/company-rules-save', async (req, res) => {
-    try {
-        const { yearMonth, items = [], overwrite = false } = req.body || {};
-        if (!yearMonth) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少 yearMonth' } }));
-        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
-        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_rule\` (
-            id VARCHAR(64) NOT NULL PRIMARY KEY,
-            company VARCHAR(128),
-            year_month VARCHAR(7),
-            base_policy_id VARCHAR(64),
-            ladder_policy_id VARCHAR(64),
-            bind_teams TEXT,
-            upload_time DATETIME,
-            updated_time DATETIME
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
-        await pools({ sql: ensureSql, res, req });
-        const { result: cols } = await pools({ sql: 'SHOW COLUMNS FROM `pt_fy_company_rule`', res, req });
-        const existing = new Set(cols.map(c => c.Field));
-        if (!existing.has('bind_teams')) {
-            await pools({ sql: 'ALTER TABLE `pt_fy_company_rule` ADD COLUMN `bind_teams` TEXT', res, req });
-        }
-        if (overwrite) {
-            await pools({ sql: 'DELETE FROM `pt_fy_company_rule` WHERE `year_month` = ?', val: [yearMonth], res, req });
-        }
-        const sanitize = (name) => {
-            if (!name) return '';
-            let s = String(name).trim();
-            s = s.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '');
-            s = s.split(/[-－—–]/)[0];
-            return s.trim();
-        };
         let saved = 0;
-        for (const it of items) {
-            const cleanCompany = sanitize(it.company);
-            await pools({ sql: 'DELETE FROM `pt_fy_company_rule` WHERE `company` = ? AND `year_month` = ?', val: [cleanCompany, yearMonth], res, req });
-            const bindTeams = Array.isArray(it.bind_teams) ? JSON.stringify(it.bind_teams) : null;
-            const sql = 'INSERT INTO `pt_fy_company_rule` (`id`,`company`,`year_month`,`base_policy_id`,`ladder_policy_id`,`bind_teams`,`upload_time`,`updated_time`) VALUES (?,?,?,?,?,?,?,?)';
-            const val = [uuidv4(), cleanCompany || null, yearMonth, it.base_policy_id || null, it.ladder_policy_id || null, bindTeams, now, now];
-            await pools({ sql, val, res, req });
-            saved++;
+        if (Array.isArray(list) && list.length > 0) {
+            const cols = ['id','company','team','base_policy_id','ladder_policy_id','month','upload_time','updated_time'];
+            let sql = `INSERT INTO \`pt_fy_company_policy\` (\`${cols.join('`,`')}\`) VALUES `;
+            let vals = [];
+            const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+            list.forEach(r => {
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.company || '', r.team || '', r.base_policy_id || '', r.ladder_policy_id || '', month, now, now);
+            });
+            sql = sql.slice(0, -1);
+            await pools({ sql, val: vals, res, req });
+            saved = list.length;
         }
         return res.send(utils.returnData({ msg: '保存成功', data: { success: true, saved } }));
     } catch (err) {
@@ -1032,26 +986,26 @@ router.post('/company-rules-save', async (req, res) => {
     }
 });
 
-router.get('/company-teams', async (req, res) => {
+router.post('/company-policy/query', async (req, res) => {
     try {
-        const { yearMonth, company } = req.query;
-        if (!yearMonth || !company) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少参数' } }));
-        const sanitize = (name) => {
-            if (!name) return '';
-            let s = String(name).trim();
-            s = s.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '');
-            s = s.split(/[-－—–]/)[0];
-            return s.trim();
-        };
-        const clean = sanitize(company);
-        const checkSql = 'SHOW TABLES LIKE \'pt_fy_settlement_order\'';
-        const { result: exists } = await pools({ sql: checkSql, res, req });
-        if (exists.length === 0) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '结算明细表不存在' } }));
-        // match rows whose company starts with clean name
-        const sql = 'SELECT DISTINCT `team` FROM `pt_fy_settlement_order` WHERE `year_month` = ? AND `company` LIKE CONCAT(?, \'%\') AND `team` IS NOT NULL';
-        const { result } = await pools({ sql, val: [yearMonth, clean], res, req });
-        const teams = result.map(r => r.team).filter(Boolean);
-        return res.send(utils.returnData({ msg: '查询成功', data: { success: true, teams } }));
+        const { month } = req.body || {};
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_policy\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            team VARCHAR(128),
+            base_policy_id VARCHAR(64),
+            ladder_policy_id VARCHAR(64),
+            month VARCHAR(10),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql, res, req });
+        let sql = 'SELECT * FROM `pt_fy_company_policy`';
+        let val = [];
+        if (month) { sql += ' WHERE `month` = ?'; val = [month]; }
+        sql += ' ORDER BY `company` ASC';
+        const { result } = await pools({ sql, val, res, req });
+        return res.send(utils.returnData({ msg: '查询成功', data: { list: result || [] } }));
     } catch (err) {
         return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
     }

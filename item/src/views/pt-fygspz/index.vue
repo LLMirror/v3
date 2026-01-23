@@ -12,48 +12,58 @@
       <div class="filter-container">
         <div class="filter-item">
           <span class="filter-label">生效月份</span>
-          <el-date-picker v-model="yearMonth" type="month" placeholder="选择月份" format="YYYY-MM" value-format="YYYY-MM" class="filter-input" @change="handleMonthChange" />
+          <el-date-picker v-model="month" type="month" placeholder="选择月份" format="YYYY-MM" value-format="YYYY-MM" class="filter-input" />
         </div>
         <div class="filter-item">
-          <el-button type="primary" @click="loadCompanies" :disabled="!yearMonth">加载公司</el-button>
-          <el-button @click="loadExistingRules" :disabled="!yearMonth">加载现有绑定</el-button>
+          <el-button type="primary" @click="loadSaved">加载公司</el-button>
+          <el-button type="primary" @click="loadPolicies">加载联邦政策</el-button>
+          <el-button type="warning" plain @click="downloadTemplate">下载导入模板</el-button>
+          <el-upload action="#" :show-file-list="false" :http-request="uploadImport" accept=".xlsx,.xls">
+            <el-button type="success">批量导入</el-button>
+          </el-upload>
+        </div>
+        <div class="filter-item">
+          <el-button type="success" @click="saveConfig(false)">保存</el-button>
+          <el-button type="success" plain @click="saveConfig(true)">追加保存</el-button>
+          <el-button @click="addRow">添加保存</el-button>
         </div>
       </div>
-
       <div class="table-container">
         <div class="table-header">
           <span class="table-title">公司列表（绑定基础/阶梯配置）</span>
-          <div>
-            <el-button type="success" @click="handleSave" :disabled="companies.length===0">保存</el-button>
-            <el-button @click="overwrite = !overwrite">{{ overwrite ? '覆盖当前月份所有绑定' : '追加保存' }}</el-button>
-          </div>
         </div>
-        <el-table :data="companies" border stripe height="500" :header-cell-style="{ background: '#f5f7fa', color: '#606266', fontWeight: 'bold' }">
-          <el-table-column prop="company" label="公司" min-width="220" />
-          <el-table-column label="绑定车队" min-width="280">
+        <el-table :data="rows" border stripe height="520">
+          <el-table-column prop="company" label="公司" min-width="200">
             <template #default="scope">
-              <el-select v-model="scope.row.bindTeams" multiple filterable collapse-tags placeholder="选择车队" style="width:260px" @visible-change="(v)=>v&&loadTeams(scope.row)">
-                <el-option v-for="t in scope.row.teamsOptions" :key="t" :label="t" :value="t" />
+              <el-input v-model="scope.row.company" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="team" label="绑定车队" min-width="200">
+            <template #default="scope">
+              <el-input v-model="scope.row.team" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="base_policy_id" label="基础配置" min-width="220">
+            <template #default="scope">
+              <el-select v-model="scope.row.base_policy_id" filterable placeholder="选择基础政策">
+                <el-option v-for="p in basePolicies" :key="p.policy_id" :label="p.policy_id + '｜' + (p.category||'') + '｜' + (p.port||'') + '｜' + (p.method||'')" :value="p.policy_id" />
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="基础配置" min-width="220">
+          <el-table-column prop="ladder_policy_id" label="阶梯配置" min-width="220">
             <template #default="scope">
-              <el-select v-model="scope.row.base_policy_id" filterable placeholder="选择基础配置" style="width:200px">
-                <el-option v-for="opt in baseOptions" :key="opt.policy_id" :label="opt.policy_id" :value="opt.policy_id" />
+              <el-select v-model="scope.row.ladder_policy_id" filterable placeholder="选择阶梯政策">
+                <el-option v-for="p in ladderPolicies" :key="p.policy_id" :label="p.policy_id + '｜' + (p.rule_type||'') + '｜' + (p.dimension||'') + '｜' + (p.method||'')" :value="p.policy_id" />
               </el-select>
             </template>
           </el-table-column>
-          <el-table-column label="阶梯配置" min-width="220">
+          <el-table-column label="操作" width="140">
             <template #default="scope">
-              <el-select v-model="scope.row.ladder_policy_id" filterable placeholder="选择阶梯配置" style="width:200px">
-                <el-option v-for="opt in ladderOptions" :key="opt.policy_id" :label="opt.policy_id" :value="opt.policy_id" />
-              </el-select>
+              <el-button type="danger" plain size="small" @click="removeRow(scope.$index)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
       </div>
-
       <div class="alert-container" v-if="status.msg">
         <el-alert :title="status.title" :type="status.type" :closable="false" show-icon class="custom-alert">
           <template #default>
@@ -61,14 +71,14 @@
           </template>
         </el-alert>
       </div>
+      <el-dialog v-model="progressVisible" title="正在处理" width="400px" :close-on-click-modal="false" :show-close="false" center>
+        <div class="progress-content">
+          <el-progress type="circle" :percentage="uploadPercentage" />
+          <div class="progress-text">{{ progressStatusText }}</div>
+        </div>
+      </el-dialog>
     </el-card>
   </div>
-  <el-dialog v-model="progressVisible" title="正在保存绑定" width="400px" :close-on-click-modal="false" :show-close="false" center>
-    <div class="progress-content">
-      <el-progress type="circle" :percentage="uploadPercentage" />
-      <div class="progress-text">{{ progressStatusText }}</div>
-    </div>
-  </el-dialog>
 </template>
 
 <script setup>
@@ -77,115 +87,120 @@ import { ElMessage } from 'element-plus';
 import { Document } from '@element-plus/icons-vue';
 import request from '@/utils/request';
 
-const yearMonth = ref('');
-const companies = ref([]);
-const baseOptions = ref([]);
-const ladderOptions = ref([]);
-const overwrite = ref(false);
-
+const month = ref('');
+const rows = ref([]);
+const basePolicies = ref([]);
+const ladderPolicies = ref([]);
+const status = reactive({ title: '提示', type: 'info', msg: '请选择生效月份，并加载公司与政策选项。' });
 const progressVisible = ref(false);
 const uploadPercentage = ref(0);
-const progressStatusText = ref('准备保存...');
+const progressStatusText = ref('准备中...');
 
-const status = reactive({
-  title: '提示',
-  type: 'info',
-  msg: '请选择生效月份，并加载公司与配置选项。'
-});
-
-const handleMonthChange = () => {
-  companies.value = [];
+const addRow = () => {
+  rows.value.push({ company: '', team: '', base_policy_id: '', ladder_policy_id: '' });
+};
+const removeRow = (i) => {
+  rows.value.splice(i, 1);
 };
 
-const loadCompanies = async () => {
-  if (!yearMonth.value) {
-    ElMessage.warning('请选择生效月份');
+const loadPolicies = async () => {
+  try {
+    const baseRes = await request.post('/pt_fylist/rules-query', { table: 'base', page: 1, size: 1000 }, { headers: { repeatSubmit: false } });
+    const ladRes = await request.post('/pt_fylist/rules-query', { table: 'ladder', page: 1, size: 1000 }, { headers: { repeatSubmit: false } });
+    basePolicies.value = baseRes.data?.list || [];
+    ladderPolicies.value = ladRes.data?.list || [];
+    ElMessage.success('政策加载完成');
+  } catch {
+    ElMessage.error('政策加载失败');
+  }
+};
+
+const loadSaved = async () => {
+  if (!month.value) {
+    ElMessage.warning('请先选择生效月份');
     return;
   }
   try {
-    const res = await request({ url: '/pt_fylist/company-by-month', method: 'get', params: { yearMonth: yearMonth.value } });
+    const res = await request.post('/pt_fylist/company-policy/query', { month: month.value }, { headers: { repeatSubmit: false } });
+    rows.value = res.data?.list || [];
+    ElMessage.success('已加载公司配置');
+  } catch {
+    ElMessage.error('加载失败');
+  }
+};
+
+const downloadTemplate = async () => {
+  try {
+    const res = await request({ url: '/pt_fylist/company-policy/template', method: 'get', responseType: 'blob' });
+    const blob = new Blob([res.data]);
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = '公司返佣配置模板.xlsx';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
+    ElMessage.success('模板下载成功');
+  } catch {
+    ElMessage.error('下载模板失败');
+  }
+};
+
+const uploadImport = async (options) => {
+  try {
+    if (!month.value) {
+      ElMessage.warning('请先选择生效月份');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('file', options.file);
+    fd.append('month', month.value);
+    progressVisible.value = true;
+    uploadPercentage.value = 0;
+    progressStatusText.value = '正在上传文件...';
+    const res = await request({ url: '/pt_fylist/company-policy/import', method: 'post', data: fd, headers: { 'Content-Type': 'multipart/form-data', repeatSubmit: false }, timeout: 600000 });
+    uploadPercentage.value = 100;
+    progressStatusText.value = '解析完成！';
     if (res.code === 1 && res.data && res.data.success) {
-      companies.value = (res.data.companies || []).map(c => ({ company: c, bindTeams: [], teamsOptions: [], base_policy_id: '', ladder_policy_id: '' }));
-      status.title = '公司加载成功';
-      status.type = 'success';
-      status.msg = `共加载 ${companies.value.length} 个公司，选择基础/阶梯配置后保存。`;
-      await loadRuleOptions();
+      rows.value = res.data.list || [];
+      ElMessage.success(`解析成功，共 ${rows.value.length} 条`);
     } else {
-      ElMessage.error(res.data?.msg || res.msg || '加载公司失败');
+      ElMessage.error(res.data?.msg || res.msg || '解析失败');
     }
   } catch (e) {
-    ElMessage.error('加载公司失败');
+    ElMessage.error('解析失败');
+  } finally {
+    setTimeout(() => { progressVisible.value = false; }, 500);
   }
 };
 
-const loadRuleOptions = async () => {
-  try {
-    const res = await request({ url: '/pt_fylist/rules-options', method: 'get' });
-    if (res.code === 1 && res.data && res.data.success) {
-      baseOptions.value = res.data.baseOptions || [];
-      ladderOptions.value = res.data.ladderOptions || [];
-    }
-  } catch {}
-};
-
-const loadExistingRules = async () => {
-  if (!yearMonth.value) {
-    ElMessage.warning('请选择生效月份');
+const saveConfig = async (append) => {
+  if (!month.value) {
+    ElMessage.warning('请先选择生效月份');
+    return;
+  }
+  if (rows.value.length === 0) {
+    ElMessage.warning('没有可保存的数据');
     return;
   }
   try {
-    const res = await request({ url: '/pt_fylist/company-rules', method: 'get', params: { yearMonth: yearMonth.value } });
+    progressVisible.value = true;
+    uploadPercentage.value = 0;
+    progressStatusText.value = '正在保存配置...';
+    const res = await request.post('/pt_fylist/company-policy/save', { month: month.value, list: rows.value, append: !!append }, { headers: { repeatSubmit: false }, timeout: 600000 });
+    uploadPercentage.value = 100;
+    progressStatusText.value = '保存完成！';
     if (res.code === 1 && res.data && res.data.success) {
-      const map = new Map((res.data.list || []).map(r => [r.company, r]));
-      companies.value = (companies.value.length ? companies.value : []).map(row => {
-        const m = map.get(row.company);
-        const bindTeams = m && m.bind_teams ? JSON.parse(m.bind_teams) : [];
-        return m ? { company: row.company, bindTeams, teamsOptions: row.teamsOptions || [], base_policy_id: m.base_policy_id || '', ladder_policy_id: m.ladder_policy_id || '' } : row;
-      });
-      if (companies.value.length === 0) {
-        // if companies not loaded yet, construct from mapping
-        companies.value = (res.data.list || []).map(r => ({ company: r.company, bindTeams: r.bind_teams ? JSON.parse(r.bind_teams) : [], teamsOptions: [], base_policy_id: r.base_policy_id || '', ladder_policy_id: r.ladder_policy_id || '' }));
-      }
-      status.title = '绑定加载成功';
-      status.type = 'success';
-      status.msg = `已加载 ${res.data.list?.length || 0} 条历史绑定，可编辑后保存。`;
-      await loadRuleOptions();
-    } else {
-      ElMessage.error(res.data?.msg || res.msg || '加载绑定失败');
-    }
-  } catch {
-    ElMessage.error('加载绑定失败');
-  }
-};
-
-const handleSave = async () => {
-  if (!yearMonth.value) {
-    ElMessage.warning('请选择生效月份');
-    return;
-  }
-  if (companies.value.length === 0) {
-    ElMessage.warning('请先加载公司');
-    return;
-  }
-  progressVisible.value = true;
-  uploadPercentage.value = 0;
-  progressStatusText.value = '正在保存公司绑定...';
-  try {
-    const items = companies.value.map(r => ({ company: r.company, bind_teams: r.bindTeams || [], base_policy_id: r.base_policy_id || '', ladder_policy_id: r.ladder_policy_id || '' }));
-    const res = await request.post('/pt_fylist/company-rules-save', { yearMonth: yearMonth.value, items, overwrite: overwrite.value }, { headers: { repeatSubmit: false }, timeout: 600000 });
-    if (res.code === 1 && res.data && res.data.success) {
-      uploadPercentage.value = 100;
-      progressStatusText.value = '保存完成！';
       ElMessage.success(`保存成功：${res.data.saved} 条`);
       status.title = '保存成功';
       status.type = 'success';
-      status.msg = `保存成功：${res.data.saved} 条绑定。`;
+      status.msg = `保存成功，共 ${res.data.saved} 条。`;
     } else {
-      const msg = res.data?.msg || res.msg || '保存失败';
-      ElMessage.error(msg);
+      ElMessage.error(res.data?.msg || res.msg || '保存失败');
       status.title = '保存失败';
       status.type = 'error';
-      status.msg = msg;
+      status.msg = res.data?.msg || res.msg || '保存失败';
     }
   } catch (e) {
     ElMessage.error('保存失败');
@@ -195,19 +210,6 @@ const handleSave = async () => {
   } finally {
     setTimeout(() => { progressVisible.value = false; }, 500);
   }
-};
-const loadTeams = async (row) => {
-  if (!yearMonth.value) {
-    ElMessage.warning('请选择生效月份');
-    return;
-  }
-  if (row.teamsOptions && row.teamsOptions.length > 0) return;
-  try {
-    const res = await request({ url: '/pt_fylist/company-teams', method: 'get', params: { yearMonth: yearMonth.value, company: row.company } });
-    if (res.code === 1 && res.data && res.data.success) {
-      row.teamsOptions = res.data.teams || [];
-    }
-  } catch {}
 };
 </script>
 
@@ -267,6 +269,7 @@ const loadTeams = async (row) => {
   border-radius: 6px;
   border: 1px solid #ebeef5;
   padding: 16px;
+  margin-top: 12px;
 }
 .table-header {
   display: flex;

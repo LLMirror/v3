@@ -72,6 +72,32 @@ export const dynamicRoutes = [
 
 ]
 
+constantRoutes.push({
+  path: '/pt-fygz',
+  component: Layout,
+  children: [
+    {
+      path: '',
+      component: () => import('@/views/pt-fygz/index.vue'),
+      name: 'PtFYGZ',
+      meta: { title: '返佣规则导入', icon: 'documentation' }
+    }
+  ]
+});
+
+constantRoutes.push({
+  path: '/pt-fygspz',
+  component: Layout,
+  children: [
+    {
+      path: '',
+      component: () => import('@/views/pt-fygspz/index.vue'),
+      name: 'PtFYGSPZ',
+      meta: { title: '公司返佣配置', icon: 'documentation' }
+    }
+  ]
+});
+
 const router = createRouter({
   history: createWebHashHistory(),
   routes: constantRoutes,
