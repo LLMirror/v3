@@ -901,4 +901,120 @@ router.post('/rules-delete-by-id', async (req, res) => {
         return res.send(utils.returnData({ code: 1, data: { success: false, msg: '按ID删除失败: ' + err.message } }));
     }
 });
+
+router.get('/company-by-month', async (req, res) => {
+    try {
+        const { yearMonth } = req.query;
+        if (!yearMonth) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少 yearMonth' } }));
+        const checkSql = 'SHOW TABLES LIKE \'pt_fy_settlement_order\'';
+        const { result: exists } = await pools({ sql: checkSql, res, req });
+        if (exists.length === 0) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '结算明细表不存在' } }));
+        const sql = 'SELECT DISTINCT `company` FROM `pt_fy_settlement_order` WHERE `year_month` = ? ORDER BY `company`';
+        const { result } = await pools({ sql, val: [yearMonth], res, req });
+        const sanitize = (name) => {
+            if (!name) return '';
+            let s = String(name).trim();
+            // remove content in (), （）
+            s = s.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '');
+            // cut off at - or fullwidth/emdash
+            s = s.split(/[-－—–]/)[0];
+            return s.trim();
+        };
+        const companiesSet = new Set();
+        result.forEach(r => {
+            const clean = sanitize(r.company);
+            if (clean) companiesSet.add(clean);
+        });
+        return res.send(utils.returnData({ msg: '查询成功', data: { success: true, companies: Array.from(companiesSet) } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
+
+router.get('/rules-options', async (req, res) => {
+    try {
+        const baseSql = 'SHOW TABLES LIKE \'pt_fy_rules_base_simple\'';
+        const ladderSql = 'SHOW TABLES LIKE \'pt_fy_rules_ladder\'';
+        const { result: baseExists } = await pools({ sql: baseSql, res, req });
+        const { result: ladderExists } = await pools({ sql: ladderSql, res, req });
+        let baseOptions = [], ladderOptions = [];
+        if (baseExists.length > 0) {
+            const { result } = await pools({ sql: 'SELECT DISTINCT `policy_id` FROM `pt_fy_rules_base_simple` WHERE `policy_id` IS NOT NULL ORDER BY `policy_id`', res, req });
+            baseOptions = result.map(r => ({ policy_id: r.policy_id }));
+        }
+        if (ladderExists.length > 0) {
+            const { result } = await pools({ sql: 'SELECT DISTINCT `policy_id` FROM `pt_fy_rules_ladder` WHERE `policy_id` IS NOT NULL ORDER BY `policy_id`', res, req });
+            ladderOptions = result.map(r => ({ policy_id: r.policy_id }));
+        }
+        return res.send(utils.returnData({ msg: '查询成功', data: { success: true, baseOptions, ladderOptions } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
+
+router.get('/company-rules', async (req, res) => {
+    try {
+        const { yearMonth } = req.query;
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_rule\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            year_month VARCHAR(7),
+            base_policy_id VARCHAR(64),
+            ladder_policy_id VARCHAR(64),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql, res, req });
+        let sql = 'SELECT * FROM `pt_fy_company_rule`';
+        let vals = [];
+        if (yearMonth) {
+            sql += ' WHERE `year_month` = ?';
+            vals = [yearMonth];
+        }
+        const { result } = await pools({ sql, val: vals, res, req });
+        return res.send(utils.returnData({ msg: '查询成功', data: { success: true, list: result } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
+
+router.post('/company-rules-save', async (req, res) => {
+    try {
+        const { yearMonth, items = [], overwrite = false } = req.body || {};
+        if (!yearMonth) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少 yearMonth' } }));
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_rule\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            year_month VARCHAR(7),
+            base_policy_id VARCHAR(64),
+            ladder_policy_id VARCHAR(64),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql, res, req });
+        if (overwrite) {
+            await pools({ sql: 'DELETE FROM `pt_fy_company_rule` WHERE `year_month` = ?', val: [yearMonth], res, req });
+        }
+        const sanitize = (name) => {
+            if (!name) return '';
+            let s = String(name).trim();
+            s = s.replace(/\(.*?\)/g, '').replace(/（.*?）/g, '');
+            s = s.split(/[-－—–]/)[0];
+            return s.trim();
+        };
+        let saved = 0;
+        for (const it of items) {
+            const cleanCompany = sanitize(it.company);
+            await pools({ sql: 'DELETE FROM `pt_fy_company_rule` WHERE `company` = ? AND `year_month` = ?', val: [cleanCompany, yearMonth], res, req });
+            const sql = 'INSERT INTO `pt_fy_company_rule` (`id`,`company`,`year_month`,`base_policy_id`,`ladder_policy_id`,`upload_time`,`updated_time`) VALUES (?,?,?,?,?,?,?)';
+            const val = [uuidv4(), cleanCompany || null, yearMonth, it.base_policy_id || null, it.ladder_policy_id || null, now, now];
+            await pools({ sql, val, res, req });
+            saved++;
+        }
+        return res.send(utils.returnData({ msg: '保存成功', data: { success: true, saved } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '保存失败: ' + err.message } }));
+    }
+});
 export default router;
