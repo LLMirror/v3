@@ -195,7 +195,7 @@ router.get('/rules-template', async (req, res) => {
             return Math.max(n * 1.5 + 2, 12);
         };
         const sheet1 = workbook.addWorksheet('基础配置');
-        const h1 = ['政策ID','分类','端口','计算基数','是否减去免佣','费率/单价','备注'];
+        const h1 = ['政策ID','分类','端口','计算基数','是否减去免佣','返佣方式','费率/单价','备注'];
         sheet1.columns = h1.map(h => ({ header: h, key: h, width: w(h) }));
         const sheet2 = workbook.addWorksheet('阶梯规则');
         const h2 = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','费率/单价','扣减免佣'];
@@ -237,7 +237,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
         let baseSimpleCount = 0, ladderCount = 0;
         const baseSimpleRows = [];
         const ladderRows = [];
-        const baseHeaders = ['政策ID','分类','端口','计算基数','是否减去免佣','费率/单价','备注'];
+        const baseHeaders = ['政策ID','分类','端口','计算基数','是否减去免佣','返佣方式','费率/单价','备注'];
         const ladderHeaders = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','费率/单价','扣减免佣'];
         if (ws[0] && ws[0].data && ws[0].data.length > 1) {
             const data = ws[0].data;
@@ -255,6 +255,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                 const port = r[idx('端口')] || null;
                 const baseMetric = r[idx('计算基数')] || null;
                 const subtractFree = String(r[idx('是否减去免佣')] || '').includes('是') ? 1 : 0;
+                const method = r[idx('返佣方式')] || null;
                 const rateVal = toNum(r[idx('费率/单价')]);
                 const remark = r[idx('备注')] || null;
                 baseSimpleRows.push({
@@ -263,6 +264,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                     port,
                     base_metric: baseMetric,
                     subtract_free: subtractFree,
+                    method,
                     rate_value: rateVal,
                     remark
                 });
@@ -313,6 +315,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                     { prop: 'port', label: '端口' },
                     { prop: 'base_metric', label: '计算基数' },
                     { prop: 'subtract_free', label: '是否减去免佣' },
+                    { prop: 'method', label: '返佣方式' },
                     { prop: 'rate_value', label: '费率/单价' },
                     { prop: 'remark', label: '备注' }
                 ],
@@ -340,7 +343,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
 
 router.post('/rules-save', async (req, res) => {
     try {
-        const { baseSimpleRows = [], ladderRows = [], overwrite = false } = req.body;
+        const { baseSimpleRows = [], ladderRows = [], overwrite = false, overwriteBasePolicyIds = [], overwriteLadderPolicyIds = [] } = req.body;
         const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
         const ensureSql1 = `CREATE TABLE IF NOT EXISTS \`pt_fy_rules_base_simple\` (
             id VARCHAR(64) NOT NULL PRIMARY KEY,
@@ -349,6 +352,7 @@ router.post('/rules-save', async (req, res) => {
             port VARCHAR(32),
             base_metric VARCHAR(32),
             subtract_free TINYINT(1),
+            method VARCHAR(32),
             rate_value DECIMAL(20,6),
             remark TEXT,
             upload_time DATETIME,
@@ -404,6 +408,7 @@ router.post('/rules-save', async (req, res) => {
         };
         await ensureCols('pt_fy_rules_base_simple', req, res, [
             { name: 'policy_id', type: 'VARCHAR(64)' },
+            { name: 'method', type: 'VARCHAR(32)' },
             { name: 'upload_time', type: 'DATETIME' },
             { name: 'updated_time', type: 'DATETIME' }
         ]);
@@ -415,15 +420,24 @@ router.post('/rules-save', async (req, res) => {
         if (overwrite) {
             await pools({ sql: 'DELETE FROM `pt_fy_rules_base_simple`', res, req });
             await pools({ sql: 'DELETE FROM `pt_fy_rules_ladder`', res, req });
+        } else {
+            const delByPolicyIds = async (table, ids) => {
+                if (!ids || ids.length === 0) return;
+                const placeholders = ids.map(() => '?').join(',');
+                const sql = `DELETE FROM \`${table}\` WHERE \`policy_id\` IN (${placeholders})`;
+                await pools({ sql, val: ids, res, req });
+            };
+            await delByPolicyIds('pt_fy_rules_base_simple', overwriteBasePolicyIds);
+            await delByPolicyIds('pt_fy_rules_ladder', overwriteLadderPolicyIds);
         }
         let savedBase = 0, savedLadder = 0;
         if (baseSimpleRows.length > 0) {
-            const cols = ['id','policy_id','category','port','base_metric','subtract_free','rate_value','remark','upload_time','updated_time'];
+            const cols = ['id','policy_id','category','port','base_metric','subtract_free','method','rate_value','remark','upload_time','updated_time'];
             let sql = `INSERT INTO \`pt_fy_rules_base_simple\` (\`${cols.join('`,`')}\`) VALUES `;
             let vals = [];
             baseSimpleRows.forEach(r => {
-                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
-                vals.push(uuidv4(), r.policy_id ?? null, r.category || null, r.port || null, r.base_metric || null, r.subtract_free ? 1 : 0, r.rate_value ?? null, r.remark || null, now, now);
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.policy_id ?? null, r.category || null, r.port || null, r.base_metric || null, r.subtract_free ? 1 : 0, r.method || null, r.rate_value ?? null, r.remark || null, now, now);
             });
             sql = sql.slice(0, -1);
             await pools({ sql, val: vals, res, req });
@@ -444,6 +458,102 @@ router.post('/rules-save', async (req, res) => {
         return res.send(utils.returnData({ msg: '规则保存成功', data: { success: true, baseSaved: savedBase, ladderSaved: savedLadder } }));
     } catch (err) {
         return res.send(utils.returnData({ code: 1, data: { success: false, msg: '规则保存失败: ' + err.message } }));
+    }
+});
+router.post('/rules-check-duplicates', async (req, res) => {
+    try {
+        const { basePolicyIds = [], ladderPolicyIds = [] } = req.body || {};
+        const checkTable = async (table, ids) => {
+            if (!ids || ids.length === 0) return { duplicates: [] };
+            const placeholders = ids.map(() => '?').join(',');
+            const aggSql = `SELECT \`policy_id\`, COUNT(*) AS cnt FROM \`${table}\` WHERE \`policy_id\` IN (${placeholders}) GROUP BY \`policy_id\``;
+            const { result: agg } = await pools({ sql: aggSql, val: ids, res, req });
+            const duplicates = [];
+            for (const r of agg) {
+                if (table === 'pt_fy_rules_base_simple') {
+                    const { result: sample } = await pools({
+                        sql: 'SELECT `category`,`port`,`base_metric`,`method`,`rate_value` FROM `pt_fy_rules_base_simple` WHERE `policy_id` = ? LIMIT 1',
+                        val: [r.policy_id],
+                        res,
+                        req
+                    });
+                    const s = sample && sample[0] ? sample[0] : {};
+                    duplicates.push({
+                        policy_id: r.policy_id,
+                        count: r.cnt,
+                        category: s.category || null,
+                        port: s.port || null,
+                        base_metric: s.base_metric || null,
+                        method: s.method || null,
+                        rate_value: s.rate_value ?? null
+                    });
+                } else {
+                    const { result: sample } = await pools({
+                        sql: 'SELECT `rule_type`,`dimension`,`metric`,`method`,`rule_value` FROM `pt_fy_rules_ladder` WHERE `policy_id` = ? LIMIT 1',
+                        val: [r.policy_id],
+                        res,
+                        req
+                    });
+                    const s = sample && sample[0] ? sample[0] : {};
+                    duplicates.push({
+                        policy_id: r.policy_id,
+                        count: r.cnt,
+                        rule_type: s.rule_type || null,
+                        dimension: s.dimension || null,
+                        metric: s.metric || null,
+                        method: s.method || null,
+                        rule_value: s.rule_value ?? null
+                    });
+                }
+            }
+            return { duplicates };
+        };
+        const base = await checkTable('pt_fy_rules_base_simple', basePolicyIds);
+        const ladder = await checkTable('pt_fy_rules_ladder', ladderPolicyIds);
+        return res.send(utils.returnData({ msg: '重复校验成功', data: { base, ladder } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '重复校验失败: ' + err.message } }));
+    }
+});
+router.get('/rules-stats', async (req, res) => {
+    try {
+        const baseSql = 'SHOW TABLES LIKE \'pt_fy_rules_base_simple\'';
+        const ladderSql = 'SHOW TABLES LIKE \'pt_fy_rules_ladder\'';
+        let baseCount = 0, ladderCount = 0;
+        const { result: baseExists } = await pools({ sql: baseSql, res, req });
+        if (baseExists.length > 0) {
+            const { result } = await pools({ sql: 'SELECT COUNT(*) AS c FROM `pt_fy_rules_base_simple`', res, req });
+            baseCount = result[0]?.c || 0;
+        }
+        const { result: ladderExists } = await pools({ sql: ladderSql, res, req });
+        if (ladderExists.length > 0) {
+            const { result } = await pools({ sql: 'SELECT COUNT(*) AS c FROM `pt_fy_rules_ladder`', res, req });
+            ladderCount = result[0]?.c || 0;
+        }
+        return res.send(utils.returnData({ msg: '规则统计成功', data: { baseCount, ladderCount } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '统计失败: ' + err.message } }));
+    }
+});
+router.post('/rules-query', async (req, res) => {
+    try {
+        const { table = 'base', page = 1, size = 20, policyId } = req.body || {};
+        const tbl = table === 'ladder' ? 'pt_fy_rules_ladder' : 'pt_fy_rules_base_simple';
+        const offset = (Number(page) - 1) * Number(size);
+        let where = '';
+        let vals = [];
+        if (policyId) {
+            where = 'WHERE `policy_id` = ?';
+            vals = [policyId];
+        }
+        const listSql = `SELECT * FROM \`${tbl}\` ${where} ORDER BY \`updated_time\` DESC LIMIT ? OFFSET ?`;
+        vals.push(Number(size), Number(offset));
+        const countSql = `SELECT COUNT(*) AS c FROM \`${tbl}\` ${where}`;
+        const { result: list } = await pools({ sql: listSql, val: vals, res, req });
+        const { result: cnt } = await pools({ sql: countSql, val: policyId ? [policyId] : [], res, req });
+        return res.send(utils.returnData({ msg: '查询成功', total: cnt[0]?.c || 0, data: { list } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
     }
 });
 // Import Preview (Parse & Check)

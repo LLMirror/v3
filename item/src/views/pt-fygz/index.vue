@@ -59,6 +59,48 @@
           <div class="progress-text">{{ progressStatusText }}</div>
         </div>
       </el-dialog>
+      <el-dialog v-model="dupDialogVisible" title="重复政策ID处理" width="800px">
+        <div class="dup-container">
+          <div class="dup-section" v-if="baseDupList.length">
+            <div class="dup-title">基础配置重复（勾选表示覆盖上传）</div>
+            <el-table :data="baseDupList" border stripe height="240">
+              <el-table-column label="覆盖" width="80">
+                <template #default="scope">
+                  <el-checkbox :model-value="baseDupSelected.includes(scope.row.policy_id)" @change="(v)=>toggleBaseDup(scope.row.policy_id, v)" />
+                </template>
+              </el-table-column>
+              <el-table-column prop="policy_id" label="政策ID" width="140" />
+              <el-table-column prop="count" label="现有条数" width="120" />
+              <el-table-column prop="category" label="分类" width="120" />
+              <el-table-column prop="port" label="端口" width="120" />
+              <el-table-column prop="base_metric" label="基数" width="120" />
+              <el-table-column prop="method" label="返佣方式" width="120" />
+              <el-table-column prop="rate_value" label="费率/单价" width="140" />
+            </el-table>
+          </div>
+          <div class="dup-section" v-if="ladderDupList.length" style="margin-top:12px;">
+            <div class="dup-title">阶梯规则重复（勾选表示覆盖上传）</div>
+            <el-table :data="ladderDupList" border stripe height="240">
+              <el-table-column label="覆盖" width="80">
+                <template #default="scope">
+                  <el-checkbox :model-value="ladderDupSelected.includes(scope.row.policy_id)" @change="(v)=>toggleLadderDup(scope.row.policy_id, v)" />
+                </template>
+              </el-table-column>
+              <el-table-column prop="policy_id" label="政策ID" width="140" />
+              <el-table-column prop="count" label="现有条数" width="120" />
+              <el-table-column prop="rule_type" label="规则类型" width="120" />
+              <el-table-column prop="dimension" label="维度" width="120" />
+              <el-table-column prop="metric" label="基数" width="120" />
+              <el-table-column prop="method" label="返佣方式" width="120" />
+              <el-table-column prop="rule_value" label="费率/单价" width="140" />
+            </el-table>
+          </div>
+        </div>
+        <template #footer>
+          <el-button @click="dupDialogVisible=false">取消</el-button>
+          <el-button type="primary" @click="confirmDupAndSave">确定覆盖并保存</el-button>
+        </template>
+      </el-dialog>
       <div v-if="summaryVisible" class="summary-container">
         <el-descriptions :column="3" border>
           <el-descriptions-item label="基础配置导入条数">{{ summary.baseSimpleCount }}</el-descriptions-item>
@@ -88,6 +130,11 @@ const ladderRows = ref([]);
 const activeTab = ref('base');
 const overwrite = ref(false);
 const saving = ref(false);
+const dupDialogVisible = ref(false);
+const baseDupList = ref([]);
+const ladderDupList = ref([]);
+const baseDupSelected = ref([]);
+const ladderDupSelected = ref([]);
 
 const importStatus = reactive({
   title: '提示',
@@ -182,18 +229,51 @@ const handleSaveRules = async () => {
     ElMessage.error('没有可保存的规则数据');
     return;
   }
+  // check duplicates by policy_id
+  const baseIds = Array.from(new Set(baseRows.value.map(r => r.policy_id).filter(Boolean)));
+  const ladderIds = Array.from(new Set(ladderRows.value.map(r => r.policy_id).filter(Boolean)));
+  try {
+    const dup = await request.post('/pt_fylist/rules-check-duplicates', {
+      basePolicyIds: baseIds,
+      ladderPolicyIds: ladderIds
+    }, { headers: { repeatSubmit: false } });
+    const baseDup = (dup.data && dup.data.base && dup.data.base.duplicates) ? dup.data.base.duplicates : [];
+    const ladderDup = (dup.data && dup.data.ladder && dup.data.ladder.duplicates) ? dup.data.ladder.duplicates : [];
+    if ((baseDup.length + ladderDup.length) > 0 && !overwrite.value) {
+      baseDupList.value = baseDup;
+      ladderDupList.value = ladderDup;
+      baseDupSelected.value = baseDup.map(d => d.policy_id);
+      ladderDupSelected.value = ladderDup.map(d => d.policy_id);
+      dupDialogVisible.value = true;
+      importStatus.title = '发现重复政策ID';
+      importStatus.type = 'warning';
+      importStatus.msg = '检测到数据库已有相同政策ID，请勾选需要覆盖的项或开启“覆盖旧规则”后再保存。';
+      return;
+    }
+  } catch (e) {
+    // ignore dup check error and continue
+  }
   saving.value = true;
   try {
     const res = await request.post('/pt_fylist/rules-save', {
       baseSimpleRows: baseRows.value,
       ladderRows: ladderRows.value,
-      overwrite: overwrite.value
+      overwrite: overwrite.value,
+      overwriteBasePolicyIds: baseDupSelected.value,
+      overwriteLadderPolicyIds: ladderDupSelected.value
     }, { headers: { repeatSubmit: false }, timeout: 600000 });
     if (res.code === 1 && res.data && res.data.success) {
-      ElMessage.success(`保存成功：基础 ${res.data.baseSaved}，阶梯 ${res.data.ladderSaved}`);
+      let statsMsg = '';
+      try {
+        const stats = await request({ url: '/pt_fylist/rules-stats', method: 'get' });
+        if (stats.code === 1 && stats.data) {
+          statsMsg = `（当前库：基础 ${stats.data.baseCount} 条，阶梯 ${stats.data.ladderCount} 条）`;
+        }
+      } catch {}
+      ElMessage.success(`保存成功：基础 ${res.data.baseSaved}，阶梯 ${res.data.ladderSaved} ${statsMsg}`);
       importStatus.title = '规则保存成功';
       importStatus.type = 'success';
-      importStatus.msg = `保存成功：基础 ${res.data.baseSaved} 条，阶梯 ${res.data.ladderSaved} 条。`;
+      importStatus.msg = `保存成功：基础 ${res.data.baseSaved} 条，阶梯 ${res.data.ladderSaved} 条。${statsMsg}`;
     } else {
       const msg = (res && res.data && res.data.msg) ? res.data.msg : (res.msg || '保存失败');
       ElMessage.error(msg);
@@ -209,6 +289,21 @@ const handleSaveRules = async () => {
   } finally {
     saving.value = false;
   }
+};
+
+const toggleBaseDup = (id, checked) => {
+  const set = new Set(baseDupSelected.value);
+  if (checked) set.add(id); else set.delete(id);
+  baseDupSelected.value = Array.from(set);
+};
+const toggleLadderDup = (id, checked) => {
+  const set = new Set(ladderDupSelected.value);
+  if (checked) set.add(id); else set.delete(id);
+  ladderDupSelected.value = Array.from(set);
+};
+const confirmDupAndSave = async () => {
+  dupDialogVisible.value = false;
+  await handleSaveRules();
 };
 </script>
 
@@ -314,5 +409,9 @@ const handleSaveRules = async () => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.dup-title {
+  font-weight: 600;
+  margin-bottom: 8px;
 }
 </style>
