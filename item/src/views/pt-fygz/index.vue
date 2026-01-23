@@ -92,7 +92,7 @@
               <el-table-column prop="dimension" label="维度" width="120" />
               <el-table-column prop="metric" label="基数" width="120" />
               <el-table-column prop="method" label="返佣方式" width="120" />
-              <el-table-column prop="rule_value" label="费率/单价" width="140" />
+              <el-table-column prop="rule_display" label="费率/单价" width="140" />
             </el-table>
           </div>
         </div>
@@ -303,7 +303,66 @@ const toggleLadderDup = (id, checked) => {
 };
 const confirmDupAndSave = async () => {
   dupDialogVisible.value = false;
-  await handleSaveRules();
+  progressVisible.value = true;
+  uploadPercentage.value = 0;
+  progressStatusText.value = '准备覆盖重复数据...';
+  try {
+    const baseIds = Array.from(new Set(baseDupSelected.value));
+    const ladderIds = Array.from(new Set(ladderDupSelected.value));
+    const totalTasks = baseIds.length + ladderIds.length + baseRows.value.length + ladderRows.value.length;
+    let doneTasks = 0;
+    const updateProgress = (extra = 0) => {
+      doneTasks += extra;
+      const pct = Math.floor((doneTasks / Math.max(totalTasks, 1)) * 100);
+      uploadPercentage.value = pct < 100 ? pct : 99;
+    };
+    const chunk = (arr, size) => {
+      const out = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    };
+    const delBaseChunks = chunk(baseIds, 50);
+    const delLadderChunks = chunk(ladderIds, 50);
+    for (const ids of delBaseChunks) {
+      progressStatusText.value = `正在覆盖基础重复（${doneTasks}/${totalTasks}）`;
+      await request.post('/pt_fylist/rules-delete-by-policy', { basePolicyIds: ids }, { headers: { repeatSubmit: false } });
+      updateProgress(ids.length);
+    }
+    for (const ids of delLadderChunks) {
+      progressStatusText.value = `正在覆盖阶梯重复（${doneTasks}/${totalTasks}）`;
+      await request.post('/pt_fylist/rules-delete-by-policy', { ladderPolicyIds: ids }, { headers: { repeatSubmit: false } });
+      updateProgress(ids.length);
+    }
+    const baseChunks = chunk(baseRows.value, 1000);
+    const ladderChunks = chunk(ladderRows.value, 1000);
+    for (const rows of baseChunks) {
+      progressStatusText.value = `正在上传基础配置（${doneTasks}/${totalTasks}）`;
+      await request.post('/pt_fylist/rules-save-chunk', { baseSimpleRows: rows, ladderRows: [] }, { headers: { repeatSubmit: false }, timeout: 600000 });
+      updateProgress(rows.length);
+    }
+    for (const rows of ladderChunks) {
+      progressStatusText.value = `正在上传阶梯规则（${doneTasks}/${totalTasks}）`;
+      await request.post('/pt_fylist/rules-save-chunk', { baseSimpleRows: [], ladderRows: rows }, { headers: { repeatSubmit: false }, timeout: 600000 });
+      updateProgress(rows.length);
+    }
+    uploadPercentage.value = 100;
+    progressStatusText.value = '导入完成！';
+    const stats = await request({ url: '/pt_fylist/rules-stats', method: 'get' });
+    const statsMsg = (stats.code === 1 && stats.data) ? `（当前库：基础 ${stats.data.baseCount} 条，阶梯 ${stats.data.ladderCount} 条）` : '';
+    ElMessage.success(`保存成功 ${statsMsg}`);
+    importStatus.title = '规则保存成功';
+    importStatus.type = 'success';
+    importStatus.msg = `保存成功。${statsMsg}`;
+  } catch (e) {
+    ElMessage.error('保存失败');
+    importStatus.title = '规则保存失败';
+    importStatus.type = 'error';
+    importStatus.msg = '保存失败：' + (e.message || '未知错误');
+  } finally {
+    setTimeout(() => {
+      progressVisible.value = false;
+    }, 500);
+  }
 };
 </script>
 

@@ -258,6 +258,9 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                 const method = r[idx('返佣方式')] || null;
                 const rateVal = toNum(r[idx('费率/单价')]);
                 const remark = r[idx('备注')] || null;
+                const rateDisplay = method === '百分比'
+                    ? (rateVal !== null && rateVal !== undefined ? ((rateVal * 100).toFixed(2) + '%') : '')
+                    : (rateVal !== null && rateVal !== undefined ? Number(rateVal).toFixed(2) : '');
                 baseSimpleRows.push({
                     policy_id: policyId,
                     category,
@@ -266,6 +269,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                     subtract_free: subtractFree,
                     method,
                     rate_value: rateVal,
+                    rate_display: rateDisplay,
                     remark
                 });
                 baseSimpleCount++;
@@ -291,6 +295,9 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                 const method = r[idx('返佣方式')] || null;
                 const ruleValue = toNum(r[idx('费率/单价')]);
                 const subtractFree = String(r[idx('扣减免佣')] || '').includes('是') ? 1 : 0;
+                const ruleDisplay = method === '百分比'
+                    ? (ruleValue !== null && ruleValue !== undefined ? ((ruleValue * 100).toFixed(2) + '%') : '')
+                    : (ruleValue !== null && ruleValue !== undefined ? Number(ruleValue).toFixed(2) : '');
                 ladderRows.push({
                     policy_id: policyId,
                     rule_type: ruleType,
@@ -300,6 +307,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                     max_val: maxVal,
                     method,
                     rule_value: ruleValue,
+                    rule_display: ruleDisplay,
                     subtract_free: subtractFree
                 });
                 ladderCount++;
@@ -316,7 +324,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                     { prop: 'base_metric', label: '计算基数' },
                     { prop: 'subtract_free', label: '是否减去免佣' },
                     { prop: 'method', label: '返佣方式' },
-                    { prop: 'rate_value', label: '费率/单价' },
+                    { prop: 'rate_display', label: '费率/单价' },
                     { prop: 'remark', label: '备注' }
                 ],
                 ladderHeaders: [
@@ -327,7 +335,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                     { prop: 'min_val', label: '最小值 (>=)' },
                     { prop: 'max_val', label: '最大值 (<)' },
                     { prop: 'method', label: '返佣方式' },
-                    { prop: 'rule_value', label: '费率/单价' },
+                    { prop: 'rule_display', label: '费率/单价' },
                     { prop: 'subtract_free', label: '扣减免佣' }
                 ],
                 baseSimpleRows,
@@ -673,6 +681,113 @@ router.post('/import-preview', upload.single('file'), async (req, res) => {
     }
 });
 
+router.post('/rules-delete-by-policy', async (req, res) => {
+    try {
+        const { basePolicyIds = [], ladderPolicyIds = [] } = req.body || {};
+        let deletedBase = 0, deletedLadder = 0;
+        if (Array.isArray(basePolicyIds) && basePolicyIds.length > 0) {
+            const placeholders = basePolicyIds.map(() => '?').join(',');
+            const sql = `DELETE FROM \`pt_fy_rules_base_simple\` WHERE \`policy_id\` IN (${placeholders})`;
+            const { result } = await pools({ sql, val: basePolicyIds, res, req });
+            deletedBase = result?.affectedRows || 0;
+        }
+        if (Array.isArray(ladderPolicyIds) && ladderPolicyIds.length > 0) {
+            const placeholders = ladderPolicyIds.map(() => '?').join(',');
+            const sql = `DELETE FROM \`pt_fy_rules_ladder\` WHERE \`policy_id\` IN (${placeholders})`;
+            const { result } = await pools({ sql, val: ladderPolicyIds, res, req });
+            deletedLadder = result?.affectedRows || 0;
+        }
+        return res.send(utils.returnData({ msg: '删除成功', data: { success: true, deletedBase, deletedLadder } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '删除失败: ' + err.message } }));
+    }
+});
+
+router.post('/rules-save-chunk', async (req, res) => {
+    try {
+        const { baseSimpleRows = [], ladderRows = [] } = req.body || {};
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        const ensureSql1 = `CREATE TABLE IF NOT EXISTS \`pt_fy_rules_base_simple\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            policy_id VARCHAR(64),
+            category VARCHAR(32),
+            port VARCHAR(32),
+            base_metric VARCHAR(32),
+            subtract_free TINYINT(1),
+            method VARCHAR(32),
+            rate_value DECIMAL(20,6),
+            remark TEXT,
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql1, res, req });
+        const ensureSql2 = `CREATE TABLE IF NOT EXISTS \`pt_fy_rules_ladder\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            policy_id VARCHAR(64),
+            rule_type VARCHAR(64),
+            dimension VARCHAR(32),
+            metric VARCHAR(32),
+            min_val DECIMAL(20,6),
+            max_val DECIMAL(20,6),
+            method VARCHAR(32),
+            rule_value DECIMAL(20,6),
+            subtract_free TINYINT(1),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql2, res, req });
+        const ensureCols = async (table, req, res, cols) => {
+            const { result } = await pools({ sql: `SHOW COLUMNS FROM \`${table}\``, res, req });
+            const existingSet = new Set(result.map(r => r.Field));
+            for (const c of cols) {
+                if (!existingSet.has(c.name)) {
+                    await pools({ sql: `ALTER TABLE \`${table}\` ADD COLUMN \`${c.name}\` ${c.type}`, res, req });
+                    existingSet.add(c.name);
+                }
+            }
+        };
+        await ensureCols('pt_fy_rules_base_simple', req, res, [
+            { name: 'policy_id', type: 'VARCHAR(64)' },
+            { name: 'method', type: 'VARCHAR(32)' },
+            { name: 'upload_time', type: 'DATETIME' },
+            { name: 'updated_time', type: 'DATETIME' }
+        ]);
+        await ensureCols('pt_fy_rules_ladder', req, res, [
+            { name: 'policy_id', type: 'VARCHAR(64)' },
+            { name: 'method', type: 'VARCHAR(32)' },
+            { name: 'upload_time', type: 'DATETIME' },
+            { name: 'updated_time', type: 'DATETIME' }
+        ]);
+        let savedBase = 0, savedLadder = 0;
+        if (Array.isArray(baseSimpleRows) && baseSimpleRows.length > 0) {
+            const cols = ['id','policy_id','category','port','base_metric','subtract_free','method','rate_value','remark','upload_time','updated_time'];
+            let sql = `INSERT INTO \`pt_fy_rules_base_simple\` (\`${cols.join('`,`')}\`) VALUES `;
+            let vals = [];
+            baseSimpleRows.forEach(r => {
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.policy_id ?? null, r.category || null, r.port || null, r.base_metric || null, r.subtract_free ? 1 : 0, r.method || null, r.rate_value ?? null, r.remark || null, now, now);
+            });
+            sql = sql.slice(0, -1);
+            await pools({ sql, val: vals, res, req });
+            savedBase = baseSimpleRows.length;
+        }
+        if (Array.isArray(ladderRows) && ladderRows.length > 0) {
+            const cols = ['id','policy_id','rule_type','dimension','metric','min_val','max_val','method','rule_value','subtract_free','upload_time','updated_time'];
+            let sql = `INSERT INTO \`pt_fy_rules_ladder\` (\`${cols.join('`,`')}\`) VALUES `;
+            let vals = [];
+            ladderRows.forEach(r => {
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.policy_id ?? null, r.rule_type || null, r.dimension || null, r.metric || null, r.min_val ?? null, r.max_val ?? null, r.method || null, r.rule_value ?? null, r.subtract_free ? 1 : 0, now, now);
+            });
+            sql = sql.slice(0, -1);
+            await pools({ sql, val: vals, res, req });
+            savedLadder = ladderRows.length;
+        }
+        return res.send(utils.returnData({ msg: '分批保存成功', data: { success: true, baseSaved: savedBase, ladderSaved: savedLadder } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '分批保存失败: ' + err.message } }));
+    }
+});
 // Save Data
 router.post('/save-data', async (req, res) => {
     try {
