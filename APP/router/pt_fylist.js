@@ -186,6 +186,266 @@ router.get('/template', async (req, res) => {
     }
 });
 
+router.get('/rules-template', async (req, res) => {
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const w = (t) => {
+            let n = 0;
+            if (t) for (const c of String(t)) n += c.charCodeAt(0) > 255 ? 2 : 1;
+            return Math.max(n * 1.5 + 2, 12);
+        };
+        const sheet1 = workbook.addWorksheet('基础配置');
+        const h1 = ['政策ID','分类','端口','计算基数','是否减去免佣','费率/单价','备注'];
+        sheet1.columns = h1.map(h => ({ header: h, key: h, width: w(h) }));
+        const sheet2 = workbook.addWorksheet('阶梯规则');
+        const h2 = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','费率/单价','扣减免佣'];
+        sheet2.columns = h2.map(h => ({ header: h, key: h, width: w(h) }));
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent('规则导入模板.xlsx')}`);
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (err) {
+        res.send(utils.returnData({ code: 1, data: { success: false, msg: "下载模板失败: " + err.message } }));
+    }
+});
+
+router.post('/rules-import', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.send(utils.returnData({ code: 1, data: { success: false, msg: "未上传文件" } }));
+        }
+        const ws = xlsx.parse(req.file.buffer);
+        const toNum = (v) => {
+            if (v === null || v === undefined) return null;
+            if (typeof v === 'number') return v;
+            const s = String(v).trim();
+            if (!s) return null;
+            let p;
+            if (s.endsWith('%')) {
+                const n = parseFloat(s.replace('%',''));
+                p = Number.isNaN(n) ? null : n / 100;
+            } else {
+                const n = parseFloat(s.replace(/[^\d.\-\.]/g,''));
+                p = Number.isNaN(n) ? null : n;
+            }
+            return p;
+        };
+        const toStr = (v) => {
+            if (v === null || v === undefined) return null;
+            return String(v).trim();
+        };
+        let baseSimpleCount = 0, ladderCount = 0;
+        const baseSimpleRows = [];
+        const ladderRows = [];
+        const baseHeaders = ['政策ID','分类','端口','计算基数','是否减去免佣','费率/单价','备注'];
+        const ladderHeaders = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','费率/单价','扣减免佣'];
+        if (ws[0] && ws[0].data && ws[0].data.length > 1) {
+            const data = ws[0].data;
+            const headers = (data[0] || []).map(v => v ? String(v).trim() : '');
+            const expected = baseHeaders;
+            const missing = expected.filter(h => !headers.includes(h));
+            if (missing.length > 0) {
+                return res.send(utils.returnData({ code: 1, data: { success: false, msg: "基础配置缺失字段: " + missing.join(', ') } }));
+            }
+            const idx = (name) => headers.indexOf(name);
+            data.slice(1).forEach(r => {
+                if (!r || r.length === 0) return;
+                const policyId = toStr(r[idx('政策ID')]);
+                const category = r[idx('分类')] || null;
+                const port = r[idx('端口')] || null;
+                const baseMetric = r[idx('计算基数')] || null;
+                const subtractFree = String(r[idx('是否减去免佣')] || '').includes('是') ? 1 : 0;
+                const rateVal = toNum(r[idx('费率/单价')]);
+                const remark = r[idx('备注')] || null;
+                baseSimpleRows.push({
+                    policy_id: policyId,
+                    category,
+                    port,
+                    base_metric: baseMetric,
+                    subtract_free: subtractFree,
+                    rate_value: rateVal,
+                    remark
+                });
+                baseSimpleCount++;
+            });
+        }
+        if (ws[1] && ws[1].data && ws[1].data.length > 1) {
+            const data = ws[1].data;
+            const headers = (data[0] || []).map(v => v ? String(v).trim() : '');
+            const expected = ladderHeaders;
+            const missing = expected.filter(h => !headers.includes(h));
+            if (missing.length > 0) {
+                return res.send(utils.returnData({ code: 1, data: { success: false, msg: "阶梯规则缺失字段: " + missing.join(', ') } }));
+            }
+            const idx = (name) => headers.indexOf(name);
+            data.slice(1).forEach(r => {
+                if (!r || r.length === 0) return;
+                const policyId = toStr(r[idx('政策ID')]);
+                const ruleType = r[idx('规则类型')] || null;
+                const dimension = r[idx('维度')] || null;
+                const metric = r[idx('计算基数')] || null;
+                const minVal = toNum(r[idx('最小值 (>=)')]);
+                const maxVal = toNum(r[idx('最大值 (<)')]);
+                const method = r[idx('返佣方式')] || null;
+                const ruleValue = toNum(r[idx('费率/单价')]);
+                const subtractFree = String(r[idx('扣减免佣')] || '').includes('是') ? 1 : 0;
+                ladderRows.push({
+                    policy_id: policyId,
+                    rule_type: ruleType,
+                    dimension,
+                    metric,
+                    min_val: minVal,
+                    max_val: maxVal,
+                    method,
+                    rule_value: ruleValue,
+                    subtract_free: subtractFree
+                });
+                ladderCount++;
+            });
+        }
+        return res.send(utils.returnData({
+            msg: "规则解析成功",
+            data: {
+                success: true,
+                baseSimpleHeaders: [
+                    { prop: 'policy_id', label: '政策ID' },
+                    { prop: 'category', label: '分类' },
+                    { prop: 'port', label: '端口' },
+                    { prop: 'base_metric', label: '计算基数' },
+                    { prop: 'subtract_free', label: '是否减去免佣' },
+                    { prop: 'rate_value', label: '费率/单价' },
+                    { prop: 'remark', label: '备注' }
+                ],
+                ladderHeaders: [
+                    { prop: 'policy_id', label: '政策ID' },
+                    { prop: 'rule_type', label: '规则类型' },
+                    { prop: 'dimension', label: '维度' },
+                    { prop: 'metric', label: '计算基数' },
+                    { prop: 'min_val', label: '最小值 (>=)' },
+                    { prop: 'max_val', label: '最大值 (<)' },
+                    { prop: 'method', label: '返佣方式' },
+                    { prop: 'rule_value', label: '费率/单价' },
+                    { prop: 'subtract_free', label: '扣减免佣' }
+                ],
+                baseSimpleRows,
+                ladderRows,
+                baseSimpleCount,
+                ladderCount
+            }
+        }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: "规则导入失败: " + err.message } }));
+    }
+});
+
+router.post('/rules-save', async (req, res) => {
+    try {
+        const { baseSimpleRows = [], ladderRows = [], overwrite = false } = req.body;
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        const ensureSql1 = `CREATE TABLE IF NOT EXISTS \`pt_fy_rules_base_simple\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            policy_id VARCHAR(64),
+            category VARCHAR(32),
+            port VARCHAR(32),
+            base_metric VARCHAR(32),
+            subtract_free TINYINT(1),
+            rate_value DECIMAL(20,6),
+            remark TEXT,
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql1, res, req });
+        const ensureSql2 = `CREATE TABLE IF NOT EXISTS \`pt_fy_rules_ladder\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            policy_id VARCHAR(64),
+            rule_type VARCHAR(64),
+            dimension VARCHAR(32),
+            metric VARCHAR(32),
+            min_val DECIMAL(20,6),
+            max_val DECIMAL(20,6),
+            method VARCHAR(32),
+            rule_value DECIMAL(20,6),
+            subtract_free TINYINT(1),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql2, res, req });
+        const ensureCols = async (table, req, res, cols) => {
+            const { result } = await pools({ sql: `SHOW COLUMNS FROM \`${table}\``, res, req });
+            const existingMap = new Map(result.map(r => [r.Field, r.Type]));
+            for (const c of cols) {
+                if (!existingMap.has(c.name)) {
+                    await pools({ sql: `ALTER TABLE \`${table}\` ADD COLUMN \`${c.name}\` ${c.type}`, res, req });
+                    existingMap.set(c.name, c.type);
+                } else {
+                    const curType = String(existingMap.get(c.name)).toLowerCase();
+                    const wantType = String(c.type).toLowerCase();
+                    const typeMismatch =
+                        (wantType.startsWith('varchar') && !curType.includes('varchar')) ||
+                        (wantType.startsWith('datetime') && !curType.includes('datetime')) ||
+                        (wantType.startsWith('int') && !curType.includes('int')) ||
+                        (wantType.startsWith('decimal') && !curType.includes('decimal'));
+                    if (typeMismatch) {
+                        await pools({ sql: `ALTER TABLE \`${table}\` MODIFY COLUMN \`${c.name}\` ${c.type}`, res, req });
+                        existingMap.set(c.name, c.type);
+                    }
+                }
+            }
+            if (existingMap.has('created_at') && !existingMap.has('upload_time')) {
+                await pools({ sql: `ALTER TABLE \`${table}\` CHANGE COLUMN \`created_at\` \`upload_time\` DATETIME`, res, req });
+                existingMap.delete('created_at');
+                existingMap.set('upload_time', 'datetime');
+            }
+            if (existingMap.has('updated_at') && !existingMap.has('updated_time')) {
+                await pools({ sql: `ALTER TABLE \`${table}\` CHANGE COLUMN \`updated_at\` \`updated_time\` DATETIME`, res, req });
+                existingMap.delete('updated_at');
+                existingMap.set('updated_time', 'datetime');
+            }
+        };
+        await ensureCols('pt_fy_rules_base_simple', req, res, [
+            { name: 'policy_id', type: 'VARCHAR(64)' },
+            { name: 'upload_time', type: 'DATETIME' },
+            { name: 'updated_time', type: 'DATETIME' }
+        ]);
+        await ensureCols('pt_fy_rules_ladder', req, res, [
+            { name: 'policy_id', type: 'VARCHAR(64)' },
+            { name: 'upload_time', type: 'DATETIME' },
+            { name: 'updated_time', type: 'DATETIME' }
+        ]);
+        if (overwrite) {
+            await pools({ sql: 'DELETE FROM `pt_fy_rules_base_simple`', res, req });
+            await pools({ sql: 'DELETE FROM `pt_fy_rules_ladder`', res, req });
+        }
+        let savedBase = 0, savedLadder = 0;
+        if (baseSimpleRows.length > 0) {
+            const cols = ['id','policy_id','category','port','base_metric','subtract_free','rate_value','remark','upload_time','updated_time'];
+            let sql = `INSERT INTO \`pt_fy_rules_base_simple\` (\`${cols.join('`,`')}\`) VALUES `;
+            let vals = [];
+            baseSimpleRows.forEach(r => {
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.policy_id ?? null, r.category || null, r.port || null, r.base_metric || null, r.subtract_free ? 1 : 0, r.rate_value ?? null, r.remark || null, now, now);
+            });
+            sql = sql.slice(0, -1);
+            await pools({ sql, val: vals, res, req });
+            savedBase = baseSimpleRows.length;
+        }
+        if (ladderRows.length > 0) {
+            const cols = ['id','policy_id','rule_type','dimension','metric','min_val','max_val','method','rule_value','subtract_free','upload_time','updated_time'];
+            let sql = `INSERT INTO \`pt_fy_rules_ladder\` (\`${cols.join('`,`')}\`) VALUES `;
+            let vals = [];
+            ladderRows.forEach(r => {
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.policy_id ?? null, r.rule_type || null, r.dimension || null, r.metric || null, r.min_val ?? null, r.max_val ?? null, r.method || null, r.rule_value ?? null, r.subtract_free ? 1 : 0, now, now);
+            });
+            sql = sql.slice(0, -1);
+            await pools({ sql, val: vals, res, req });
+            savedLadder = ladderRows.length;
+        }
+        return res.send(utils.returnData({ msg: '规则保存成功', data: { success: true, baseSaved: savedBase, ladderSaved: savedLadder } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '规则保存失败: ' + err.message } }));
+    }
+});
 // Import Preview (Parse & Check)
 router.post('/import-preview', upload.single('file'), async (req, res) => {
     try {

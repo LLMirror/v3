@@ -1,0 +1,318 @@
+<template>
+  <div class="app-container">
+    <el-card class="box-card" shadow="hover">
+      <template #header>
+        <div class="card-header">
+          <div class="header-title">
+            <el-icon class="header-icon"><Document /></el-icon>
+            <span>返佣规则导入</span>
+          </div>
+        </div>
+      </template>
+      <div class="filter-container">
+        <div class="filter-item">
+          <el-button type="warning" plain icon="Download" @click="handleDownloadRulesTemplate" class="action-btn">
+            下载规则模板
+          </el-button>
+          <el-upload
+            action="#"
+            :show-file-list="false"
+            :http-request="customRulesUpload"
+            accept=".xlsx, .xls"
+            class="upload-btn-wrapper"
+          >
+            <el-button type="primary" icon="Upload" :loading="uploading">上传规则模板</el-button>
+          </el-upload>
+        </div>
+      </div>
+      <div class="alert-container" v-if="importStatus.msg">
+        <el-alert :title="importStatus.title" :type="importStatus.type" :closable="false" show-icon class="custom-alert">
+          <template #default>
+            <div class="alert-content" v-html="importStatus.msg"></div>
+          </template>
+        </el-alert>
+      </div>
+      <div v-if="baseHeaders.length || ladderHeaders.length" class="table-container">
+        <div class="table-header">
+          <span class="table-title">规则预览</span>
+        </div>
+        <el-tabs type="border-card" v-model="activeTab">
+          <el-tab-pane label="基础配置" name="base">
+            <el-table :data="basePreview" border stripe height="400" :header-cell-style="{ background: '#f5f7fa', color: '#606266', fontWeight: 'bold' }">
+              <el-table-column v-for="c in baseHeaders" :key="c.prop" :prop="c.prop" :label="c.label" show-overflow-tooltip min-width="140" />
+            </el-table>
+          </el-tab-pane>
+          <el-tab-pane label="阶梯规则" name="ladder">
+            <el-table :data="ladderPreview" border stripe height="400" :header-cell-style="{ background: '#f5f7fa', color: '#606266', fontWeight: 'bold' }">
+              <el-table-column v-for="c in ladderHeaders" :key="c.prop" :prop="c.prop" :label="c.label" show-overflow-tooltip min-width="140" />
+            </el-table>
+          </el-tab-pane>
+        </el-tabs>
+        <div class="action-row">
+          <el-switch v-model="overwrite" inline-prompt active-text="覆盖旧规则" inactive-text="追加规则" />
+          <el-button type="success" icon="Check" :loading="saving" @click="handleSaveRules">确认导入数据库</el-button>
+        </div>
+      </div>
+      <el-dialog v-model="progressVisible" title="正在导入规则" width="400px" :close-on-click-modal="false" :show-close="false" center>
+        <div class="progress-content">
+          <el-progress type="circle" :percentage="uploadPercentage" />
+          <div class="progress-text">{{ progressStatusText }}</div>
+        </div>
+      </el-dialog>
+      <div v-if="summaryVisible" class="summary-container">
+        <el-descriptions :column="3" border>
+          <el-descriptions-item label="基础配置导入条数">{{ summary.baseSimpleCount }}</el-descriptions-item>
+          <el-descriptions-item label="阶梯规则导入条数">{{ summary.ladderCount }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+    </el-card>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive } from 'vue';
+import { ElMessage } from 'element-plus';
+import { Document, Upload, Download, Check } from '@element-plus/icons-vue';
+import request from '@/utils/request';
+
+const uploading = ref(false);
+const progressVisible = ref(false);
+const uploadPercentage = ref(0);
+const progressStatusText = ref('准备上传...');
+const summaryVisible = ref(false);
+const summary = reactive({ baseSimpleCount: 0, ladderCount: 0 });
+const baseHeaders = ref([]);
+const ladderHeaders = ref([]);
+const baseRows = ref([]);
+const ladderRows = ref([]);
+const activeTab = ref('base');
+const overwrite = ref(false);
+const saving = ref(false);
+
+const importStatus = reactive({
+  title: '提示',
+  type: 'info',
+  msg: '请下载规则模板，并上传填写后的 Excel 进行导入。'
+});
+
+const handleDownloadRulesTemplate = async () => {
+  try {
+    const res = await request({
+      url: '/pt_fylist/rules-template',
+      method: 'get',
+      responseType: 'blob'
+    });
+    const blob = new Blob([res.data]);
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = '规则导入模板.xlsx';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
+    ElMessage.success('模板下载成功');
+  } catch {
+    ElMessage.error('下载规则模板失败');
+  }
+};
+
+const customRulesUpload = async (options) => {
+  const { file } = options;
+  const fd = new FormData();
+  fd.append('file', file);
+  uploading.value = true;
+  progressVisible.value = true;
+  uploadPercentage.value = 0;
+  progressStatusText.value = '正在上传文件...';
+  try {
+    const res = await request({
+      url: '/pt_fylist/rules-import',
+      method: 'post',
+      data: fd,
+      headers: { 'Content-Type': 'multipart/form-data', repeatSubmit: false },
+      timeout: 600000,
+      onUploadProgress: (e) => {
+        const percent = Math.round((e.loaded * 100) / e.total);
+        uploadPercentage.value = percent < 100 ? percent : 99;
+        progressStatusText.value = percent < 100 ? `正在上传文件... ${percent}%` : '上传完成，正在导入...';
+      }
+    });
+    uploadPercentage.value = 100;
+    progressStatusText.value = '导入完成！';
+    if (res.code === 1 && res.data && res.data.success) {
+      const { baseSimpleCount = 0, ladderCount = 0, baseSimpleHeaders = [], ladderHeaders: ladders = [], baseSimpleRows = [], ladderRows: laddersRows = [] } = res.data;
+      summary.baseSimpleCount = baseSimpleCount;
+      summary.ladderCount = ladderCount;
+      summaryVisible.value = true;
+      baseHeaders.value = baseSimpleHeaders;
+      ladderHeaders.value = ladders;
+      baseRows.value = baseSimpleRows;
+      ladderRows.value = laddersRows;
+      importStatus.title = '规则导入成功';
+      importStatus.type = 'success';
+      importStatus.msg = `规则导入成功：基础配置 ${baseSimpleCount} 条，阶梯规则 ${ladderCount} 条。`;
+      ElMessage.success('规则导入成功');
+    } else {
+      const errMsg = (res && res.data && res.data.msg) ? res.data.msg : (res.msg || '规则导入失败');
+      importStatus.title = '规则导入失败';
+      importStatus.type = 'error';
+      importStatus.msg = errMsg;
+      ElMessage.error(errMsg);
+    }
+  } catch (error) {
+    uploadPercentage.value = 0;
+    importStatus.title = '规则导入失败';
+    importStatus.type = 'error';
+    importStatus.msg = '规则导入失败：' + (error.message || '未知错误');
+    ElMessage.error('规则导入失败');
+  } finally {
+    uploading.value = false;
+    setTimeout(() => {
+      progressVisible.value = false;
+    }, 500);
+  }
+};
+
+const basePreview = computed(() => baseRows.value.slice(0, 100));
+const ladderPreview = computed(() => ladderRows.value.slice(0, 100));
+
+const handleSaveRules = async () => {
+  if (baseRows.value.length === 0 && ladderRows.value.length === 0) {
+    ElMessage.error('没有可保存的规则数据');
+    return;
+  }
+  saving.value = true;
+  try {
+    const res = await request.post('/pt_fylist/rules-save', {
+      baseSimpleRows: baseRows.value,
+      ladderRows: ladderRows.value,
+      overwrite: overwrite.value
+    }, { headers: { repeatSubmit: false }, timeout: 600000 });
+    if (res.code === 1 && res.data && res.data.success) {
+      ElMessage.success(`保存成功：基础 ${res.data.baseSaved}，阶梯 ${res.data.ladderSaved}`);
+      importStatus.title = '规则保存成功';
+      importStatus.type = 'success';
+      importStatus.msg = `保存成功：基础 ${res.data.baseSaved} 条，阶梯 ${res.data.ladderSaved} 条。`;
+    } else {
+      const msg = (res && res.data && res.data.msg) ? res.data.msg : (res.msg || '保存失败');
+      ElMessage.error(msg);
+      importStatus.title = '规则保存失败';
+      importStatus.type = 'error';
+      importStatus.msg = msg;
+    }
+  } catch (e) {
+    ElMessage.error('保存失败');
+    importStatus.title = '规则保存失败';
+    importStatus.type = 'error';
+    importStatus.msg = '保存失败：' + (e.message || '未知错误');
+  } finally {
+    saving.value = false;
+  }
+};
+</script>
+
+<style scoped>
+.app-container {
+  padding: 24px;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+}
+.box-card {
+  border-radius: 8px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+.header-title {
+  display: flex;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+.header-icon {
+  margin-right: 8px;
+  font-size: 20px;
+  color: #409eff;
+}
+.filter-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 6px;
+  margin-bottom: 24px;
+}
+.filter-item {
+  display: flex;
+  align-items: center;
+}
+.action-btn {
+  margin-right: 12px;
+}
+.upload-btn-wrapper {
+  display: inline-block;
+}
+.alert-container {
+  margin-bottom: 24px;
+}
+.custom-alert {
+  border-radius: 6px;
+  border: 1px solid #e1f3d8;
+  background-color: #f0f9eb;
+}
+.alert-content {
+  line-height: 1.6;
+  font-size: 14px;
+}
+.progress-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.progress-text {
+  margin-top: 15px;
+  color: #606266;
+  font-size: 14px;
+}
+.summary-container {
+  margin-top: 12px;
+}
+.table-container {
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #ebeef5;
+  padding: 16px;
+  margin-top: 12px;
+}
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+.table-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  border-left: 4px solid #409eff;
+  padding-left: 10px;
+}
+.action-row {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+</style>
