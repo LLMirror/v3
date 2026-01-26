@@ -170,31 +170,31 @@
                 <tr>
                   <th></th>
                   <th>分类</th>
-                  <th>SP活动免佣</th>
                   <th>不免佣</th>
-                  <th>减佣卡减佣</th>
-                  <th>免佣卡</th>
+                  <th>免佣</th>
                   <th>合计</th>
                 </tr>
               </thead>
               <tbody>
                 <template v-for="(item, index) in driverData" :key="'driver-'+index">
                   <tr>
-                    <td rowspan="2" class="org-name">{{ item.name }}</td>
-                    <td class="row-label">数量</td>
-                    <td>{{ item.spQty }}</td>
-                    <td>{{ item.normalQty }}</td>
-                    <td>{{ item.reducedQty }}</td>
-                    <td>{{ item.freeQty }}</td>
-                    <td class="total-col">{{ item.totalQty }}</td>
+                    <td rowspan="3" class="org-name">{{ item.name }}</td>
+                    <td class="row-label">订单量</td>
+                    <td>{{ item.unfree_qty }}</td>
+                    <td>{{ item.free_qty }}</td>
+                    <td class="total-col">{{ item.total_qty }}</td>
                   </tr>
                   <tr>
-                    <td class="row-label">金额</td>
-                    <td>{{ item.spAmt }}</td>
-                    <td>{{ item.normalAmt }}</td>
-                    <td>{{ item.reducedAmt }}</td>
-                    <td>{{ item.freeAmt }}</td>
-                    <td class="total-col">{{ item.totalAmt }}</td>
+                    <td class="row-label">行程费</td>
+                    <td>{{ item.unfree_trip_fee }}</td>
+                    <td>{{ item.free_trip_fee }}</td>
+                    <td class="total-col">{{ item.total_trip_fee }}</td>
+                  </tr>
+                  <tr>
+                    <td class="row-label">司机行程</td>
+                    <td>{{ item.unfree_driver_trip_fee }}</td>
+                    <td>{{ item.free_driver_trip_fee }}</td>
+                    <td class="total-col">{{ item.total_driver_trip_fee }}</td>
                   </tr>
                 </template>
               </tbody>
@@ -345,6 +345,7 @@ watch(() => filters.company, (val) => {
   statementData.companyName = val;
   ElMessage.success(`已切换至: ${val}`);
   loadInvoiceInfo();
+  loadDriverSummary();
 });
 
 const loadCompanyOptions = async () => {
@@ -371,24 +372,16 @@ watch(() => filters.month, async (val) => {
     await loadCompanyOptions();
     if (filters.company) ElMessage.success(`已切换账期: ${val}`);
     if (filters.company) await loadInvoiceInfo();
+    if (filters.company) await loadDriverSummary();
   }
 });
 
 const driverData = reactive([
   {
-    name: '不分车队司机端',
-    spQty: 0, normalQty: 159, reducedQty: 45, freeQty: 0, totalQty: 204,
-    spAmt: 0, normalAmt: 3267.81, reducedAmt: 997.27, freeAmt: 0, totalAmt: 4265.08
-  },
-  {
-    name: '成都通行安科技有限公司（粒粒车队）',
-    spQty: 0, normalQty: 76, reducedQty: 13, freeQty: 0, totalQty: 89,
-    spAmt: 0, normalAmt: 1592.89, reducedAmt: 275.24, freeAmt: 0, totalAmt: 1868.13
-  },
-  {
-    name: '成都通行安科技有限公司（罗罗车队）',
-    spQty: 0, normalQty: 83, reducedQty: 32, freeQty: 0, totalQty: 115,
-    spAmt: 0, normalAmt: 1674.92, reducedAmt: 722.03, freeAmt: 0, totalAmt: 2396.95
+    name: '汇总',
+    unfree_qty: 0, free_qty: 0, total_qty: 0,
+    unfree_trip_fee: 0, free_trip_fee: 0, total_trip_fee: 0,
+    unfree_driver_trip_fee: 0, free_driver_trip_fee: 0, total_driver_trip_fee: 0
   }
 ]);
 
@@ -520,6 +513,37 @@ const handleDownloadPDF = async () => {
 };
 
 loadCompanyOptions();
+const loadDriverSummary = async () => {
+  if (!filters.company || !filters.month) return;
+  try {
+    const res = await request.post('/pt_fylist/settlement-summary', { company: filters.company, month: filters.month }, { headers: { repeatSubmit: false } });
+    const list = (res.data && res.data.list) ? res.data.list : [];
+    const row = list[0];
+    if (!row) {
+      driverData.splice(0, driverData.length, {
+        name: '汇总',
+        unfree_qty: 0, free_qty: 0, total_qty: 0,
+        unfree_trip_fee: 0, free_trip_fee: 0, total_trip_fee: 0,
+        unfree_driver_trip_fee: 0, free_driver_trip_fee: 0, total_driver_trip_fee: 0
+      });
+      return;
+    }
+    driverData.splice(0, driverData.length, {
+      name: row.clean_company,
+      unfree_qty: Number(row.unfree_qty || 0),
+      free_qty: Number(row.free_qty || 0),
+      total_qty: Number(row.total_qty || 0),
+      unfree_trip_fee: Number(row.unfree_trip_fee || 0),
+      free_trip_fee: Number(row.free_trip_fee || 0),
+      total_trip_fee: Number(row.total_trip_fee || 0),
+      unfree_driver_trip_fee: Number(row.unfree_driver_trip_fee || 0),
+      free_driver_trip_fee: Number(row.free_driver_trip_fee || 0),
+      total_driver_trip_fee: Number(row.total_driver_trip_fee || 0)
+    });
+  } catch (e) {
+    // ignore
+  }
+};
 const loadInvoiceInfo = async () => {
   if (!filters.company || !filters.month) return;
   try {

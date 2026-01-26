@@ -64,7 +64,7 @@ const FIELD_MAPPINGS = {
         '附加费结算给司机': 'surcharge_driver',
         '附加费结算给运力公司': 'surcharge_company',
         '司机结算行程费': 'driver_trip_fee',
-        '行程费抽成比例': 'trip_fee_ratio',
+        '行程费抽成比例': 'driver_trip_fee',
         '佣金补贴': 'subsidy',
         '车队': 'team'
     },
@@ -186,6 +186,47 @@ router.get('/template', async (req, res) => {
     }
 });
 
+router.post('/settlement-summary', async (req, res) => {
+    try {
+        const { company, month } = req.body || {};
+        if (!month) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少月份' } }));
+        const clean = (name) => {
+            if (!name) return '';
+            let s = String(name);
+            s = s.replace(/[\(（][^（）\(\)]*[\)）]/g, '');
+            s = s.split('-')[0];
+            s = s.trim();
+            return s;
+        };
+        const cleanCompany = clean(company);
+        const baseExpr = "TRIM(REGEXP_REPLACE(SUBSTRING_INDEX(`company`, '-', 1), '（[^）]*）', ''))";
+        let sql = `
+            SELECT
+              ${baseExpr} AS clean_company,
+              COUNT(CASE WHEN subsidy_type = '不免佣' THEN 1 ELSE NULL END) AS unfree_qty,
+              COUNT(CASE WHEN subsidy_type != '不免佣' THEN 1 ELSE NULL END) AS free_qty,
+              COUNT(*) AS total_qty,
+              ROUND(SUM(CASE WHEN subsidy_type = '不免佣' THEN trip_fee ELSE 0 END), 2) AS unfree_trip_fee,
+              ROUND(SUM(CASE WHEN subsidy_type != '不免佣' THEN trip_fee ELSE 0 END), 2) AS free_trip_fee,
+              ROUND(SUM(trip_fee), 2) AS total_trip_fee,
+              ROUND(SUM(CASE WHEN subsidy_type = '不免佣' THEN driver_trip_fee ELSE 0 END), 2) AS unfree_driver_trip_fee,
+              ROUND(SUM(CASE WHEN subsidy_type != '不免佣' THEN driver_trip_fee ELSE 0 END), 2) AS free_driver_trip_fee,
+              ROUND(SUM(driver_trip_fee), 2) AS total_driver_trip_fee
+            FROM \`pt_fy_settlement_order\`
+            WHERE \`year_month\` = ?
+        `;
+        const vals = [month];
+        if (cleanCompany) {
+            sql += ` AND ${baseExpr} = ?`;
+            vals.push(cleanCompany);
+        }
+        sql += ` GROUP BY clean_company`;
+        const { result } = await pools({ sql, val: vals, res, req });
+        return res.send(utils.returnData({ msg: '查询成功', data: { list: result || [] } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
 router.get('/rules-template', async (req, res) => {
     try {
         const workbook = new ExcelJS.Workbook();
