@@ -955,14 +955,23 @@ router.post('/company-policy/save', async (req, res) => {
         const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_policy\` (
             id VARCHAR(64) NOT NULL PRIMARY KEY,
             company VARCHAR(128),
-            team VARCHAR(128),
+            team TEXT,
             base_policy_id VARCHAR(64),
-            ladder_policy_id VARCHAR(64),
+            ladder_policy_id TEXT,
             month VARCHAR(10),
             upload_time DATETIME,
             updated_time DATETIME
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
         await pools({ sql: ensureSql, res, req });
+        const { result: cols } = await pools({ sql: 'SHOW COLUMNS FROM `pt_fy_company_policy`', res, req });
+        const teamCol = cols.find(c => c.Field === 'team');
+        if (teamCol && !String(teamCol.Type).toLowerCase().includes('text')) {
+            await pools({ sql: 'ALTER TABLE `pt_fy_company_policy` MODIFY COLUMN `team` TEXT', res, req });
+        }
+        const ladderCol = cols.find(c => c.Field === 'ladder_policy_id');
+        if (ladderCol && !String(ladderCol.Type).toLowerCase().includes('text')) {
+            await pools({ sql: 'ALTER TABLE `pt_fy_company_policy` MODIFY COLUMN `ladder_policy_id` TEXT', res, req });
+        }
         if (!append) {
             await pools({ sql: 'DELETE FROM `pt_fy_company_policy` WHERE `month` = ?', val: [month], res, req });
         }
@@ -992,15 +1001,139 @@ router.post('/company-policy/query', async (req, res) => {
         const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_policy\` (
             id VARCHAR(64) NOT NULL PRIMARY KEY,
             company VARCHAR(128),
-            team VARCHAR(128),
+            team TEXT,
             base_policy_id VARCHAR(64),
-            ladder_policy_id VARCHAR(64),
+            ladder_policy_id TEXT,
             month VARCHAR(10),
             upload_time DATETIME,
             updated_time DATETIME
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
         await pools({ sql: ensureSql, res, req });
         let sql = 'SELECT * FROM `pt_fy_company_policy`';
+        let val = [];
+        if (month) { sql += ' WHERE `month` = ?'; val = [month]; }
+        sql += ' ORDER BY `company` ASC';
+        const { result } = await pools({ sql, val, res, req });
+        return res.send(utils.returnData({ msg: '查询成功', data: { list: result || [] } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
+
+router.post('/company-policy/update', async (req, res) => {
+    try {
+        const { list = [] } = req.body || {};
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_policy\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            team TEXT,
+            base_policy_id VARCHAR(64),
+            ladder_policy_id TEXT,
+            month VARCHAR(10),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql, res, req });
+        let updated = 0;
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        for (const r of Array.isArray(list) ? list : []) {
+            if (!r.id) continue;
+            const sql = 'UPDATE `pt_fy_company_policy` SET `company`=?,`team`=?,`base_policy_id`=?,`ladder_policy_id`=?,`updated_time`=? WHERE `id`=?';
+            const val = [r.company ?? null, r.team ?? '[]', r.base_policy_id ?? '', r.ladder_policy_id ?? '[]', now, r.id];
+            await pools({ sql, val, res, req });
+            updated++;
+        }
+        return res.send(utils.returnData({ msg: '更新成功', data: { success: true, updated } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '更新失败: ' + err.message } }));
+    }
+});
+
+router.post('/company-list/generate', async (req, res) => {
+    try {
+        const { month, append } = req.body || {};
+        if (!month) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少生效月份' } }));
+        const checkSettle = `SHOW TABLES LIKE 'pt_fy_settlement_order'`;
+        const { result: settleExists } = await pools({ sql: checkSettle, res, req });
+        if (settleExists.length === 0) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '结算明细表不存在' } }));
+        const { result: raw } = await pools({
+            sql: 'SELECT DISTINCT `company` FROM `pt_fy_settlement_order` WHERE `year_month` = ? AND `company` IS NOT NULL AND `company`<>\'\'',
+            val: [month],
+            res,
+            req
+        });
+        const clean = (name) => {
+            if (!name) return '';
+            let s = String(name);
+            s = s.replace(/[\(（][^（）\(\)]*[\)）]/g, '');
+            s = s.split('-')[0];
+            s = s.trim();
+            return s;
+        };
+        const map = new Map();
+        for (const r of raw) {
+            const orig = String(r.company).trim();
+            const c = clean(orig);
+            if (!c) continue;
+            if (!map.has(c)) map.set(c, new Set());
+            map.get(c).add(orig);
+        }
+        const list = Array.from(map.entries()).map(([company, set]) => ({ company, original_names: JSON.stringify(Array.from(set)) }));
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_list\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            original_names TEXT,
+            month VARCHAR(10),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql, res, req });
+        const { result: cols } = await pools({ sql: 'SHOW COLUMNS FROM `pt_fy_company_list`', res, req });
+        const hasOrig = cols.some(c => c.Field === 'original_names');
+        if (!hasOrig) {
+            await pools({ sql: 'ALTER TABLE `pt_fy_company_list` ADD COLUMN `original_names` TEXT', res, req });
+        }
+        if (!append) {
+            await pools({ sql: 'DELETE FROM `pt_fy_company_list` WHERE `month` = ?', val: [month], res, req });
+        }
+        let saved = 0;
+        if (list.length > 0) {
+            const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+            const colsIns = ['id','company','original_names','month','upload_time','updated_time'];
+            let sql = `INSERT INTO \`pt_fy_company_list\` (\`${colsIns.join('`,`')}\`) VALUES `;
+            let vals = [];
+            list.forEach(r => {
+                sql += `(?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.company, r.original_names || '[]', month, now, now);
+            });
+            sql = sql.slice(0, -1);
+            await pools({ sql, val: vals, res, req });
+            saved = list.length;
+        }
+        return res.send(utils.returnData({ msg: '生成并保存成功', data: { success: true, saved, list } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '生成失败: ' + err.message } }));
+    }
+});
+
+router.post('/company-list/query', async (req, res) => {
+    try {
+        const { month } = req.body || {};
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_list\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            original_names TEXT,
+            month VARCHAR(10),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql, res, req });
+        const { result: cols } = await pools({ sql: 'SHOW COLUMNS FROM `pt_fy_company_list`', res, req });
+        const hasOrig = cols.some(c => c.Field === 'original_names');
+        if (!hasOrig) {
+            await pools({ sql: 'ALTER TABLE `pt_fy_company_list` ADD COLUMN `original_names` TEXT', res, req });
+        }
+        let sql = 'SELECT * FROM `pt_fy_company_list`';
         let val = [];
         if (month) { sql += ' WHERE `month` = ?'; val = [month]; }
         sql += ' ORDER BY `company` ASC';

@@ -15,17 +15,12 @@
           <el-date-picker v-model="month" type="month" placeholder="选择月份" format="YYYY-MM" value-format="YYYY-MM" class="filter-input" />
         </div>
         <div class="filter-item">
-          <el-button type="primary" @click="loadSaved">加载公司</el-button>
-          <el-button type="primary" @click="loadPolicies">加载联邦政策</el-button>
-          <el-button type="warning" plain @click="downloadTemplate">下载导入模板</el-button>
-          <el-upload action="#" :show-file-list="false" :http-request="uploadImport" accept=".xlsx,.xls">
-            <el-button type="success">批量导入</el-button>
-          </el-upload>
+          <el-button type="primary" @click="loadSaved" :disabled="!month">加载公司</el-button>
+
         </div>
         <div class="filter-item">
           <el-button type="success" @click="saveConfig(false)">保存</el-button>
-          <el-button type="success" plain @click="saveConfig(true)">追加保存</el-button>
-          <el-button @click="addRow">添加保存</el-button>
+  
         </div>
       </div>
       <div class="table-container">
@@ -35,25 +30,27 @@
         <el-table :data="rows" border stripe height="520">
           <el-table-column prop="company" label="公司" min-width="200">
             <template #default="scope">
-              <el-input v-model="scope.row.company" />
+              <span>{{ scope.row.company }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="team" label="绑定车队" min-width="200">
             <template #default="scope">
-              <el-input v-model="scope.row.team" />
+              <el-select v-model="scope.row.original_names" multiple filterable allow-create default-first-option style="width: 100%" @change="syncOriginal(scope.row)">
+                <el-option v-for="n in (scope.row.available_original || scope.row.original_names || [])" :key="n" :label="n" :value="n" />
+              </el-select>
             </template>
           </el-table-column>
           <el-table-column prop="base_policy_id" label="基础配置" min-width="220">
             <template #default="scope">
-              <el-select v-model="scope.row.base_policy_id" filterable placeholder="选择基础政策">
-                <el-option v-for="p in basePolicies" :key="p.policy_id" :label="p.policy_id + '｜' + (p.category||'') + '｜' + (p.port||'') + '｜' + (p.method||'')" :value="p.policy_id" />
+              <el-select v-model="scope.row.base_policy_id" filterable placeholder="选择基础政策" style="width:100%">
+                <el-option v-for="p in basePolicies" :key="p.policy_id" :label="p.policy_id" :value="p.policy_id" />
               </el-select>
             </template>
           </el-table-column>
           <el-table-column prop="ladder_policy_id" label="阶梯配置" min-width="220">
             <template #default="scope">
-              <el-select v-model="scope.row.ladder_policy_id" filterable placeholder="选择阶梯政策">
-                <el-option v-for="p in ladderPolicies" :key="p.policy_id" :label="p.policy_id + '｜' + (p.rule_type||'') + '｜' + (p.dimension||'') + '｜' + (p.method||'')" :value="p.policy_id" />
+              <el-select v-model="scope.row.ladder_selected_single" filterable placeholder="选择阶梯政策（单选）" style="width:100%">
+                <el-option v-for="p in ladderPolicies" :key="p.policy_id" :label="p.policy_id + '｜' + (p.rule_type||'')" :value="p.policy_id" />
               </el-select>
             </template>
           </el-table-column>
@@ -83,12 +80,14 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
+import dayjs from 'dayjs';
 import { ElMessage } from 'element-plus';
 import { Document } from '@element-plus/icons-vue';
 import request from '@/utils/request';
 
-const month = ref('');
+const month = ref(dayjs().subtract(1, 'month').format('YYYY-MM'));
 const rows = ref([]);
+const baselineRows = ref([]);
 const basePolicies = ref([]);
 const ladderPolicies = ref([]);
 const status = reactive({ title: '提示', type: 'info', msg: '请选择生效月份，并加载公司与政策选项。' });
@@ -107,8 +106,23 @@ const loadPolicies = async () => {
   try {
     const baseRes = await request.post('/pt_fylist/rules-query', { table: 'base', page: 1, size: 1000 }, { headers: { repeatSubmit: false } });
     const ladRes = await request.post('/pt_fylist/rules-query', { table: 'ladder', page: 1, size: 1000 }, { headers: { repeatSubmit: false } });
-    basePolicies.value = baseRes.data?.list || [];
-    ladderPolicies.value = ladRes.data?.list || [];
+    const baseList = baseRes.data?.list || [];
+    const ladderList = ladRes.data?.list || [];
+    const uniqBy = (arr, key) => {
+      const seen = new Set();
+      const out = [];
+      arr.forEach(item => {
+        const k = item[key];
+        if (!seen.has(k)) {
+          seen.add(k);
+          out.push(item);
+        }
+      });
+      return out;
+    };
+    const sortAsc = (arr) => arr.sort((a, b) => String(a.policy_id).localeCompare(String(b.policy_id), 'zh-Hans-CN', { numeric: true }));
+    basePolicies.value = sortAsc(uniqBy(baseList, 'policy_id'));
+    ladderPolicies.value = sortAsc(uniqBy(ladderList, 'policy_id'));
     ElMessage.success('政策加载完成');
   } catch {
     ElMessage.error('政策加载失败');
@@ -121,11 +135,59 @@ const loadSaved = async () => {
     return;
   }
   try {
-    const res = await request.post('/pt_fylist/company-policy/query', { month: month.value }, { headers: { repeatSubmit: false } });
-    rows.value = res.data?.list || [];
-    ElMessage.success('已加载公司配置');
+    progressVisible.value = true;
+    uploadPercentage.value = 0;
+    progressStatusText.value = '正在检查已保存配置...';
+    const saved = await request.post('/pt_fylist/company-policy/query', { month: month.value }, { headers: { repeatSubmit: false } });
+    const savedList = saved.data?.list || [];
+    if (savedList.length > 0) {
+      const enrich = await request.post('/pt_fylist/company-list/query', { month: month.value }, { headers: { repeatSubmit: false } });
+      const map = {};
+      (enrich.data?.list || []).forEach(r => { map[r.company] = r.original_names ? JSON.parse(r.original_names) : []; });
+      rows.value = savedList.map(r => ({
+        id: r.id,
+        company: r.company,
+        original_names: (() => { try { const t = JSON.parse(r.team || '[]'); return (t && t.length) ? t : (map[r.company] || []); } catch { return map[r.company] || []; } })(),
+        available_original: map[r.company] || [],
+        base_policy_id: r.base_policy_id || '',
+        ladder_selected_single: (() => { try {
+          const arr = JSON.parse(r.ladder_policy_id || '[]');
+          const first = Array.isArray(arr) ? arr.find(x => x && x.policy_id) : null;
+          return first ? first.policy_id : '';
+        } catch { return []; } })()
+      }));
+      baselineRows.value = JSON.parse(JSON.stringify(rows.value));
+      uploadPercentage.value = 100;
+      progressStatusText.value = '完成';
+      ElMessage.success(`已加载已保存配置 ${rows.value.length} 条`);
+      return;
+    }
+    uploadPercentage.value = 30;
+    progressStatusText.value = '正在检查公司列表...';
+    const q = await request.post('/pt_fylist/company-list/query', { month: month.value }, { headers: { repeatSubmit: false } });
+    const companies = q.data?.list || [];
+    if (companies.length > 0) {
+      rows.value = companies.map(r => ({ id: undefined, company: r.company, original_names: r.original_names ? JSON.parse(r.original_names) : [], available_original: r.original_names ? JSON.parse(r.original_names) : [], base_policy_id: '', ladder_selected_single: '' }));
+      baselineRows.value = JSON.parse(JSON.stringify(rows.value));
+      uploadPercentage.value = 100;
+      progressStatusText.value = '完成';
+      ElMessage.success(`已加载公司列表 ${rows.value.length} 条`);
+      return;
+    }
+    uploadPercentage.value = 60;
+    progressStatusText.value = '正在从结算表生成公司列表...';
+    await request.post('/pt_fylist/company-list/generate', { month: month.value, append: false }, { headers: { repeatSubmit: false }, timeout: 600000 });
+    const q2 = await request.post('/pt_fylist/company-list/query', { month: month.value }, { headers: { repeatSubmit: false } });
+    const companies2 = q2.data?.list || [];
+    rows.value = companies2.map(r => ({ id: undefined, company: r.company, original_names: r.original_names ? JSON.parse(r.original_names) : [], available_original: r.original_names ? JSON.parse(r.original_names) : [], base_policy_id: '', ladder_selected_single: '' }));
+    baselineRows.value = JSON.parse(JSON.stringify(rows.value));
+    uploadPercentage.value = 100;
+    progressStatusText.value = '完成';
+    ElMessage.success(`已生成并加载公司 ${rows.value.length} 条`);
   } catch {
     ElMessage.error('加载失败');
+  } finally {
+    setTimeout(() => { progressVisible.value = false; }, 500);
   }
 };
 
@@ -188,20 +250,55 @@ const saveConfig = async (append) => {
     progressVisible.value = true;
     uploadPercentage.value = 0;
     progressStatusText.value = '正在保存配置...';
-    const res = await request.post('/pt_fylist/company-policy/save', { month: month.value, list: rows.value, append: !!append }, { headers: { repeatSubmit: false }, timeout: 600000 });
+    const arrEq = (a, b) => {
+      const aa = (Array.isArray(a) ? [...a] : []).map(x => String(x)).sort();
+      const bb = (Array.isArray(b) ? [...b] : []).map(x => String(x)).sort();
+      if (aa.length !== bb.length) return false;
+      for (let i = 0; i < aa.length; i++) if (aa[i] !== bb[i]) return false;
+      return true;
+    };
+    const baselineMap = new Map((baselineRows.value || []).map(r => [r.id || `${r.company}`, r]));
+    const toLadderJson = (row) => {
+      if (!row.ladder_selected_single) return '[]';
+      const p = ladderPolicies.value.find(x => x.policy_id === row.ladder_selected_single) || {};
+      return JSON.stringify([{ policy_id: row.ladder_selected_single, rule_type: p.rule_type || null }]);
+    };
+    const inserts = [];
+    const updates = [];
+    rows.value.forEach(r => {
+      const key = r.id || `${r.company}`;
+      const base = baselineMap.get(key);
+      const teamJson = JSON.stringify(r.original_names || []);
+      const ladderJson = toLadderJson(r);
+      if (!r.id) {
+        inserts.push({ company: r.company, team: teamJson, base_policy_id: r.base_policy_id || '', ladder_policy_id: ladderJson });
+      } else {
+        const baseTeam = JSON.stringify(base?.original_names || []);
+        const baseLadder = toLadderJson(base || {});
+        const changed = (!arrEq(r.original_names, base?.original_names)) || (String(r.base_policy_id || '') !== String(base?.base_policy_id || '')) || (ladderJson !== baseLadder);
+        if (changed) {
+          updates.push({ id: r.id, company: r.company, team: teamJson, base_policy_id: r.base_policy_id || '', ladder_policy_id: ladderJson });
+        }
+      }
+    });
+    let savedCount = 0;
+    if (updates.length > 0) {
+      const resU = await request.post('/pt_fylist/company-policy/update', { list: updates }, { headers: { repeatSubmit: false }, timeout: 600000 });
+      if (!(resU.code === 1 && resU.data && resU.data.success)) throw new Error(resU.data?.msg || resU.msg || '更新失败');
+      savedCount += (resU.data.updated || 0);
+    }
+    if (inserts.length > 0) {
+      const resS = await request.post('/pt_fylist/company-policy/save', { month: month.value, list: inserts, append: true }, { headers: { repeatSubmit: false }, timeout: 600000 });
+      if (!(resS.code === 1 && resS.data && resS.data.success)) throw new Error(resS.data?.msg || resS.msg || '保存失败');
+      savedCount += (resS.data.saved || 0);
+    }
     uploadPercentage.value = 100;
     progressStatusText.value = '保存完成！';
-    if (res.code === 1 && res.data && res.data.success) {
-      ElMessage.success(`保存成功：${res.data.saved} 条`);
-      status.title = '保存成功';
-      status.type = 'success';
-      status.msg = `保存成功，共 ${res.data.saved} 条。`;
-    } else {
-      ElMessage.error(res.data?.msg || res.msg || '保存失败');
-      status.title = '保存失败';
-      status.type = 'error';
-      status.msg = res.data?.msg || res.msg || '保存失败';
-    }
+    ElMessage.success(`保存成功：${savedCount} 条`);
+    status.title = '保存成功';
+    status.type = 'success';
+    status.msg = `保存成功，共 ${savedCount} 条。`;
+    baselineRows.value = JSON.parse(JSON.stringify(rows.value));
   } catch (e) {
     ElMessage.error('保存失败');
     status.title = '保存失败';
@@ -211,6 +308,16 @@ const saveConfig = async (append) => {
     setTimeout(() => { progressVisible.value = false; }, 500);
   }
 };
+
+const syncOriginal = (row) => {
+  const names = Array.isArray(row.original_names) ? row.original_names : [];
+  const set = new Set(row.available_original || []);
+  names.forEach(n => set.add(n));
+  row.available_original = Array.from(set);
+};
+
+loadPolicies();
+loadSaved();
 </script>
 
 <style scoped>
@@ -297,6 +404,11 @@ const saveConfig = async (append) => {
 .alert-content {
   line-height: 1.6;
   font-size: 14px;
+}
+.tags.full-list {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 4px;
 }
 .progress-content {
   display: flex;
