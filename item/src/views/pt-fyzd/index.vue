@@ -176,9 +176,9 @@
                 </tr>
               </thead>
               <tbody>
-                <template v-for="(item, index) in driverData" :key="'driver-'+index">
+                <template v-for="(item, index) in driverRows" :key="'driver-'+index">
                   <tr>
-                    <td rowspan="2" class="org-name">{{ item.name }}</td>
+                    <td rowspan="2" class="org-name">{{ index === 0 ? '汇总数据' : item.name }}</td>
                     <td class="row-label">订单量</td>
                     <td>{{ item.unfree_qty }}</td>
                     <td>{{ item.free_qty }}</td>
@@ -186,9 +186,9 @@
                   </tr>
                   <tr>
                     <td class="row-label">司机行程</td>
-                    <td>{{ item.unfree_driver_trip_fee }}</td>
-                    <td>{{ item.free_driver_trip_fee }}</td>
-                    <td class="total-col">{{ item.total_driver_trip_fee }}</td>
+                    <td>{{ fmt2(item.unfree_driver_trip_fee) }}</td>
+                    <td>{{ fmt2(item.free_driver_trip_fee) }}</td>
+                    <td class="total-col">{{ fmt2(item.total_driver_trip_fee) }}</td>
                   </tr>
                 </template>
               </tbody>
@@ -211,9 +211,9 @@
                 </tr>
               </thead>
               <tbody>
-                <template v-for="(item, index) in clientData" :key="'client-'+index">
+                <template v-for="(item, index) in clientRows" :key="'client-'+index">
                   <tr>
-                    <td rowspan="2" class="org-name">{{ item.name }}</td>
+                    <td rowspan="2" class="org-name">{{ index === 0 ? '汇总数据' : item.name }}</td>
                     <td class="row-label">订单量</td>
                     <td>{{ item.unfree_qty }}</td>
                     <td>{{ item.free_qty }}</td>
@@ -221,9 +221,9 @@
                   </tr>
                   <tr>
                     <td class="row-label">行程费</td>
-                    <td>{{ item.unfree_trip_fee }}</td>
-                    <td>{{ item.free_trip_fee }}</td>
-                    <td class="total-col">{{ item.total_trip_fee }}</td>
+                    <td>{{ fmt2(item.unfree_trip_fee) }}</td>
+                    <td>{{ fmt2(item.free_trip_fee) }}</td>
+                    <td class="total-col">{{ fmt2(item.total_trip_fee) }}</td>
                   </tr>
                 </template>
               </tbody>
@@ -231,40 +231,42 @@
           </div>
         </div>
 
-        <!-- Driver Transaction Flow Table -->
+        <!-- Driver Flow Table -->
         <div class="caliber-section">
-          <div class="section-title">车队明细数据</div>
+          <div class="section-title">司机流水详情</div>
+          <div class="summary-bar">
+            本月天数：{{ monthDays }} ｜ 日均订单量：{{ fmt2(driverFlowSummary.order_qty_avg) }} ｜ 日均订单收入：{{ fmt2(driverFlowSummary.order_income_avg) }}
+          </div>
           <div class="table-scroll-container">
             <table class="caliber-table">
               <thead>
                 <tr>
-                  <th></th>
-                  <th>分类</th>
-                  <th>不免佣</th>
-                  <th>免佣</th>
-                  <th>合计</th>
+                  <th>司机</th>
+                  <th>司机ID</th>
+                  <th>订单量</th>
+                  <th>订单收入</th>
+                  <th>奖励</th>
+                  <th>日均单量</th>
+                  <th>日均订单收入</th>
+                  <th>总金额</th>
                 </tr>
               </thead>
               <tbody>
-                <template v-for="(item, index) in teamDetailData" :key="'team-'+index">
-                  <tr>
-                    <td rowspan="2" class="org-name">{{ item.name }}</td>
-                    <td class="row-label">订单量</td>
-                    <td>{{ item.unfree_qty }}</td>
-                    <td>{{ item.free_qty }}</td>
-                    <td class="total-col">{{ item.total_qty }}</td>
-                  </tr>
-                  <tr>
-                    <td class="row-label">司机行程</td>
-                    <td>{{ item.unfree_driver_trip_fee }}</td>
-                    <td>{{ item.free_driver_trip_fee }}</td>
-                    <td class="total-col">{{ item.total_driver_trip_fee }}</td>
-                  </tr>
-                </template>
+                <tr v-for="(item, index) in driverFlowRows" :key="'flow-'+index">
+                  <td class="org-name">{{ item.driver_name }}</td>
+                  <td class="id-cell">{{ item.driver_id }}</td>
+                  <td>{{ item.order_qty }}</td>
+                  <td>{{ fmt2(item.order_income) }}</td>
+                  <td>{{ fmt2(item.reward_income) }}</td>
+                  <td>{{ fmt2(item.order_qty / monthDays) }}</td>
+                  <td>{{ fmt2(item.order_income / monthDays) }}</td>
+                  <td class="total-col">{{ fmt2(item.total_income) }}</td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
+       
 
         <!-- Business Rules -->
         <div class="caliber-section">
@@ -311,7 +313,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -342,6 +344,7 @@ watch(() => filters.company, (val) => {
   ElMessage.success(`已切换至: ${val}`);
   loadInvoiceInfo();
   loadDriverSummary();
+  loadDriverFlow();
 });
 
 const loadCompanyOptions = async () => {
@@ -369,6 +372,7 @@ watch(() => filters.month, async (val) => {
     if (filters.company) ElMessage.success(`已切换账期: ${val}`);
     if (filters.company) await loadInvoiceInfo();
     if (filters.company) await loadDriverSummary();
+    if (filters.company) await loadDriverFlow();
   }
 });
 
@@ -389,43 +393,32 @@ const clientData = reactive([
   }
 ]);
 
-const driverTransactionData = reactive([
-  {
-    name: '张三',
-    orderQty: 100,
-    flowIncome: '2000.00',
-    rewardIncome: '100.00',
-    totalIncome: '2100.00'
-  },
-  {
-    name: '李四',
-    orderQty: 150,
-    flowIncome: '3000.00',
-    rewardIncome: '200.00',
-    totalIncome: '3200.00'
-  },
-  {
-    name: '王五',
-    orderQty: 80,
-    flowIncome: '1600.00',
-    rewardIncome: '50.00',
-    totalIncome: '1650.00'
-  },
-  {
-    name: '赵六',
-    orderQty: 120,
-    flowIncome: '2400.00',
-    rewardIncome: '120.00',
-    totalIncome: '2520.00'
-  },
-  {
-    name: '孙七',
-    orderQty: 90,
-    flowIncome: '1800.00',
-    rewardIncome: '80.00',
-    totalIncome: '1880.00'
-  }
+const driverRows = computed(() => [
+  ...driverData,
+  ...teamDetailData.map(r => ({
+    name: r.name,
+    unfree_qty: r.unfree_qty,
+    free_qty: r.free_qty,
+    total_qty: r.total_qty,
+    unfree_driver_trip_fee: r.unfree_driver_trip_fee,
+    free_driver_trip_fee: r.free_driver_trip_fee,
+    total_driver_trip_fee: r.total_driver_trip_fee
+  }))
 ]);
+const clientRows = computed(() => [
+  ...clientData,
+  ...teamDetailData.map(r => ({
+    name: r.name,
+    unfree_qty: r.unfree_qty,
+    free_qty: r.free_qty,
+    total_qty: r.total_qty,
+    unfree_trip_fee: r.unfree_trip_fee,
+    free_trip_fee: r.free_trip_fee,
+    total_trip_fee: r.total_trip_fee
+  }))
+]);
+// 已移除司机流水静态示例，改为车队明细数据追加在上方两个表
+const driverFlowRows = ref([]);
 
 const businessRules = reactive([
   { label: '基础分佣比率', value: '5.00%' },
@@ -507,64 +500,12 @@ loadCompanyOptions();
 const loadDriverSummary = async () => {
   if (!filters.company || !filters.month) return;
   try {
-    const res = await request.post('/pt_fylist/settlement-summary', { company: filters.company, month: filters.month }, { headers: { repeatSubmit: false } });
-    const list = (res.data && res.data.list) ? res.data.list : [];
-    const row = list[0];
-    if (!row) {
-      driverData.splice(0, driverData.length, {
-        name: '汇总',
-        unfree_qty: 0, free_qty: 0, total_qty: 0,
-        unfree_trip_fee: 0, free_trip_fee: 0, total_trip_fee: 0,
-        unfree_driver_trip_fee: 0, free_driver_trip_fee: 0, total_driver_trip_fee: 0
-      });
-      clientData.splice(0, clientData.length, {
-        name: '汇总',
-        unfree_qty: 0, free_qty: 0, total_qty: 0,
-        unfree_trip_fee: 0, free_trip_fee: 0, total_trip_fee: 0
-      });
-      await loadTeamDetails();
-      return;
-    }
-    driverData.splice(0, driverData.length, {
-      name: row.clean_company,
-      unfree_qty: Number(row.unfree_qty || 0),
-      free_qty: Number(row.free_qty || 0),
-      total_qty: Number(row.total_qty || 0),
-      unfree_trip_fee: Number(row.unfree_trip_fee || 0),
-      free_trip_fee: Number(row.free_trip_fee || 0),
-      total_trip_fee: Number(row.total_trip_fee || 0),
-      unfree_driver_trip_fee: Number(row.unfree_driver_trip_fee || 0),
-      free_driver_trip_fee: Number(row.free_driver_trip_fee || 0),
-      total_driver_trip_fee: Number(row.total_driver_trip_fee || 0)
-    });
-    // client side mirrors order qty & trip fee (行程费属于客户端)
-    clientData.splice(0, clientData.length, {
-      name: row.clean_company,
-      unfree_qty: Number(row.unfree_qty || 0),
-      free_qty: Number(row.free_qty || 0),
-      total_qty: Number(row.total_qty || 0),
-      unfree_trip_fee: Number(row.unfree_trip_fee || 0),
-      free_trip_fee: Number(row.free_trip_fee || 0),
-      total_trip_fee: Number(row.total_trip_fee || 0)
-    });
-    await loadTeamDetails();
-  } catch (e) {
-    // ignore
-  }
-};
-
-const teamDetailData = reactive([]);
-const loadTeamDetails = async () => {
-  try {
     const pol = await request.post('/pt_fylist/company-policy/query', { month: filters.month }, { headers: { repeatSubmit: false } });
-    const list = pol.data?.list || [];
-    const row = list.find(r => r.company === filters.company);
-    const teams = row ? (JSON.parse(row.team || '[]')) : [];
-    if (!teams || teams.length === 0) {
-      teamDetailData.splice(0, teamDetailData.length);
-      return;
-    }
-    const det = await request.post('/pt_fylist/settlement-detail', { month: filters.month, companies: teams }, { headers: { repeatSubmit: false } });
+    const listPolicy = pol.data?.list || [];
+    const rowPolicy = listPolicy.find(r => r.company === filters.company);
+    const teams = rowPolicy ? (JSON.parse(rowPolicy.team || '[]')) : [];
+    const companies = [filters.company, ...teams];
+    const det = await request.post('/pt_fylist/settlement-detail', { month: filters.month, companies }, { headers: { repeatSubmit: false } });
     const dl = det.data?.list || [];
     teamDetailData.splice(0, teamDetailData.length, ...dl.map(r => ({
       name: r.company,
@@ -578,7 +519,107 @@ const loadTeamDetails = async () => {
       free_driver_trip_fee: Number(r.free_driver_trip_fee || 0),
       total_driver_trip_fee: Number(r.total_driver_trip_fee || 0)
     })));
+    const sum = teamDetailData.reduce((acc, r) => {
+      acc.unfree_qty += r.unfree_qty; acc.free_qty += r.free_qty; acc.total_qty += r.total_qty;
+      acc.unfree_trip_fee += r.unfree_trip_fee; acc.free_trip_fee += r.free_trip_fee; acc.total_trip_fee += r.total_trip_fee;
+      acc.unfree_driver_trip_fee += r.unfree_driver_trip_fee; acc.free_driver_trip_fee += r.free_driver_trip_fee; acc.total_driver_trip_fee += r.total_driver_trip_fee;
+      return acc;
+    }, { unfree_qty:0, free_qty:0, total_qty:0, unfree_trip_fee:0, free_trip_fee:0, total_trip_fee:0, unfree_driver_trip_fee:0, free_driver_trip_fee:0, total_driver_trip_fee:0 });
+    driverData.splice(0, driverData.length, {
+      name: filters.company,
+      unfree_qty: sum.unfree_qty, free_qty: sum.free_qty, total_qty: sum.total_qty,
+      unfree_trip_fee: sum.unfree_trip_fee, free_trip_fee: sum.free_trip_fee, total_trip_fee: sum.total_trip_fee,
+      unfree_driver_trip_fee: sum.unfree_driver_trip_fee, free_driver_trip_fee: sum.free_driver_trip_fee, total_driver_trip_fee: sum.total_driver_trip_fee
+    });
+    clientData.splice(0, clientData.length, {
+      name: filters.company,
+      unfree_qty: sum.unfree_qty, free_qty: sum.free_qty, total_qty: sum.total_qty,
+      unfree_trip_fee: sum.unfree_trip_fee, free_trip_fee: sum.free_trip_fee, total_trip_fee: sum.total_trip_fee
+    });
+  } catch (e) {
+    // ignore
+  }
+};
+const loadDriverFlow = async () => {
+  if (!filters.company || !filters.month) return;
+  try {
+    const res = await request.post('/pt_fylist/driver-flow-summary', { company: filters.company, month: filters.month }, { headers: { repeatSubmit: false } });
+    driverFlowRows.value = res.data?.list || [];
   } catch {}
+};
+const monthDays = computed(() => {
+  try {
+    return dayjs(filters.month).daysInMonth();
+  } catch {
+    return 30;
+  }
+});
+const driverFlowSummary = computed(() => {
+  const days = monthDays.value || 1;
+  const totals = (driverFlowRows.value || []).reduce((acc, r) => {
+    acc.order_qty += Number(r.order_qty || 0);
+    acc.order_income += Number(r.order_income || 0);
+    return acc;
+  }, { order_qty: 0, order_income: 0 });
+  return {
+    order_qty_total: totals.order_qty,
+    order_income_total: totals.order_income,
+    order_qty_avg: totals.order_qty / days,
+    order_income_avg: totals.order_income / days
+  };
+});
+
+const teamDetailData = reactive([]);
+const loadTeamDetails = async () => {
+  try {
+    const pol = await request.post('/pt_fylist/company-policy/query', { month: filters.month }, { headers: { repeatSubmit: false } });
+    const list = pol.data?.list || [];
+    const row = list.find(r => r.company === filters.company);
+    const teams = row ? (JSON.parse(row.team || '[]')) : [];
+    if (!teams || teams.length === 0) {
+      teamDetailData.splice(0, teamDetailData.length);
+      return;
+    }
+    const companies = [filters.company, ...teams];
+    const det = await request.post('/pt_fylist/settlement-detail', { month: filters.month, companies }, { headers: { repeatSubmit: false } });
+    const dl = det.data?.list || [];
+    teamDetailData.splice(0, teamDetailData.length, ...dl.map(r => ({
+      name: r.company,
+      unfree_qty: Number(r.unfree_qty || 0),
+      free_qty: Number(r.free_qty || 0),
+      total_qty: Number(r.total_qty || 0),
+      unfree_trip_fee: Number(r.unfree_trip_fee || 0),
+      free_trip_fee: Number(r.free_trip_fee || 0),
+      total_trip_fee: Number(r.total_trip_fee || 0),
+      unfree_driver_trip_fee: Number(r.unfree_driver_trip_fee || 0),
+      free_driver_trip_fee: Number(r.free_driver_trip_fee || 0),
+      total_driver_trip_fee: Number(r.total_driver_trip_fee || 0)
+    })));
+    if (/[（(]-?/.test(filters.company) || filters.company.includes('-')) {
+      const sum = teamDetailData.reduce((acc, r) => {
+        acc.unfree_qty += r.unfree_qty; acc.free_qty += r.free_qty; acc.total_qty += r.total_qty;
+        acc.unfree_trip_fee += r.unfree_trip_fee; acc.free_trip_fee += r.free_trip_fee; acc.total_trip_fee += r.total_trip_fee;
+        acc.unfree_driver_trip_fee += r.unfree_driver_trip_fee; acc.free_driver_trip_fee += r.free_driver_trip_fee; acc.total_driver_trip_fee += r.total_driver_trip_fee;
+        return acc;
+      }, { unfree_qty:0, free_qty:0, total_qty:0, unfree_trip_fee:0, free_trip_fee:0, total_trip_fee:0, unfree_driver_trip_fee:0, free_driver_trip_fee:0, total_driver_trip_fee:0 });
+      driverData.splice(0, 1, {
+        name: filters.company,
+        unfree_qty: sum.unfree_qty, free_qty: sum.free_qty, total_qty: sum.total_qty,
+        unfree_trip_fee: sum.unfree_trip_fee, free_trip_fee: sum.free_trip_fee, total_trip_fee: sum.total_trip_fee,
+        unfree_driver_trip_fee: sum.unfree_driver_trip_fee, free_driver_trip_fee: sum.free_driver_trip_fee, total_driver_trip_fee: sum.total_driver_trip_fee
+      });
+      clientData.splice(0, 1, {
+        name: filters.company,
+        unfree_qty: sum.unfree_qty, free_qty: sum.free_qty, total_qty: sum.total_qty,
+        unfree_trip_fee: sum.unfree_trip_fee, free_trip_fee: sum.free_trip_fee, total_trip_fee: sum.total_trip_fee
+      });
+    }
+  } catch {}
+};
+const fmt2 = (n) => {
+  const num = Number(n || 0);
+  if (!Number.isFinite(num)) return '0.00';
+  return num.toFixed(2);
 };
 const loadInvoiceInfo = async () => {
   if (!filters.company || !filters.month) return;
@@ -745,6 +786,14 @@ const saveInvoiceInfo = async () => {
   padding-left: 10px;
 }
 
+.summary-bar {
+  font-size: 20px;
+  font-weight: 600;
+  color: #303133;
+  margin: 8px 0 12px;
+  letter-spacing: 0.5px;
+}
+
 .table-scroll-container {
   max-height: 250px; /* Specific height as requested */
   overflow-y: auto;
@@ -764,7 +813,8 @@ const saveInvoiceInfo = async () => {
   z-index: 1;
   background-color: #F5F7FA;
   font-weight: bold;
-  color: #606266;
+  color: #303133;
+  font-size: 13px;
   border: 1px solid #EBEEF5; /* Keep borders for cells */
   box-shadow: 0 1px 0 #EBEEF5; /* Fix bottom border visibility on sticky */
 }
@@ -774,6 +824,8 @@ const saveInvoiceInfo = async () => {
   padding: 8px;
   text-align: center;
   white-space: nowrap; /* Prevent text wrapping */
+  font-size: 13px;
+  font-family: 'PingFang SC','Microsoft YaHei','Helvetica Neue',Arial,sans-serif;
 }
 
 .rules-container {

@@ -423,6 +423,34 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
     }
 });
 
+router.post('/driver-flow-summary', async (req, res) => {
+    try {
+        const { company, month } = req.body || {};
+        if (!company || !month) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少公司或月份' } }));
+        const baseExpr = "TRIM(REGEXP_REPLACE(SUBSTRING_INDEX(`company`, '-', 1), '（[^）]*）', ''))";
+        const sql = `
+            SELECT
+              ${baseExpr} AS clean_company,
+              \`driver_id\` AS driver_id,
+              \`driver_name\` AS driver_name,
+              COUNT(CASE WHEN \`category\` = '订单收入' THEN 1 ELSE NULL END) AS order_qty,
+              ROUND(SUM(CASE WHEN \`category\` = '订单收入' THEN \`amount\` ELSE 0 END), 2) AS order_income,
+              ROUND(SUM(CASE WHEN \`category\` != '订单收入' THEN \`amount\` ELSE 0 END), 2) AS reward_income,
+              ROUND(SUM(\`amount\`), 2) AS total_income
+            FROM \`pt_fy_driver_flow\`
+            WHERE \`year_month\` = ?
+              AND ${baseExpr} = ?
+              AND \`category\` NOT IN ('提现支出','提现返还','手动扣款','租赁支出')
+            GROUP BY clean_company, \`driver_id\`, \`driver_name\`
+            ORDER BY total_income DESC
+        `;
+        const vals = [month, company];
+        const { result } = await pools({ sql, val: vals, res, req });
+        return res.send(utils.returnData({ msg: '查询成功', data: { list: result || [] } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
 router.post('/rules-save', async (req, res) => {
     try {
         const { baseSimpleRows = [], ladderRows = [], overwrite = false, overwriteBasePolicyIds = [], overwriteLadderPolicyIds = [] } = req.body;
