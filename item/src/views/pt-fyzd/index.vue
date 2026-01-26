@@ -343,7 +343,6 @@ const statementData = reactive({
 
 watch(() => filters.company, (val) => {
   statementData.companyName = val;
-  statementData.invoiceUnitName = val;
   ElMessage.success(`已切换至: ${val}`);
   loadInvoiceInfo();
 });
@@ -533,8 +532,6 @@ const loadInvoiceInfo = async () => {
       statementData.mailAddress = info.mail_address || statementData.mailAddress;
       statementData.mailReceiver = info.mail_receiver || statementData.mailReceiver;
       statementData.mailPhone = info.mail_phone || statementData.mailPhone;
-    } else {
-      statementData.invoiceUnitName = filters.company || '';
     }
   } catch {}
 };
