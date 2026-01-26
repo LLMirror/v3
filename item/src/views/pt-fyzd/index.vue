@@ -686,7 +686,7 @@ const saveInvoiceInfo = async () => {
   overflow: auto;
   display: flex;
   justify-content: center;
-  padding: 40px;
+  padding: 24px;
   position: relative;
 }
 
@@ -752,7 +752,7 @@ const saveInvoiceInfo = async () => {
 
 /* Right Side Panel Styles */
 .caliber-panel {
-  width: 650px; /* Increased width to prevent wrapping */
+  width: 820px; /* Expanded width for better readability */
   background-color: #fff;
   padding: 20px;
   box-shadow: -2px 0 10px rgba(0, 0, 0, 0.05);
