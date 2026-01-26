@@ -28,12 +28,18 @@
           <span class="table-title">公司列表（绑定基础/阶梯配置）</span>
         </div>
         <el-table :data="rows" border stripe height="520">
+          <el-table-column type="index" label="序号" width="60" />
           <el-table-column prop="company" label="公司" min-width="200">
             <template #default="scope">
-              <span>{{ scope.row.company }}</span>
+              <template v-if="scope.row.id">
+                <span>{{ scope.row.company }}</span>
+              </template>
+              <template v-else>
+                <el-input v-model="scope.row.company" placeholder="请输入公司名称" />
+              </template>
             </template>
           </el-table-column>
-          <el-table-column prop="team" label="绑定车队" min-width="200">
+          <el-table-column prop="team" label="绑定车队" min-width="460">
             <template #default="scope">
               <el-select v-model="scope.row.original_names" multiple filterable allow-create default-first-option style="width: 100%" @change="syncOriginal(scope.row)">
                 <el-option v-for="n in (scope.row.available_original || scope.row.original_names || [])" :key="n" :label="n" :value="n" />
@@ -49,13 +55,14 @@
           </el-table-column>
           <el-table-column prop="ladder_policy_id" label="阶梯配置" min-width="220">
             <template #default="scope">
-              <el-select v-model="scope.row.ladder_selected_single" filterable placeholder="选择阶梯政策（单选）" style="width:100%">
+              <el-select v-model="scope.row.ladder_selected" multiple filterable placeholder="选择阶梯政策（基础/激励各选一个）" style="width:100%" @change="enforceLadder(scope.row)">
                 <el-option v-for="p in ladderPolicies" :key="p.policy_id" :label="p.policy_id + '｜' + (p.rule_type||'')" :value="p.policy_id" />
               </el-select>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="140">
             <template #default="scope">
+              <el-button type="primary" plain size="small" @click="copyRow(scope.$index)">复制</el-button>
               <el-button type="danger" plain size="small" @click="removeRow(scope.$index)">删除</el-button>
             </template>
           </el-table-column>
@@ -100,6 +107,12 @@ const addRow = () => {
 };
 const removeRow = (i) => {
   rows.value.splice(i, 1);
+};
+const copyRow = (i) => {
+  const src = rows.value[i];
+  const clone = JSON.parse(JSON.stringify(src));
+  clone.id = undefined;
+  rows.value.splice(i + 1, 0, clone);
 };
 
 const loadPolicies = async () => {
@@ -150,10 +163,9 @@ const loadSaved = async () => {
         original_names: (() => { try { const t = JSON.parse(r.team || '[]'); return (t && t.length) ? t : (map[r.company] || []); } catch { return map[r.company] || []; } })(),
         available_original: map[r.company] || [],
         base_policy_id: r.base_policy_id || '',
-        ladder_selected_single: (() => { try {
+        ladder_selected: (() => { try {
           const arr = JSON.parse(r.ladder_policy_id || '[]');
-          const first = Array.isArray(arr) ? arr.find(x => x && x.policy_id) : null;
-          return first ? first.policy_id : '';
+          return Array.isArray(arr) ? arr.map(x => x.policy_id).filter(Boolean) : [];
         } catch { return []; } })()
       }));
       baselineRows.value = JSON.parse(JSON.stringify(rows.value));
@@ -167,7 +179,7 @@ const loadSaved = async () => {
     const q = await request.post('/pt_fylist/company-list/query', { month: month.value }, { headers: { repeatSubmit: false } });
     const companies = q.data?.list || [];
     if (companies.length > 0) {
-      rows.value = companies.map(r => ({ id: undefined, company: r.company, original_names: r.original_names ? JSON.parse(r.original_names) : [], available_original: r.original_names ? JSON.parse(r.original_names) : [], base_policy_id: '', ladder_selected_single: '' }));
+      rows.value = companies.map(r => ({ id: undefined, company: r.company, original_names: r.original_names ? JSON.parse(r.original_names) : [], available_original: r.original_names ? JSON.parse(r.original_names) : [], base_policy_id: '', ladder_selected: [] }));
       baselineRows.value = JSON.parse(JSON.stringify(rows.value));
       uploadPercentage.value = 100;
       progressStatusText.value = '完成';
@@ -179,7 +191,7 @@ const loadSaved = async () => {
     await request.post('/pt_fylist/company-list/generate', { month: month.value, append: false }, { headers: { repeatSubmit: false }, timeout: 600000 });
     const q2 = await request.post('/pt_fylist/company-list/query', { month: month.value }, { headers: { repeatSubmit: false } });
     const companies2 = q2.data?.list || [];
-    rows.value = companies2.map(r => ({ id: undefined, company: r.company, original_names: r.original_names ? JSON.parse(r.original_names) : [], available_original: r.original_names ? JSON.parse(r.original_names) : [], base_policy_id: '', ladder_selected_single: '' }));
+    rows.value = companies2.map(r => ({ id: undefined, company: r.company, original_names: r.original_names ? JSON.parse(r.original_names) : [], available_original: r.original_names ? JSON.parse(r.original_names) : [], base_policy_id: '', ladder_selected: [] }));
     baselineRows.value = JSON.parse(JSON.stringify(rows.value));
     uploadPercentage.value = 100;
     progressStatusText.value = '完成';
@@ -259,9 +271,14 @@ const saveConfig = async (append) => {
     };
     const baselineMap = new Map((baselineRows.value || []).map(r => [r.id || `${r.company}`, r]));
     const toLadderJson = (row) => {
-      if (!row.ladder_selected_single) return '[]';
-      const p = ladderPolicies.value.find(x => x.policy_id === row.ladder_selected_single) || {};
-      return JSON.stringify([{ policy_id: row.ladder_selected_single, rule_type: p.rule_type || null }]);
+      const selected = Array.isArray(row.ladder_selected) ? row.ladder_selected : [];
+      const typeMap = {};
+      selected.forEach(id => {
+        const p = ladderPolicies.value.find(x => x.policy_id === id);
+        const t = p?.rule_type || '';
+        typeMap[t] = { policy_id: id, rule_type: t || null };
+      });
+      return JSON.stringify(Object.values(typeMap));
     };
     const inserts = [];
     const updates = [];
@@ -298,7 +315,7 @@ const saveConfig = async (append) => {
     status.title = '保存成功';
     status.type = 'success';
     status.msg = `保存成功，共 ${savedCount} 条。`;
-    baselineRows.value = JSON.parse(JSON.stringify(rows.value));
+    await loadSaved();
   } catch (e) {
     ElMessage.error('保存失败');
     status.title = '保存失败';
@@ -314,6 +331,24 @@ const syncOriginal = (row) => {
   const set = new Set(row.available_original || []);
   names.forEach(n => set.add(n));
   row.available_original = Array.from(set);
+};
+
+const enforceLadder = (row) => {
+  const selected = Array.isArray(row.ladder_selected) ? row.ladder_selected : [];
+  const typeIndex = {};
+  const result = [];
+  selected.forEach(id => {
+    const p = ladderPolicies.value.find(x => x.policy_id === id);
+    const t = p?.rule_type || '';
+    if (typeIndex[t] === undefined) {
+      typeIndex[t] = result.length;
+      result.push(id);
+    } else {
+      // replace previous selection of same type with latest
+      result[typeIndex[t]] = id;
+    }
+  });
+  row.ladder_selected = result;
 };
 
 loadPolicies();
