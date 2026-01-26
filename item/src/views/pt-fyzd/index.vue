@@ -178,17 +178,11 @@
               <tbody>
                 <template v-for="(item, index) in driverData" :key="'driver-'+index">
                   <tr>
-                    <td rowspan="3" class="org-name">{{ item.name }}</td>
+                    <td rowspan="2" class="org-name">{{ item.name }}</td>
                     <td class="row-label">订单量</td>
                     <td>{{ item.unfree_qty }}</td>
                     <td>{{ item.free_qty }}</td>
                     <td class="total-col">{{ item.total_qty }}</td>
-                  </tr>
-                  <tr>
-                    <td class="row-label">行程费</td>
-                    <td>{{ item.unfree_trip_fee }}</td>
-                    <td>{{ item.free_trip_fee }}</td>
-                    <td class="total-col">{{ item.total_trip_fee }}</td>
                   </tr>
                   <tr>
                     <td class="row-label">司机行程</td>
@@ -211,10 +205,8 @@
                 <tr>
                   <th></th>
                   <th>分类</th>
-                  <th>SP活动免佣</th>
                   <th>不免佣</th>
-                  <th>减佣卡减佣</th>
-                  <th>免佣卡</th>
+                  <th>免佣</th>
                   <th>合计</th>
                 </tr>
               </thead>
@@ -222,20 +214,16 @@
                 <template v-for="(item, index) in clientData" :key="'client-'+index">
                   <tr>
                     <td rowspan="2" class="org-name">{{ item.name }}</td>
-                    <td class="row-label">数量</td>
-                    <td>{{ item.spQty }}</td>
-                    <td>{{ item.normalQty }}</td>
-                    <td>{{ item.reducedQty }}</td>
-                    <td>{{ item.freeQty }}</td>
-                    <td class="total-col">{{ item.totalQty }}</td>
+                    <td class="row-label">订单量</td>
+                    <td>{{ item.unfree_qty }}</td>
+                    <td>{{ item.free_qty }}</td>
+                    <td class="total-col">{{ item.total_qty }}</td>
                   </tr>
                   <tr>
-                    <td class="row-label">金额</td>
-                    <td>{{ item.spAmt }}</td>
-                    <td>{{ item.normalAmt }}</td>
-                    <td>{{ item.reducedAmt }}</td>
-                    <td>{{ item.freeAmt }}</td>
-                    <td class="total-col">{{ item.totalAmt }}</td>
+                    <td class="row-label">行程费</td>
+                    <td>{{ item.unfree_trip_fee }}</td>
+                    <td>{{ item.free_trip_fee }}</td>
+                    <td class="total-col">{{ item.total_trip_fee }}</td>
                   </tr>
                 </template>
               </tbody>
@@ -245,26 +233,34 @@
 
         <!-- Driver Transaction Flow Table -->
         <div class="caliber-section">
-          <div class="section-title">司机流水详情</div>
+          <div class="section-title">车队明细数据</div>
           <div class="table-scroll-container">
             <table class="caliber-table">
               <thead>
                 <tr>
-                  <th>司机</th>
-                  <th>订单量</th>
-                  <th>流水收入</th>
-                  <th>奖励收入</th>
-                  <th>总收入</th>
+                  <th></th>
+                  <th>分类</th>
+                  <th>不免佣</th>
+                  <th>免佣</th>
+                  <th>合计</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, index) in driverTransactionData" :key="'trans-'+index">
-                  <td>{{ item.name }}</td>
-                  <td>{{ item.orderQty }}</td>
-                  <td>{{ item.flowIncome }}</td>
-                  <td>{{ item.rewardIncome }}</td>
-                  <td class="total-col">{{ item.totalIncome }}</td>
-                </tr>
+                <template v-for="(item, index) in teamDetailData" :key="'team-'+index">
+                  <tr>
+                    <td rowspan="2" class="org-name">{{ item.name }}</td>
+                    <td class="row-label">订单量</td>
+                    <td>{{ item.unfree_qty }}</td>
+                    <td>{{ item.free_qty }}</td>
+                    <td class="total-col">{{ item.total_qty }}</td>
+                  </tr>
+                  <tr>
+                    <td class="row-label">司机行程</td>
+                    <td>{{ item.unfree_driver_trip_fee }}</td>
+                    <td>{{ item.free_driver_trip_fee }}</td>
+                    <td class="total-col">{{ item.total_driver_trip_fee }}</td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -387,14 +383,9 @@ const driverData = reactive([
 
 const clientData = reactive([
   {
-    name: '不分车队客户端',
-    spQty: 0, normalQty: 150, reducedQty: 40, freeQty: 0, totalQty: 190,
-    spAmt: 0, normalAmt: 3100.00, reducedAmt: 900.00, freeAmt: 0, totalAmt: 4000.00
-  },
-  {
-    name: '成都通行安科技有限公司（粒粒车队）',
-    spQty: 0, normalQty: 70, reducedQty: 10, freeQty: 0, totalQty: 80,
-    spAmt: 0, normalAmt: 1500.00, reducedAmt: 250.00, freeAmt: 0, totalAmt: 1750.00
+    name: '汇总',
+    unfree_qty: 0, free_qty: 0, total_qty: 0,
+    unfree_trip_fee: 0, free_trip_fee: 0, total_trip_fee: 0
   }
 ]);
 
@@ -526,6 +517,12 @@ const loadDriverSummary = async () => {
         unfree_trip_fee: 0, free_trip_fee: 0, total_trip_fee: 0,
         unfree_driver_trip_fee: 0, free_driver_trip_fee: 0, total_driver_trip_fee: 0
       });
+      clientData.splice(0, clientData.length, {
+        name: '汇总',
+        unfree_qty: 0, free_qty: 0, total_qty: 0,
+        unfree_trip_fee: 0, free_trip_fee: 0, total_trip_fee: 0
+      });
+      await loadTeamDetails();
       return;
     }
     driverData.splice(0, driverData.length, {
@@ -540,9 +537,48 @@ const loadDriverSummary = async () => {
       free_driver_trip_fee: Number(row.free_driver_trip_fee || 0),
       total_driver_trip_fee: Number(row.total_driver_trip_fee || 0)
     });
+    // client side mirrors order qty & trip fee (行程费属于客户端)
+    clientData.splice(0, clientData.length, {
+      name: row.clean_company,
+      unfree_qty: Number(row.unfree_qty || 0),
+      free_qty: Number(row.free_qty || 0),
+      total_qty: Number(row.total_qty || 0),
+      unfree_trip_fee: Number(row.unfree_trip_fee || 0),
+      free_trip_fee: Number(row.free_trip_fee || 0),
+      total_trip_fee: Number(row.total_trip_fee || 0)
+    });
+    await loadTeamDetails();
   } catch (e) {
     // ignore
   }
+};
+
+const teamDetailData = reactive([]);
+const loadTeamDetails = async () => {
+  try {
+    const pol = await request.post('/pt_fylist/company-policy/query', { month: filters.month }, { headers: { repeatSubmit: false } });
+    const list = pol.data?.list || [];
+    const row = list.find(r => r.company === filters.company);
+    const teams = row ? (JSON.parse(row.team || '[]')) : [];
+    if (!teams || teams.length === 0) {
+      teamDetailData.splice(0, teamDetailData.length);
+      return;
+    }
+    const det = await request.post('/pt_fylist/settlement-detail', { month: filters.month, companies: teams }, { headers: { repeatSubmit: false } });
+    const dl = det.data?.list || [];
+    teamDetailData.splice(0, teamDetailData.length, ...dl.map(r => ({
+      name: r.company,
+      unfree_qty: Number(r.unfree_qty || 0),
+      free_qty: Number(r.free_qty || 0),
+      total_qty: Number(r.total_qty || 0),
+      unfree_trip_fee: Number(r.unfree_trip_fee || 0),
+      free_trip_fee: Number(r.free_trip_fee || 0),
+      total_trip_fee: Number(r.total_trip_fee || 0),
+      unfree_driver_trip_fee: Number(r.unfree_driver_trip_fee || 0),
+      free_driver_trip_fee: Number(r.free_driver_trip_fee || 0),
+      total_driver_trip_fee: Number(r.total_driver_trip_fee || 0)
+    })));
+  } catch {}
 };
 const loadInvoiceInfo = async () => {
   if (!filters.company || !filters.month) return;
