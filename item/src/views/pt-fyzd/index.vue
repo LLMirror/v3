@@ -53,7 +53,7 @@
             <table class="statement-table">
             <!-- Header with Background -->
             <tr>
-              <td colspan="9" class="header-bg">四川畅行九州运力科技有限公司</td>
+              <td colspan="9" class="header-bg">{{ statementData.companyName }}</td>
             </tr>
             
             <!-- Title -->
@@ -104,9 +104,9 @@
             <tr>
               <td class="label-cell-vertical">发票信息：</td>
               <td colspan="8" class="content-cell-left">
-                <div class="info-row"><span class="info-label">单位名称：</span>{{ statementData.companyName }}</div>
-                <div class="info-row"><span class="info-label">信用代码：</span>91510107MAC46XL84H</div>
-                <div class="info-row"><span class="info-label">地址：</span>四川省成都市武侯区二环路南四段69号2栋1层2号</div>
+                <div class="info-row"><span class="info-label">单位名称：</span>{{ statementData.invoiceUnitName }}</div>
+                <div class="info-row"><span class="info-label">信用代码：</span>{{ statementData.creditCode }}</div>
+                <div class="info-row"><span class="info-label">地址：</span>{{ statementData.invoiceAddress }}</div>
               </td>
             </tr>
             
@@ -124,9 +124,9 @@
             <tr>
               <td class="label-cell-vertical">发票收件地址：</td>
               <td colspan="8" class="content-cell-left">
-                <div class="info-row"><span class="info-label">收件地址：</span>四川省成都市金牛区迎宾大道318号（信泰集团财务室）</div>
-                <div class="info-row"><span class="info-label">收件人：</span>刘磊</div>
-                <div class="info-row"><span class="info-label">收件人电话：</span>18696916911</div>
+                <div class="info-row"><span class="info-label">收件地址：</span>{{ statementData.mailAddress }}</div>
+                <div class="info-row"><span class="info-label">收件人：</span>{{ statementData.mailReceiver }}</div>
+                <div class="info-row"><span class="info-label">收件人电话：</span>{{ statementData.mailPhone }}</div>
               </td>
             </tr>
             
@@ -280,6 +280,35 @@
             </div>
           </div>
         </div>
+
+        <!-- Invoice & Mailing Maintenance -->
+        <div class="caliber-section">
+          <div class="section-title">发票信息与收件地址维护</div>
+          <el-form label-width="110px" class="maintain-form">
+            <el-form-item label="单位名称">
+              <el-input v-model="statementData.invoiceUnitName" placeholder="单位名称" />
+            </el-form-item>
+            <el-form-item label="信用代码">
+              <el-input v-model="statementData.creditCode" placeholder="统一社会信用代码" />
+            </el-form-item>
+            <el-form-item label="开票地址">
+              <el-input v-model="statementData.invoiceAddress" placeholder="发票信息地址" />
+            </el-form-item>
+            <el-divider />
+            <el-form-item label="收件地址">
+              <el-input v-model="statementData.mailAddress" placeholder="发票收件地址" />
+            </el-form-item>
+            <el-form-item label="收件人">
+              <el-input v-model="statementData.mailReceiver" placeholder="收件人" />
+            </el-form-item>
+            <el-form-item label="联系电话">
+              <el-input v-model="statementData.mailPhone" placeholder="收件人电话" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="saveInvoiceInfo">保存信息</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
       </div>
     </div>
   </div>
@@ -291,35 +320,58 @@ import { ElMessage } from 'element-plus';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import dayjs from 'dayjs';
+import request from '@/utils/request';
 
 const filters = reactive({
-  company: '四川沛途快行科技有限公司',
-  month: '2025-12'
+  company: '',
+  month: dayjs().subtract(1, 'month').format('YYYY-MM')
 });
 
-const companyOptions = [
-  { label: '四川沛途快行科技有限公司', value: '四川沛途快行科技有限公司' },
-  { label: '成都通行安科技有限公司', value: '成都通行安科技有限公司' },
-  { label: '四川畅行九州运力科技有限公司', value: '四川畅行九州运力科技有限公司' }
-];
+const companyOptions = ref([]);
 
 const statementData = reactive({
-  companyName: '四川沛途快行科技有限公司',
+  companyName: '',
   period: '2025-12-01至2025-12-31',
-  amount: '4.73'
+  amount: '4.73',
+  invoiceUnitName: '',
+  creditCode: '91510107MAC46XL84H',
+  invoiceAddress: '四川省成都市武侯区二环路南四段69号2栋1层2号',
+  mailAddress: '四川省成都市金牛区迎宾大道318号（信泰集团财务室）',
+  mailReceiver: '刘磊',
+  mailPhone: '18696916911'
 });
 
 watch(() => filters.company, (val) => {
   statementData.companyName = val;
+  statementData.invoiceUnitName = val;
   ElMessage.success(`已切换至: ${val}`);
+  loadInvoiceInfo();
 });
 
-watch(() => filters.month, (val) => {
+const loadCompanyOptions = async () => {
+  if (!filters.month) return;
+  try {
+    const res = await request.post('/pt_fylist/company-policy/query', { month: filters.month }, { headers: { repeatSubmit: false } });
+    const list = res.data?.list || [];
+    const uniq = Array.from(new Set(list.map(r => r.company).filter(Boolean)));
+    const sorted = uniq.sort((a, b) => String(a).localeCompare(String(b), 'zh-Hans-CN'));
+    companyOptions.value = sorted.map(c => ({ label: c, value: c }));
+    if (!companyOptions.value.find(o => o.value === filters.company)) {
+      filters.company = companyOptions.value[0]?.value || '';
+    }
+  } catch (e) {
+    companyOptions.value = [];
+  }
+};
+
+watch(() => filters.month, async (val) => {
   if (val) {
     const start = dayjs(val).startOf('month').format('YYYY-MM-DD');
     const end = dayjs(val).endOf('month').format('YYYY-MM-DD');
     statementData.period = `${start}至${end}`;
-    ElMessage.success(`已切换账期: ${val}`);
+    await loadCompanyOptions();
+    if (filters.company) ElMessage.success(`已切换账期: ${val}`);
+    if (filters.company) await loadInvoiceInfo();
   }
 });
 
@@ -465,6 +517,50 @@ const handleDownloadPDF = async () => {
   } catch (error) {
     console.error('PDF generation error:', error);
     ElMessage.error('PDF 下载失败');
+  }
+};
+
+loadCompanyOptions();
+const loadInvoiceInfo = async () => {
+  if (!filters.company || !filters.month) return;
+  try {
+    const res = await request.post('/pt_fylist/invoice-info/query', { company: filters.company, month: filters.month }, { headers: { repeatSubmit: false } });
+    const info = res.data;
+    if (info) {
+      statementData.invoiceUnitName = info.invoice_unit_name || filters.company;
+      statementData.creditCode = info.credit_code || statementData.creditCode;
+      statementData.invoiceAddress = info.invoice_address || statementData.invoiceAddress;
+      statementData.mailAddress = info.mail_address || statementData.mailAddress;
+      statementData.mailReceiver = info.mail_receiver || statementData.mailReceiver;
+      statementData.mailPhone = info.mail_phone || statementData.mailPhone;
+    } else {
+      statementData.invoiceUnitName = filters.company || '';
+    }
+  } catch {}
+};
+const saveInvoiceInfo = async () => {
+  if (!filters.company || !filters.month) {
+    ElMessage.warning('请选择公司与账期');
+    return;
+  }
+  try {
+    const res = await request.post('/pt_fylist/invoice-info/save', {
+      company: filters.company,
+      month: filters.month,
+      invoice_unit_name: statementData.invoiceUnitName,
+      credit_code: statementData.creditCode,
+      invoice_address: statementData.invoiceAddress,
+      mail_address: statementData.mailAddress,
+      mail_receiver: statementData.mailReceiver,
+      mail_phone: statementData.mailPhone
+    }, { headers: { repeatSubmit: false } });
+    if (res.code === 1 && res.data && res.data.success) {
+      ElMessage.success('发票与收件信息已保存');
+    } else {
+      ElMessage.error(res.data?.msg || res.msg || '保存失败');
+    }
+  } catch (e) {
+    ElMessage.error('保存失败');
   }
 };
 </script>

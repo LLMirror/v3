@@ -1143,4 +1143,77 @@ router.post('/company-list/query', async (req, res) => {
         return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
     }
 });
+
+router.post('/invoice-info/query', async (req, res) => {
+    try {
+        const { company, month } = req.body || {};
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_invoice\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            month VARCHAR(10),
+            invoice_unit_name VARCHAR(256),
+            credit_code VARCHAR(64),
+            invoice_address TEXT,
+            mail_address TEXT,
+            mail_receiver VARCHAR(64),
+            mail_phone VARCHAR(32),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql, res, req });
+        let sql = 'SELECT * FROM `pt_fy_company_invoice`';
+        let val = [];
+        const conds = [];
+        if (company) { conds.push('`company` = ?'); val.push(company); }
+        if (month) { conds.push('`month` = ?'); val.push(month); }
+        if (conds.length > 0) sql += ' WHERE ' + conds.join(' AND ');
+        sql += ' ORDER BY `updated_time` DESC LIMIT 1';
+        const { result } = await pools({ sql, val, res, req });
+        return res.send(utils.returnData({ msg: '查询成功', data: result && result[0] ? result[0] : null }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
+
+router.post('/invoice-info/save', async (req, res) => {
+    try {
+        const { company, month, invoice_unit_name, credit_code, invoice_address, mail_address, mail_receiver, mail_phone } = req.body || {};
+        if (!company || !month) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少公司或月份' } }));
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_invoice\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            month VARCHAR(10),
+            invoice_unit_name VARCHAR(256),
+            credit_code VARCHAR(64),
+            invoice_address TEXT,
+            mail_address TEXT,
+            mail_receiver VARCHAR(64),
+            mail_phone VARCHAR(32),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql, res, req });
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        const { result } = await pools({ sql: 'SELECT `id` FROM `pt_fy_company_invoice` WHERE `company` = ? AND `month` = ? LIMIT 1', val: [company, month], res, req });
+        if (result && result.length > 0) {
+            const id = result[0].id;
+            await pools({
+                sql: 'UPDATE `pt_fy_company_invoice` SET `invoice_unit_name`=?,`credit_code`=?,`invoice_address`=?,`mail_address`=?,`mail_receiver`=?,`mail_phone`=?,`updated_time`=? WHERE `id`=?',
+                val: [invoice_unit_name || '', credit_code || '', invoice_address || '', mail_address || '', mail_receiver || '', mail_phone || '', now, id],
+                res, req
+            });
+            return res.send(utils.returnData({ msg: '更新成功', data: { success: true, updated: 1 } }));
+        } else {
+            const id = uuidv4();
+            await pools({
+                sql: 'INSERT INTO `pt_fy_company_invoice` (`id`,`company`,`month`,`invoice_unit_name`,`credit_code`,`invoice_address`,`mail_address`,`mail_receiver`,`mail_phone`,`upload_time`,`updated_time`) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+                val: [id, company, month, invoice_unit_name || '', credit_code || '', invoice_address || '', mail_address || '', mail_receiver || '', mail_phone || '', now, now],
+                res, req
+            });
+            return res.send(utils.returnData({ msg: '保存成功', data: { success: true, saved: 1 } }));
+        }
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '保存失败: ' + err.message } }));
+    }
+});
 export default router;
