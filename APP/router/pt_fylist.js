@@ -14,7 +14,8 @@ const TABLE_MAP = {
     1: 'pt_fy_driver_flow',       // 司机流水
     2: 'pt_fy_settlement_order',  // 结算明细-订单
     3: 'pt_fy_platform_activity', // 平台活动
-    4: 'pt_fy_discount_bill'      // 优惠账单
+    4: 'pt_fy_discount_bill',     // 优惠账单
+    5: 'pt_fy_driver_info'        // 司机信息
 };
 
 // Field Mappings (Header -> DB Column)
@@ -98,6 +99,30 @@ const FIELD_MAPPINGS = {
         '抵扣金额': 'deduct_amount',
         '优惠成本方': 'cost_bearer',
         '车队': 'team'
+    },
+    5: { // Driver Info
+        '司机编号': 'driver_no',
+        '司机姓名': 'driver_name',
+        '司机类型': 'driver_type',
+        '分组': 'group_name',
+        '身份证地址': 'id_card_address',
+        '网络预约出租汽车驾驶员证照片': 'driver_cert_photo',
+        '监督卡照片': 'supervise_card_photo',
+        '网络预约出租汽车运输证照片': 'transport_cert_photo',
+        '车辆ID': 'vehicle_id',
+        '车牌号': 'plate_no',
+        '标签': 'tags',
+        '车辆品牌': 'vehicle_brand',
+        '车系': 'vehicle_series',
+        '城市': 'city',
+        '运力公司': 'company',
+        '所属车队': 'team',
+        '入驻时间': 'entry_time',
+        '激活时间': 'activate_time',
+        '平台调度封禁状态': 'platform_dispatch_ban_status',
+        '渠道实时单调度封禁状态': 'realtime_dispatch_ban_status',
+        '渠道预约单调度封禁状态': 'appointment_dispatch_ban_status',
+        '司机账号停用类型': 'account_disable_type'
     }
 };
 

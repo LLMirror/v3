@@ -18,6 +18,7 @@
             <el-option label="结算明细-订单" :value="2" />
             <el-option label="平台活动" :value="3" />
             <el-option label="优惠账单" :value="4" />
+            <el-option label="司机信息" :value="5" />
           </el-select>
         </div>
 
