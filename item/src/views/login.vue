@@ -41,6 +41,8 @@ const {proxy} = getCurrentInstance();
 const loginForm = ref({
   name: "admin",
   pwd: "icar19654@",
+  // name: "admin",
+  // pwd: "icar19654@",
   captcha: ""
 });
 

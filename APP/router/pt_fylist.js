@@ -64,7 +64,7 @@ const FIELD_MAPPINGS = {
         '附加费结算给司机': 'surcharge_driver',
         '附加费结算给运力公司': 'surcharge_company',
         '司机结算行程费': 'driver_trip_fee',
-        '行程费抽成比例': 'driver_trip_fee',
+        '行程费抽成比例': 'driver_trip_fee_ratio',
         '佣金补贴': 'subsidy',
         '车队': 'team'
     },
@@ -1093,6 +1093,15 @@ router.post('/save-data', async (req, res) => {
             Object.values(mapping).forEach(col => cols.push(`\`${col}\` TEXT`));
             const createSql = `CREATE TABLE \`${tableName}\` (${cols.join(',')}) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
             await pools({ sql: createSql, res, req });
+        } else {
+            const { result: existingCols } = await pools({ sql: `SHOW COLUMNS FROM \`${tableName}\``, res, req });
+            const existingSet = new Set((existingCols || []).map(c => c.Field));
+            for (const col of Object.values(mapping)) {
+                if (!existingSet.has(col)) {
+                    await pools({ sql: `ALTER TABLE \`${tableName}\` ADD COLUMN \`${col}\` TEXT`, res, req });
+                    existingSet.add(col);
+                }
+            }
         }
 
         // Handle overwrite
