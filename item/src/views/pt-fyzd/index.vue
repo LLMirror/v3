@@ -237,7 +237,7 @@
         <div class="caliber-section">
           <div class="section-title">司机流水详情</div>
           <div class="summary-bar">
-            本月天数：{{ monthDays }} ｜ 总订单量：{{ driverFlowSummary.order_qty_total }} ｜ 总订单收入：{{ fmt2(driverFlowSummary.order_income_total) }} ｜ 日均订单量：{{ fmt2(driverFlowSummary.order_qty_avg) }} ｜ 日均订单收入：{{ fmt2(driverFlowSummary.order_income_avg) }}
+            本月天数：{{ monthDays }} ｜ 总订单量：{{ driverFlowSummary.order_qty_total }} ｜ 总订单收入：{{ fmt2(driverFlowSummary.order_income_total) }} ｜ 日均订单量：{{ fmt2(driverFlowSummary.order_qty_avg) }} ｜ 日均订单收入：{{ fmt2(driverFlowSummary.order_income_avg) }} ｜ 本月激活司机量：{{ driverFlowSummary.activated_count }}
           </div>
           <div class="table-scroll-container">
             <table class="caliber-table">
@@ -245,6 +245,9 @@
                 <tr>
                   <th>司机</th>
                   <th>司机ID</th>
+                  <th>当月激活</th>
+                  <th>激活月份</th>
+                  <th>累计月</th>
                   <th>订单量</th>
                   <th>订单收入</th>
                   <th>奖励</th>
@@ -258,6 +261,9 @@
                 <tr v-for="(item, index) in driverFlowRows" :key="'flow-'+index" :class="{'highlight-green': Number(item.order_income) > 10000}">
                   <td class="org-name">{{ item.driver_name }}</td>
                   <td class="id-cell">{{ item.driver_id }}</td>
+                  <td :class="{'avg-qty-strong': item.activated_in_month === '是'}">{{ item.activated_in_month }}</td>
+                  <td>{{ item.activate_month || '-' }}</td>
+                  <td>{{ item.cumulative_months }}</td>
                   <td>{{ item.order_qty }}</td>
                   <td>{{ fmt2(item.order_income) }}</td>
                   <td>{{ fmt2(item.reward_income) }}</td>
@@ -546,7 +552,7 @@ const discountRows = ref([]);
 
 const policyDetail = reactive({ base_policy_id: '', ladder_policy_ids: [], base_rows: [], ladder_rows: [] });
 
-const scale = ref(0.9);
+const scale = ref(0.78);
 
 const handlePrint = () => {
   const printContent = document.getElementById('statement-content');
@@ -678,7 +684,24 @@ const loadDriverFlow = async () => {
   if (!filters.company || !filters.month) return;
   try {
     const res = await request.post('/pt_fylist/driver-flow-summary', { company: filters.company, month: filters.month }, { headers: { repeatSubmit: false } });
-    driverFlowRows.value = res.data?.list || [];
+    const rawList = res.data?.list || [];
+    const currentMonth = dayjs(filters.month);
+    
+    driverFlowRows.value = rawList.map(item => {
+      let cumulative = '-';
+      if (item.activate_month) {
+        const actMonth = dayjs(item.activate_month);
+        if (actMonth.isValid()) {
+          const diff = currentMonth.diff(actMonth, 'month');
+          cumulative = diff >= 0 ? diff + 1 : 0;
+        }
+      }
+      return {
+        ...item,
+        cumulative_months: cumulative
+      };
+    });
+
     statementData.driverRewardAmount = 0;
     updateTotalAmount();
   computeDriverIncentive();
@@ -734,13 +757,17 @@ const driverFlowSummary = computed(() => {
   const totals = (driverFlowRows.value || []).reduce((acc, r) => {
     acc.order_qty += Number(r.order_qty || 0);
     acc.order_income += Number(r.order_income || 0);
+    if (r.activate_month === filters.month) {
+      acc.activated_count += 1;
+    }
     return acc;
-  }, { order_qty: 0, order_income: 0 });
+  }, { order_qty: 0, order_income: 0, activated_count: 0 });
   return {
     order_qty_total: totals.order_qty,
     order_income_total: totals.order_income,
     order_qty_avg: totals.order_qty / days,
-    order_income_avg: totals.order_income / days
+    order_income_avg: totals.order_income / days,
+    activated_count: totals.activated_count
   };
 });
 const fmtRate = (n, method) => {
@@ -1032,7 +1059,7 @@ const loadBankInfo = async () => {
 
 /* Right Side Panel Styles */
 .caliber-panel {
-  width: 820px; /* Expanded width for better readability */
+  width: 980px; /* Expanded width for better readability */
   background-color: #fff;
   padding: 20px;
   box-shadow: -2px 0 10px rgba(0, 0, 0, 0.05);
