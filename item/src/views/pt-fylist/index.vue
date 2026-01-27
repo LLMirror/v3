@@ -206,6 +206,7 @@ const isDownloadDisabled = computed(() => !formData.tableType);
 
 const downloadBtnText = computed(() => {
   const name = TABLE_TYPE_MAP[formData.tableType];
+  if (Number(formData.tableType) === 5) return '司机信息 下载模板';
   return name ? `${name} 下载模板` : '下载模板';
 });
 
