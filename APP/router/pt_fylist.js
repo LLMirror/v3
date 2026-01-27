@@ -670,6 +670,39 @@ router.post('/rules-query', async (req, res) => {
         return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
     }
 });
+
+router.get('/rules-in-use', async (req, res) => {
+    try {
+        const ensureSql = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_policy\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            team TEXT,
+            base_policy_id VARCHAR(64),
+            ladder_policy_id TEXT,
+            month VARCHAR(10),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureSql, res, req });
+        const { result } = await pools({ sql: 'SELECT `base_policy_id`,`ladder_policy_id` FROM `pt_fy_company_policy`', res, req });
+        const baseSet = new Set();
+        const ladderSet = new Set();
+        for (const r of (result || [])) {
+            if (r.base_policy_id) baseSet.add(String(r.base_policy_id));
+            if (r.ladder_policy_id) {
+                try {
+                    const arr = JSON.parse(r.ladder_policy_id);
+                    if (Array.isArray(arr)) {
+                        arr.forEach(x => { if (x && x.policy_id) ladderSet.add(String(x.policy_id)); });
+                    }
+                } catch {}
+            }
+        }
+        return res.send(utils.returnData({ msg: '查询成功', data: { base: Array.from(baseSet), ladder: Array.from(ladderSet) } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
 // Import Preview (Parse & Check)
 router.post('/import-preview', upload.single('file'), async (req, res) => {
     try {

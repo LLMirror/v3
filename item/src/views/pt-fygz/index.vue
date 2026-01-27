@@ -42,31 +42,31 @@
             <el-table :data="baseOnlineRows" border stripe height="400" @selection-change="sel=>baseSelectedIds=sel.map(r=>r.id)">
               <el-table-column type="selection" width="55" />
               <el-table-column prop="policy_id" label="政策ID" width="140">
-                <template #default="scope"><el-input v-model="scope.row.policy_id" /></template>
+                <template #default="scope"><el-input v-model="scope.row.policy_id" :disabled="isBaseDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="category" label="分类" width="120">
-                <template #default="scope"><el-input v-model="scope.row.category" /></template>
+                <template #default="scope"><el-input v-model="scope.row.category" :disabled="isBaseDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="port" label="端口" width="120">
-                <template #default="scope"><el-input v-model="scope.row.port" /></template>
+                <template #default="scope"><el-input v-model="scope.row.port" :disabled="isBaseDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="base_metric" label="基数" width="120">
-                <template #default="scope"><el-input v-model="scope.row.base_metric" /></template>
+                <template #default="scope"><el-input v-model="scope.row.base_metric" :disabled="isBaseDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="subtract_free" label="是否减免佣" width="120">
-                <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" /></template>
+                <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" :disabled="isBaseDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="subtract_mozhu" label="是否扣除墨竹" width="120">
-                <template #default="scope"><el-switch v-model="scope.row.subtract_mozhu" :active-value="1" :inactive-value="0" /></template>
+                <template #default="scope"><el-switch v-model="scope.row.subtract_mozhu" :active-value="1" :inactive-value="0" :disabled="isBaseDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="method" label="返佣方式" width="120">
-                <template #default="scope"><el-select v-model="scope.row.method"><el-option label="百分比" value="百分比" /><el-option label="单价" value="单价" /></el-select></template>
+                <template #default="scope"><el-select v-model="scope.row.method" :disabled="isBaseDisabled(scope.row)"><el-option label="百分比" value="百分比" /><el-option label="单价" value="单价" /></el-select></template>
               </el-table-column>
               <el-table-column prop="rate_value" label="费率/单价" width="140">
-                <template #default="scope"><el-input v-model="scope.row.rate_display" @blur="formatRate(scope.row)" /></template>
+                <template #default="scope"><el-input v-model="scope.row.rate_display" @blur="formatRate(scope.row)" :disabled="isBaseDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="remark" label="备注" min-width="180">
-                <template #default="scope"><el-input v-model="scope.row.remark" /></template>
+                <template #default="scope"><el-input v-model="scope.row.remark" :disabled="isBaseDisabled(scope.row)" /></template>
               </el-table-column>
             </el-table>
             <div class="pagination-container">
@@ -77,32 +77,32 @@
             <el-table :data="ladderOnlineRows" border stripe height="400" @selection-change="sel=>ladderSelectedIds=sel.map(r=>r.id)">
               <el-table-column type="selection" width="55" />
               <el-table-column prop="policy_id" label="政策ID" width="140">
-                <template #default="scope"><el-input v-model="scope.row.policy_id" /></template>
+                <template #default="scope"><el-input v-model="scope.row.policy_id" :disabled="isLadderDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="rule_type" label="规则类型" width="160">
                 <template #default="scope">
-                  <el-select v-model="scope.row.rule_type" style="width:140px">
+                  <el-select v-model="scope.row.rule_type" style="width:140px" :disabled="isLadderDisabled(scope.row)">
                     <el-option label="阶梯《基础》规则" value="阶梯《基础》规则" />
                     <el-option label="阶梯《激励》规则" value="阶梯《激励》规则" />
                   </el-select>
                 </template>
               </el-table-column>
               <el-table-column prop="dimension" label="维度" width="120">
-                <template #default="scope"><el-input v-model="scope.row.dimension" /></template>
+                <template #default="scope"><el-input v-model="scope.row.dimension" :disabled="isLadderDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="metric" label="基数" width="120">
-                <template #default="scope"><el-input v-model="scope.row.metric" /></template>
+                <template #default="scope"><el-input v-model="scope.row.metric" :disabled="isLadderDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="min_val" label="最小值(>=)" width="140">
-                <template #default="scope"><el-input v-model="scope.row.min_val" @blur="formatNumber(scope.row,'min_val')" /></template>
+                <template #default="scope"><el-input v-model="scope.row.min_val" @blur="formatNumber(scope.row,'min_val')" :disabled="isLadderDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="max_val" label="最大值(<)" width="140">
-                <template #default="scope"><el-input v-model="scope.row.max_val" @blur="formatNumber(scope.row,'max_val')" /></template>
+                <template #default="scope"><el-input v-model="scope.row.max_val" @blur="formatNumber(scope.row,'max_val')" :disabled="isLadderDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="range_preview" label="范围预览" min-width="180" />
               <el-table-column prop="method" label="返佣方式" width="120">
                 <template #default="scope">
-                  <el-select v-model="scope.row.method" style="width:110px">
+                  <el-select v-model="scope.row.method" style="width:110px" :disabled="isLadderDisabled(scope.row)">
                     <el-option label="百分比" value="百分比" />
                     <el-option label="单价" value="单价" />
                     <el-option label="返现" value="返现" />
@@ -110,7 +110,7 @@
                 </template>
               </el-table-column>
               <el-table-column prop="rule_value" label="费率/单价" width="140">
-                <template #default="scope"><el-input v-model="scope.row.rule_display" @blur="formatRule(scope.row)" /></template>
+                <template #default="scope"><el-input v-model="scope.row.rule_display" @blur="formatRule(scope.row)" :disabled="isLadderDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="unit" label="单位" width="100" />
             </el-table>
@@ -230,6 +230,19 @@ const baseDupList = ref([]);
 const ladderDupList = ref([]);
 const baseDupSelected = ref([]);
 const ladderDupSelected = ref([]);
+const inUseBaseSet = ref(new Set());
+const inUseLadderSet = ref(new Set());
+const fetchInUse = async () => {
+  try {
+    const res = await request({ url: '/pt_fylist/rules-in-use', method: 'get' });
+    const base = (res.data?.base || []).map(String);
+    const lad = (res.data?.ladder || []).map(String);
+    inUseBaseSet.value = new Set(base);
+    inUseLadderSet.value = new Set(lad);
+  } catch {}
+};
+const isBaseDisabled = (row) => inUseBaseSet.value.has(String(row.policy_id || ''));
+const isLadderDisabled = (row) => inUseLadderSet.value.has(String(row.policy_id || ''));
 
 const importStatus = reactive({
   title: '提示',
@@ -530,8 +543,8 @@ const formatNumber = (row, key) => {
 const saveOnlineEdits = async () => {
   try {
     const res = await request.post('/pt_fylist/rules-update', {
-      baseUpdates: baseOnlineRows.value.map(r => ({ id: r.id, policy_id: r.policy_id, category: r.category, port: r.port, base_metric: r.base_metric, subtract_free: r.subtract_free, subtract_mozhu: r.subtract_mozhu, method: r.method, rate_value: r.rate_value, remark: r.remark })),
-      ladderUpdates: ladderOnlineRows.value.map(r => ({ id: r.id, policy_id: r.policy_id, rule_type: r.rule_type, dimension: r.dimension, metric: r.metric, min_val: r.min_val, max_val: r.max_val, method: r.method, rule_value: r.rule_value, subtract_free: r.subtract_free }))
+      baseUpdates: baseOnlineRows.value.filter(r => !isBaseDisabled(r)).map(r => ({ id: r.id, policy_id: r.policy_id, category: r.category, port: r.port, base_metric: r.base_metric, subtract_free: r.subtract_free, subtract_mozhu: r.subtract_mozhu, method: r.method, rate_value: r.rate_value, remark: r.remark })),
+      ladderUpdates: ladderOnlineRows.value.filter(r => !isLadderDisabled(r)).map(r => ({ id: r.id, policy_id: r.policy_id, rule_type: r.rule_type, dimension: r.dimension, metric: r.metric, min_val: r.min_val, max_val: r.max_val, method: r.method, rule_value: r.rule_value, subtract_free: r.subtract_free }))
     }, { headers: { repeatSubmit: false }, timeout: 600000 });
     if (res.code === 1 && res.data && res.data.success) {
       ElMessage.success('保存修改成功');
@@ -546,7 +559,15 @@ const saveOnlineEdits = async () => {
 };
 const deleteSelectedOnline = async () => {
   try {
-    const res = await request.post('/pt_fylist/rules-delete-by-id', { baseIds: baseSelectedIds.value, ladderIds: ladderSelectedIds.value }, { headers: { repeatSubmit: false } });
+    const baseIds = baseSelectedIds.value.filter(id => {
+      const row = baseOnlineRows.value.find(r => r.id === id);
+      return row && !isBaseDisabled(row);
+    });
+    const ladderIds = ladderSelectedIds.value.filter(id => {
+      const row = ladderOnlineRows.value.find(r => r.id === id);
+      return row && !isLadderDisabled(row);
+    });
+    const res = await request.post('/pt_fylist/rules-delete-by-id', { baseIds, ladderIds }, { headers: { repeatSubmit: false } });
     if (res.code === 1 && res.data && res.data.success) {
       ElMessage.success('删除成功');
       loadBaseOnline();
@@ -567,6 +588,7 @@ const addNewLadder = () => {
 
 loadBaseOnline();
 loadLadderOnline();
+fetchInUse();
 </script>
 
 <style scoped>
