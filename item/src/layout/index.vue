@@ -51,12 +51,6 @@ const reportActivity = async () => {
   }
 
   // 获取地理位置 (可选，可能会被浏览器拦截)
-  // 注意：http 协议下 navigator.geolocation 可能会被禁用，或者用户拒绝授权
-  // 为了保证至少有心跳，我们在 finally 或 回调外层先发送一次基础包，或者只在成功/失败后发送
-  // 简单起见，我们并行处理：先发一个无位置包(如果需要极速响应)，或者等待位置
-  // 这里逻辑改为：如果有权限则带位置，否则不带位置。
-  // 为避免等待超时导致不上报，设置较短超时
-  
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition((pos) => {
       payload.location = {
@@ -65,10 +59,9 @@ const reportActivity = async () => {
       }
       sendSocket(payload)
     }, (err) => {
-      // 权限被拒或超时，依然上报
-      // console.warn('Geolocation failed:', err.message);
+      // 获取失败也上报
       sendSocket(payload)
-    }, { timeout: 3000, maximumAge: 60000 })
+    }, { timeout: 5000 })
   } else {
     sendSocket(payload)
   }

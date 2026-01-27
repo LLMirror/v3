@@ -72,9 +72,8 @@ class WSService {
     }
   }
 
-  async handleUserActivity(data) {
+  handleUserActivity(data) {
     const { userId, userName, path, location, ip } = data;
-    // console.log('handleUserActivity', data);
     if (!userId) {
         console.log('Missing userId in activity data');
         return;
@@ -82,8 +81,6 @@ class WSService {
 
     const now = Date.now();
     let user = this.onlineUsers.get(userId);
-
-    // console.log('Current Online Users:', Array.from(this.onlineUsers.keys()));
 
     if (!user) {
       console.log('New online user:', userName, userId);
@@ -102,25 +99,7 @@ class WSService {
     }
 
     // 更新位置
-    if (location) {
-        user.location = location;
-    } else if (ip && (!user.location || (user.location.lat === 0 && user.location.lng === 0))) {
-        // 如果没有精确位置，但有IP，且当前没有有效位置，尝试通过IP获取粗略位置
-        // 注意：这里需要一个 IP 库或 API，为了演示简单，我们假设 IP 包含位置信息或调用一个简单的免费API
-        // 在实际后端中，建议集成 GeoLite2 数据库
-        try {
-           // 模拟 IP 转经纬度 (仅示例，实际需要调用第三方服务或本地库)
-           // 比如使用 'geoip-lite' 库
-           // const geo = geoip.lookup(ip);
-           // if (geo) user.location = { lat: geo.ll[0], lng: geo.ll[1] };
-           
-           // 如果没有库，这里暂时留空，或者可以调用一个外部API (但后端调用外部API可能会慢)
-           // 为了快速响应，这里暂不阻塞调用外部API，而是标记需要获取
-        } catch (e) {
-            console.error('IP geo lookup failed', e);
-        }
-    }
-
+    if (location) user.location = location;
     if (ip) user.ip = ip;
     user.lastActive = now;
 
