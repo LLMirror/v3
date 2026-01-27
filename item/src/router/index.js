@@ -43,6 +43,18 @@ export const constantRoutes = [
     hidden: true
   },
   {
+    path: '/monitor',
+    component: Layout,
+    children: [
+      {
+        path: 'dashboard',
+        component: () => import('@/views/houtaijiankong/index.vue'),
+        name: 'MonitorDashboard',
+        meta: { title: '网站数据监控驾驶舱', icon: 'chart' }
+      }
+    ]
+  },
+  {
     path: "/:pathMatch(.*)*",
     component: () => import('@/views/error/404'),
     hidden: true

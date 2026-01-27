@@ -21,8 +21,80 @@ import defaultSettings from '@/settings'
 
 import useAppStore from '@/store/modules/app'
 import useSettingsStore from '@/store/modules/settings'
+import useUserStore from '@/store/modules/user'
+import { useRouter, useRoute } from 'vue-router'
+import { sendSocket } from '@/utils/webSocket'
 
 const settingsStore = useSettingsStore()
+const userStore = useUserStore()
+const router = useRouter()
+const route = useRoute()
+
+// 监控逻辑：定时和路由变化时上报用户状态
+let reportTimer = null
+const reportActivity = async () => {
+  // 如果没有ID和Name，尝试从Token或Store获取，或者等待
+  const userId = userStore.id || userStore.name;
+  const userName = userStore.nickName || userStore.name;
+  
+  if (!userId) {
+    // console.log('Monitor: User info not ready yet');
+    return 
+  }
+  
+  const payload = {
+    code: 101,
+    userId: userId,
+    userName: userName,
+    path: route.path,
+    timestamp: Date.now()
+  }
+
+  // 获取地理位置 (可选，可能会被浏览器拦截)
+  // 注意：http 协议下 navigator.geolocation 可能会被禁用，或者用户拒绝授权
+  // 为了保证至少有心跳，我们在 finally 或 回调外层先发送一次基础包，或者只在成功/失败后发送
+  // 简单起见，我们并行处理：先发一个无位置包(如果需要极速响应)，或者等待位置
+  // 这里逻辑改为：如果有权限则带位置，否则不带位置。
+  // 为避免等待超时导致不上报，设置较短超时
+  
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition((pos) => {
+      payload.location = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      }
+      sendSocket(payload)
+    }, (err) => {
+      // 权限被拒或超时，依然上报
+      // console.warn('Geolocation failed:', err.message);
+      sendSocket(payload)
+    }, { timeout: 3000, maximumAge: 60000 })
+  } else {
+    sendSocket(payload)
+  }
+}
+
+// 监听路由变化
+watch(() => route.path, () => {
+  reportActivity()
+})
+
+// 监听用户信息变化 (确保登录后立即上报)
+watch(() => userStore.name, (val) => {
+  if (val) reportActivity()
+})
+
+// 定时上报 (心跳)
+onMounted(() => {
+  // 延迟一点执行，给Store一点时间恢复
+  setTimeout(reportActivity, 2000)
+  reportTimer = setInterval(reportActivity, 30000)
+})
+
+onUnmounted(() => {
+  if (reportTimer) clearInterval(reportTimer)
+})
+
 const theme = computed(() => settingsStore.theme);
 const sideTheme = computed(() => settingsStore.sideTheme);
 const sidebar = computed(() => useAppStore().sidebar);
