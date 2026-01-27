@@ -33,11 +33,11 @@
 
         <!-- Scale Controls -->
         <div class="scale-controls">
-          <span>缩放: {{ Math.round(scale * 100) }}%</span>
-          <el-button-group>
+          <!-- <span>缩放: {{ Math.round(scale * 100) }}%</span> -->
+          <!-- <el-button-group>
             <el-button size="small" @click="scale = Math.max(0.5, scale - 0.1)">-</el-button>
             <el-button size="small" @click="scale = Math.min(1.5, scale + 0.1)">+</el-button>
-          </el-button-group>
+          </el-button-group> -->
         </div>
         <el-button type="primary" @click="handlePrint">打印账单</el-button>
         <el-button type="success" @click="handleDownloadPDF">下载PDF</el-button>
@@ -91,8 +91,8 @@
             <tr>
               <td class="data-cell bold">合计：</td>
               <td class="data-cell">{{ fmt2(statementData.shareBase) }}</td>
-              <td class="data-cell">5.00%</td>
-              <td class="data-cell">4.73</td>
+              <td class="data-cell">{{ fmtRate(statementData.baseRate, '百分比') }}</td>
+              <td class="data-cell">{{ fmt2(statementData.baseAmount) }}</td>
               <td class="data-cell">-</td>
               <td class="data-cell">0.00</td>
               <td class="data-cell">0.00</td>
@@ -417,7 +417,9 @@ const statementData = reactive({
   mailAddress: '四川省成都市金牛区迎宾大道318号（信泰集团财务室）',
   mailReceiver: '刘磊',
   mailPhone: '18696916911',
-  shareBase: 0
+  shareBase: 0,
+  baseRate: 0,
+  baseAmount: 0
 });
 
 watch(() => filters.company, (val) => {
@@ -505,7 +507,7 @@ const driverFlowRows = ref([]);
 
 const policyDetail = reactive({ base_policy_id: '', ladder_policy_ids: [], base_rows: [], ladder_rows: [] });
 
-const scale = ref(0.7);
+const scale = ref(0.9);
 
 const handlePrint = () => {
   const printContent = document.getElementById('statement-content');
@@ -626,7 +628,8 @@ const loadDriverSummary = async () => {
       unfree_qty: sum.unfree_qty, free_qty: sum.free_qty, total_qty: sum.total_qty,
       unfree_trip_fee: sum.unfree_trip_fee, free_trip_fee: sum.free_trip_fee, total_trip_fee: sum.total_trip_fee
     });
-    statementData.shareBase = sum.unfree_trip_fee;
+    clientUnfreeTripFeeTotal.value = Number(sum.unfree_trip_fee || 0);
+    updateBaseVars();
   } catch (e) {
     // ignore
   }
@@ -652,6 +655,7 @@ const loadPolicyDetails = async () => {
       const bv = Number(b.min_val ?? 0);
       return av - bv;
     });
+    updateBaseVars();
   } catch {}
 };
 const monthDays = computed(() => {
@@ -682,6 +686,22 @@ const fmtRate = (n, method) => {
     return `${pct.toFixed(2)}%`;
   }
   return fmt2(num);
+};
+const clientUnfreeTripFeeTotal = ref(0);
+const meetsBasicPolicy = () => {
+  const rows = policyDetail.base_rows || [];
+  return rows.some(r => r.port === '乘客' && r.base_metric === '金额' && (r.subtract_free ? true : false) && r.method === '百分比');
+};
+const getBaseRate = () => {
+  const rows = policyDetail.base_rows || [];
+  const match = rows.find(r => r.port === '乘客' && r.base_metric === '金额' && (r.subtract_free ? true : false) && r.method === '百分比');
+  return Number(match?.rate_value || 0);
+};
+const updateBaseVars = () => {
+  const valid = meetsBasicPolicy();
+  statementData.shareBase = valid ? clientUnfreeTripFeeTotal.value : 0;
+  statementData.baseRate = valid ? getBaseRate() : 0;
+  statementData.baseAmount = Number(statementData.shareBase || 0) * Number(statementData.baseRate || 0);
 };
 
 const teamDetailData = reactive([]);
