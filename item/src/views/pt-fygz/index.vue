@@ -105,6 +105,9 @@
                   </el-select>
                 </template>
               </el-table-column>
+              <el-table-column prop="subtract_free" label="扣减免佣" width="120">
+                <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" :disabled="isLadderDisabled(scope.row)" /></template>
+              </el-table-column>
               <el-table-column prop="metric" label="基数" width="120">
                 <template #default="scope">
                   <el-select v-model="scope.row.metric" :disabled="isLadderDisabled(scope.row)" style="width: 120px">
