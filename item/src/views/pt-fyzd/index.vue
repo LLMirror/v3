@@ -94,10 +94,10 @@
               <td class="data-cell">{{ fmtRate(statementData.baseRate, '百分比') }}</td>
               <td class="data-cell">{{ fmt2(statementData.baseAmount) }}</td>
               <td class="data-cell">-</td>
-              <td class="data-cell">0.00</td>
-              <td class="data-cell">0.00</td>
-              <td class="data-cell">0.00</td>
-              <td class="data-cell red-text bold">{{ statementData.amount }}</td>
+              <td class="data-cell">{{ fmt2(statementData.ladderAmount) }}</td>
+              <td class="data-cell">{{ fmt2(statementData.driverRewardAmount) }}</td>
+              <td class="data-cell">{{ fmt2(statementData.mozhuAmount) }}</td>
+              <td class="data-cell red-text bold">{{ fmt2(statementData.amount) }}</td>
             </tr>
             
             <!-- Invoice Information -->
@@ -254,15 +254,36 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(item, index) in driverFlowRows" :key="'flow-'+index">
+                <tr v-for="(item, index) in driverFlowRows" :key="'flow-'+index" :class="{'highlight-green': Number(item.order_income) > 10000}">
                   <td class="org-name">{{ item.driver_name }}</td>
                   <td class="id-cell">{{ item.driver_id }}</td>
                   <td>{{ item.order_qty }}</td>
                   <td>{{ fmt2(item.order_income) }}</td>
                   <td>{{ fmt2(item.reward_income) }}</td>
-                  <td>{{ fmt2(item.order_qty / monthDays) }}</td>
+                  <td :class="{'avg-qty-strong': (Number(item.order_qty || 0) / monthDays) > 350}">{{ fmt2(item.order_qty / monthDays) }}</td>
                   <td>{{ fmt2(item.order_income / monthDays) }}</td>
                   <td class="total-col">{{ fmt2(item.total_income) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="caliber-section">
+          <div class="section-title">优惠账单数据</div>
+          <div class="table-scroll-container">
+            <table class="caliber-table">
+              <thead>
+                <tr>
+                  <th>车队</th>
+                  <th>平台承担</th>
+                  <th>高德承担</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in discountRows" :key="'disc-'+index">
+                  <td class="org-name">{{ item.name }}</td>
+                  <td>{{ fmt2(item.platform_bear) }}</td>
+                  <td class="total-col">{{ fmt2(item.gaode_bear) }}</td>
                 </tr>
               </tbody>
             </table>
@@ -303,6 +324,7 @@
                       <th>端口</th>
                       <th>基数</th>
                       <th>是否免佣</th>
+                      <th>是否扣除墨竹</th>
                       <th>返佣方式</th>
                       <th>费率/单价</th>
                       <th>备注</th>
@@ -315,6 +337,7 @@
                       <td>{{ row.port }}</td>
                       <td>{{ row.base_metric }}</td>
                       <td>{{ row.subtract_free ? '是' : '否' }}</td>
+                      <td>{{ row.subtract_mozhu ? '是' : '否' }}</td>
                       <td>{{ row.method }}</td>
                       <td>{{ fmtRate(row.rate_value, row.method) }}</td>
                       <td>{{ row.remark }}</td>
@@ -419,7 +442,11 @@ const statementData = reactive({
   mailPhone: '18696916911',
   shareBase: 0,
   baseRate: 0,
-  baseAmount: 0
+  baseAmount: 0,
+  ladderAmount: 0,
+  mozhuAmount: 0,
+  driverRewardAmount: 0,
+  amount: 0
 });
 
 watch(() => filters.company, (val) => {
@@ -429,6 +456,7 @@ watch(() => filters.company, (val) => {
   loadDriverSummary();
   loadPolicyDetails();
   loadDriverFlow();
+  loadDiscountSummary();
 });
 
 const loadCompanyOptions = async () => {
@@ -458,6 +486,7 @@ watch(() => filters.month, async (val) => {
     if (filters.company) await loadDriverSummary();
     if (filters.company) await loadPolicyDetails();
     if (filters.company) await loadDriverFlow();
+    if (filters.company) await loadDiscountSummary();
   }
 });
 
@@ -504,6 +533,7 @@ const clientRows = computed(() => [
 ]);
 // 已移除司机流水静态示例，改为车队明细数据追加在上方两个表
 const driverFlowRows = ref([]);
+const discountRows = ref([]);
 
 const policyDetail = reactive({ base_policy_id: '', ladder_policy_ids: [], base_rows: [], ladder_rows: [] });
 
@@ -639,6 +669,27 @@ const loadDriverFlow = async () => {
   try {
     const res = await request.post('/pt_fylist/driver-flow-summary', { company: filters.company, month: filters.month }, { headers: { repeatSubmit: false } });
     driverFlowRows.value = res.data?.list || [];
+    statementData.driverRewardAmount = 0;
+    updateTotalAmount();
+  } catch {}
+};
+const loadDiscountSummary = async () => {
+  if (!filters.company || !filters.month) return;
+  try {
+    const pol = await request.post('/pt_fylist/company-policy/query', { month: filters.month }, { headers: { repeatSubmit: false } });
+    const list = pol.data?.list || [];
+    const row = list.find(r => r.company === filters.company);
+    const teams = row ? (JSON.parse(row.team || '[]')) : [];
+    const res = await request.post('/pt_fylist/discount-summary', { month: filters.month, teams }, { headers: { repeatSubmit: false } });
+    const rows = res.data?.list || [];
+    const sum = rows.reduce((acc, r) => {
+      acc.platform_bear += Number(r.platform_bear || 0);
+      acc.gaode_bear += Number(r.gaode_bear || 0);
+      return acc;
+    }, { platform_bear: 0, gaode_bear: 0 });
+    discountRows.value = [{ name: '汇总数据', platform_bear: sum.platform_bear, gaode_bear: sum.gaode_bear }, ...rows.map(r => ({ name: r.clean_team, platform_bear: r.platform_bear, gaode_bear: r.gaode_bear }))];
+    clientDiscountPlatformTotal.value = Number(sum.platform_bear || 0);
+    updateBaseVars();
   } catch {}
 };
 const loadPolicyDetails = async () => {
@@ -688,20 +739,27 @@ const fmtRate = (n, method) => {
   return fmt2(num);
 };
 const clientUnfreeTripFeeTotal = ref(0);
+const clientDiscountPlatformTotal = ref(0);
 const meetsBasicPolicy = () => {
   const rows = policyDetail.base_rows || [];
   return rows.some(r => r.port === '乘客' && r.base_metric === '金额' && (r.subtract_free ? true : false) && r.method === '百分比');
 };
-const getBaseRate = () => {
+const getBaseRow = () => {
   const rows = policyDetail.base_rows || [];
-  const match = rows.find(r => r.port === '乘客' && r.base_metric === '金额' && (r.subtract_free ? true : false) && r.method === '百分比');
-  return Number(match?.rate_value || 0);
+  return rows.find(r => r.port === '乘客' && r.base_metric === '金额' && (r.subtract_free ? true : false) && r.method === '百分比');
+};
+const updateTotalAmount = () => {
+  statementData.amount = Number(statementData.baseAmount || 0) + Number(statementData.ladderAmount || 0) + Number(statementData.driverRewardAmount || 0);
 };
 const updateBaseVars = () => {
-  const valid = meetsBasicPolicy();
+  const row = getBaseRow();
+  const valid = !!row;
   statementData.shareBase = valid ? clientUnfreeTripFeeTotal.value : 0;
-  statementData.baseRate = valid ? getBaseRate() : 0;
-  statementData.baseAmount = Number(statementData.shareBase || 0) * Number(statementData.baseRate || 0);
+  statementData.baseRate = valid ? Number(row?.rate_value || 0) : 0;
+  statementData.mozhuAmount = valid && (row?.subtract_mozhu ? true : false) ? Number(clientDiscountPlatformTotal.value || 0) : 0;
+  const adjustedBase = Number(statementData.shareBase || 0) - Number(statementData.mozhuAmount || 0);
+  statementData.baseAmount = adjustedBase * Number(statementData.baseRate || 0);
+  updateTotalAmount();
 };
 
 const teamDetailData = reactive([]);
@@ -1034,6 +1092,13 @@ const saveInvoiceInfo = async () => {
   font-weight: bold;
   color: #F56C6C;
   background-color: #FEF0F0;
+}
+.caliber-table tr.highlight-green td {
+  background-color: #E8F5E9;
+}
+.avg-qty-strong {
+  color: #2E7D32;
+  font-weight: 700;
 }
 
 /* Print Specific Styles */

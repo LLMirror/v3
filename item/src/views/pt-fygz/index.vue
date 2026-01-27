@@ -56,6 +56,9 @@
               <el-table-column prop="subtract_free" label="是否减免佣" width="120">
                 <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" /></template>
               </el-table-column>
+              <el-table-column prop="subtract_mozhu" label="是否扣除墨竹" width="120">
+                <template #default="scope"><el-switch v-model="scope.row.subtract_mozhu" :active-value="1" :inactive-value="0" /></template>
+              </el-table-column>
               <el-table-column prop="method" label="返佣方式" width="120">
                 <template #default="scope"><el-select v-model="scope.row.method"><el-option label="百分比" value="百分比" /><el-option label="单价" value="单价" /></el-select></template>
               </el-table-column>
@@ -527,7 +530,7 @@ const formatNumber = (row, key) => {
 const saveOnlineEdits = async () => {
   try {
     const res = await request.post('/pt_fylist/rules-update', {
-      baseUpdates: baseOnlineRows.value.map(r => ({ id: r.id, policy_id: r.policy_id, category: r.category, port: r.port, base_metric: r.base_metric, subtract_free: r.subtract_free, method: r.method, rate_value: r.rate_value, remark: r.remark })),
+      baseUpdates: baseOnlineRows.value.map(r => ({ id: r.id, policy_id: r.policy_id, category: r.category, port: r.port, base_metric: r.base_metric, subtract_free: r.subtract_free, subtract_mozhu: r.subtract_mozhu, method: r.method, rate_value: r.rate_value, remark: r.remark })),
       ladderUpdates: ladderOnlineRows.value.map(r => ({ id: r.id, policy_id: r.policy_id, rule_type: r.rule_type, dimension: r.dimension, metric: r.metric, min_val: r.min_val, max_val: r.max_val, method: r.method, rule_value: r.rule_value, subtract_free: r.subtract_free }))
     }, { headers: { repeatSubmit: false }, timeout: 600000 });
     if (res.code === 1 && res.data && res.data.success) {
@@ -556,7 +559,7 @@ const deleteSelectedOnline = async () => {
   }
 };
 const addNewBase = () => {
-  baseOnlineRows.value.unshift({ id: undefined, policy_id: '', category: '', port: '', base_metric: '', subtract_free: 0, method: '单价', rate_display: '', rate_value: null, remark: '' });
+  baseOnlineRows.value.unshift({ id: undefined, policy_id: '', category: '', port: '', base_metric: '', subtract_free: 0, subtract_mozhu: 0, method: '单价', rate_display: '', rate_value: null, remark: '' });
 };
 const addNewLadder = () => {
   ladderOnlineRows.value.unshift({ id: undefined, policy_id: '', rule_type: '', dimension: '', metric: '', min_val: null, max_val: null, method: '单价', rule_display: '', rule_value: null, subtract_free: 0 });
