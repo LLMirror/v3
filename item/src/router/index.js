@@ -98,6 +98,19 @@ constantRoutes.push({
   ]
 });
 
+constantRoutes.push({
+  path: '/pt-fyskxx',
+  component: Layout,
+  children: [
+    {
+      path: '',
+      component: () => import('@/views/pt-fyskxx/index.vue'),
+      name: 'PtFYSKXX',
+      meta: { title: '收款信息维护', icon: 'documentation' }
+    }
+  ]
+});
+
 const router = createRouter({
   history: createWebHashHistory(),
   routes: constantRoutes,

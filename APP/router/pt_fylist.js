@@ -820,6 +820,97 @@ router.post('/import-preview', upload.single('file'), async (req, res) => {
     }
 });
 
+router.post('/company-bank/query', async (req, res) => {
+    try {
+        const { month, company } = req.body || {};
+        const ensurePolicy = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_policy\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            team TEXT,
+            base_policy_id VARCHAR(64),
+            ladder_policy_id TEXT,
+            month VARCHAR(10),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensurePolicy, res, req });
+        const ensureBank = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_bank\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            account_name VARCHAR(256),
+            account_number VARCHAR(64),
+            payment_info VARCHAR(256),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureBank, res, req });
+        let sql = `
+          SELECT DISTINCT p.company,
+                 b.account_name,
+                 b.account_number,
+                 b.payment_info
+          FROM \`pt_fy_company_policy\` p
+          LEFT JOIN \`pt_fy_company_bank\` b
+            ON b.company = p.company
+           AND b.updated_time = (
+              SELECT MAX(\`updated_time\`)
+              FROM \`pt_fy_company_bank\` 
+              WHERE \`company\` = p.company
+           )
+        `;
+        const conds = [];
+        const vals = [];
+        if (month) { conds.push('p.month = ?'); vals.push(month); }
+        if (company) { conds.push('p.company = ?'); vals.push(company); }
+        if (conds.length > 0) sql += ` WHERE ` + conds.join(' AND ');
+        sql += ` ORDER BY p.company ASC`;
+        const { result } = await pools({ sql, val: vals, res, req });
+        return res.send(utils.returnData({ msg: '查询成功', data: { list: result || [] } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
+
+router.post('/company-bank/save', async (req, res) => {
+    try {
+        const { list = [] } = req.body || {};
+        const ensureBank = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_bank\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            account_name VARCHAR(256),
+            account_number VARCHAR(64),
+            payment_info VARCHAR(256),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensureBank, res, req });
+        const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
+        let saved = 0;
+        for (const r of Array.isArray(list) ? list : []) {
+            const company = r.company || '';
+            if (!company) continue;
+            const { result } = await pools({ sql: 'SELECT id FROM `pt_fy_company_bank` WHERE `company` = ? LIMIT 1', val: [company], res, req });
+            if (result && result.length > 0) {
+                const id = result[0].id;
+                await pools({
+                    sql: 'UPDATE `pt_fy_company_bank` SET `account_name`=?,`account_number`=?,`payment_info`=?,`updated_time`=? WHERE `id`=?',
+                    val: [r.account_name || '', r.account_number || '', r.payment_info || '', now, id],
+                    res, req
+                });
+            } else {
+                await pools({
+                    sql: 'INSERT INTO `pt_fy_company_bank` (`id`,`company`,`account_name`,`account_number`,`payment_info`,`upload_time`,`updated_time`) VALUES (?,?,?,?,?,?,?)',
+                    val: [uuidv4(), company, r.account_name || '', r.account_number || '', r.payment_info || '', now, now],
+                    res, req
+                });
+            }
+            saved++;
+        }
+        return res.send(utils.returnData({ msg: '保存成功', data: { success: true, saved } }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '保存失败: ' + err.message } }));
+    }
+});
 router.post('/discount-summary', async (req, res) => {
     try {
         const { month, teams = [] } = req.body || {};

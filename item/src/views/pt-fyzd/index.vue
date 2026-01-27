@@ -114,9 +114,9 @@
             <tr>
               <td class="label-cell-vertical">银行信息：</td>
               <td colspan="8" class="content-cell-left">
-                <div class="info-row"><span class="info-label">银行账户名称：</span>四川畅行九州运力科技有限公司</div>
-                <div class="info-row"><span class="info-label">银行收款账号：</span>8000 4000 0000 2038 65</div>
-                <div class="info-row"><span class="info-label">支付信息：</span>四川银行股份有限公司</div>
+                <div class="info-row"><span class="info-label">银行账户名称：</span>{{ statementData.bankAccountName }}</div>
+                <div class="info-row"><span class="info-label">银行收款账号：</span>{{ statementData.bankAccountNumber }}</div>
+                <div class="info-row"><span class="info-label">支付信息：</span>{{ statementData.paymentInfo }}</div>
               </td>
             </tr>
             
@@ -442,6 +442,9 @@ const statementData = reactive({
   mailAddress: '四川省成都市金牛区迎宾大道318号（信泰集团财务室）',
   mailReceiver: '刘磊',
   mailPhone: '18696916911',
+  bankAccountName: '',
+  bankAccountNumber: '',
+  paymentInfo: '',
   shareBase: 0,
   baseRate: 0,
   baseAmount: 0,
@@ -457,6 +460,7 @@ watch(() => filters.company, (val) => {
   statementData.companyName = val;
   ElMessage.success(`已切换至: ${val}`);
   loadInvoiceInfo();
+  loadBankInfo();
   loadDriverSummary();
   loadPolicyDetails();
   loadDriverFlow();
@@ -487,6 +491,7 @@ watch(() => filters.month, async (val) => {
     await loadCompanyOptions();
     if (filters.company) ElMessage.success(`已切换账期: ${val}`);
     if (filters.company) await loadInvoiceInfo();
+    if (filters.company) await loadBankInfo();
     if (filters.company) await loadDriverSummary();
     if (filters.company) await loadPolicyDetails();
     if (filters.company) await loadDriverFlow();
@@ -925,6 +930,16 @@ const saveInvoiceInfo = async () => {
   } catch (e) {
     ElMessage.error('保存失败');
   }
+};
+const loadBankInfo = async () => {
+  if (!filters.company) return;
+  try {
+    const res = await request.post('/pt_fylist/company-bank/query', { month: filters.month, company: filters.company }, { headers: { repeatSubmit: false } });
+    const row = res.data?.list?.[0];
+    statementData.bankAccountName = row?.account_name || '';
+    statementData.bankAccountNumber = row?.account_number || '';
+    statementData.paymentInfo = row?.payment_info || '';
+  } catch {}
 };
 </script>
 
