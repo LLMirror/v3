@@ -45,13 +45,23 @@
                 <template #default="scope"><el-input v-model="scope.row.policy_id" :disabled="isBaseDisabled(scope.row)" /></template>
               </el-table-column>
               <el-table-column prop="category" label="分类" width="120">
-                <template #default="scope"><el-input v-model="scope.row.category" :disabled="isBaseDisabled(scope.row)" /></template>
+                <template #default="scope"><span>基础</span></template>
               </el-table-column>
               <el-table-column prop="port" label="端口" width="120">
-                <template #default="scope"><el-input v-model="scope.row.port" :disabled="isBaseDisabled(scope.row)" /></template>
+                <template #default="scope">
+                  <el-select v-model="scope.row.port" :disabled="isBaseDisabled(scope.row)" style="width: 110px">
+                    <el-option label="司机" value="司机" />
+                    <el-option label="乘客" value="乘客" />
+                  </el-select>
+                </template>
               </el-table-column>
               <el-table-column prop="base_metric" label="基数" width="120">
-                <template #default="scope"><el-input v-model="scope.row.base_metric" :disabled="isBaseDisabled(scope.row)" /></template>
+                <template #default="scope">
+                  <el-select v-model="scope.row.base_metric" :disabled="isBaseDisabled(scope.row)" style="width: 110px">
+                    <el-option label="单量" value="单量" />
+                    <el-option label="金额" value="金额" />
+                  </el-select>
+                </template>
               </el-table-column>
               <el-table-column prop="subtract_free" label="是否减免佣" width="120">
                 <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" :disabled="isBaseDisabled(scope.row)" /></template>
@@ -88,10 +98,21 @@
                 </template>
               </el-table-column>
               <el-table-column prop="dimension" label="维度" width="120">
-                <template #default="scope"><el-input v-model="scope.row.dimension" :disabled="isLadderDisabled(scope.row)" /></template>
+                <template #default="scope">
+                  <el-select v-model="scope.row.dimension" :disabled="isLadderDisabled(scope.row)" style="width: 110px">
+                    <el-option label="司机" value="司机" />
+                    <el-option label="乘客" value="乘客" />
+                  </el-select>
+                </template>
               </el-table-column>
               <el-table-column prop="metric" label="基数" width="120">
-                <template #default="scope"><el-input v-model="scope.row.metric" :disabled="isLadderDisabled(scope.row)" /></template>
+                <template #default="scope">
+                  <el-select v-model="scope.row.metric" :disabled="isLadderDisabled(scope.row)" style="width: 120px">
+                    <el-option label="单量" value="单量" />
+                    <el-option label="金额" value="金额" />
+                    <el-option label="日均单" value="日均单" />
+                  </el-select>
+                </template>
               </el-table-column>
               <el-table-column prop="min_val" label="最小值(>=)" width="140">
                 <template #default="scope"><el-input v-model="scope.row.min_val" @blur="formatNumber(scope.row,'min_val')" :disabled="isLadderDisabled(scope.row)" /></template>
@@ -488,7 +509,7 @@ const loadBaseOnline = async () => {
   try {
     const res = await request.post('/pt_fylist/rules-query', { table: 'base', page: basePage.value, size: baseSize.value }, { headers: { repeatSubmit: false } });
     if (res.code === 1) {
-      baseOnlineRows.value = (res.data?.list || []).map(r => ({ ...r, rate_display: (r.method === '百分比' && r.rate_value != null) ? ((Number(r.rate_value) * 100).toFixed(2) + '%') : (r.rate_value != null ? Number(r.rate_value).toFixed(2) : '') }));
+      baseOnlineRows.value = (res.data?.list || []).map(r => ({ ...r, category: '基础', rate_display: (r.method === '百分比' && r.rate_value != null) ? ((Number(r.rate_value) * 100).toFixed(2) + '%') : (r.rate_value != null ? Number(r.rate_value).toFixed(2) : '') }));
       baseTotal.value = res.total || 0;
     }
   } catch {}
@@ -543,7 +564,7 @@ const formatNumber = (row, key) => {
 const saveOnlineEdits = async () => {
   try {
     const res = await request.post('/pt_fylist/rules-update', {
-      baseUpdates: baseOnlineRows.value.filter(r => !isBaseDisabled(r)).map(r => ({ id: r.id, policy_id: r.policy_id, category: r.category, port: r.port, base_metric: r.base_metric, subtract_free: r.subtract_free, subtract_mozhu: r.subtract_mozhu, method: r.method, rate_value: r.rate_value, remark: r.remark })),
+      baseUpdates: baseOnlineRows.value.filter(r => !isBaseDisabled(r)).map(r => ({ id: r.id, policy_id: r.policy_id, category: '基础', port: r.port, base_metric: r.base_metric, subtract_free: r.subtract_free, subtract_mozhu: r.subtract_mozhu, method: r.method, rate_value: r.rate_value, remark: r.remark })),
       ladderUpdates: ladderOnlineRows.value.filter(r => !isLadderDisabled(r)).map(r => ({ id: r.id, policy_id: r.policy_id, rule_type: r.rule_type, dimension: r.dimension, metric: r.metric, min_val: r.min_val, max_val: r.max_val, method: r.method, rule_value: r.rule_value, subtract_free: r.subtract_free }))
     }, { headers: { repeatSubmit: false }, timeout: 600000 });
     if (res.code === 1 && res.data && res.data.success) {
@@ -580,7 +601,7 @@ const deleteSelectedOnline = async () => {
   }
 };
 const addNewBase = () => {
-  baseOnlineRows.value.unshift({ id: undefined, policy_id: '', category: '', port: '', base_metric: '', subtract_free: 0, subtract_mozhu: 0, method: '单价', rate_display: '', rate_value: null, remark: '' });
+  baseOnlineRows.value.unshift({ id: undefined, policy_id: '', category: '基础', port: '', base_metric: '', subtract_free: 0, subtract_mozhu: 0, method: '单价', rate_display: '', rate_value: null, remark: '' });
 };
 const addNewLadder = () => {
   ladderOnlineRows.value.unshift({ id: undefined, policy_id: '', rule_type: '', dimension: '', metric: '', min_val: null, max_val: null, method: '单价', rule_display: '', rule_value: null, subtract_free: 0 });
