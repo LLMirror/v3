@@ -248,10 +248,10 @@
                   <th>订单量</th>
                   <th>订单收入</th>
                   <th>奖励</th>
-                  <th>返现金额</th>
                   <th>日均单量</th>
                   <th>日均订单收入</th>
                   <th>总金额</th>
+                  <th>返现金额</th>
                 </tr>
               </thead>
               <tbody>
@@ -261,10 +261,10 @@
                   <td>{{ item.order_qty }}</td>
                   <td>{{ fmt2(item.order_income) }}</td>
                   <td>{{ fmt2(item.reward_income) }}</td>
-                  <td>{{ fmt2(item.cashback) }}</td>
                   <td :class="{'avg-qty-strong': (Number(item.order_qty || 0) / monthDays) > 350}">{{ fmt2(item.order_qty / monthDays) }}</td>
                   <td>{{ fmt2(item.order_income / monthDays) }}</td>
                   <td class="total-col">{{ fmt2(item.total_income) }}</td>
+                  <td>{{ fmt2(item.cashback) }}</td>
                 </tr>
               </tbody>
             </table>
