@@ -1097,6 +1097,66 @@ router.post('/company-policy/save', async (req, res) => {
     }
 });
 
+router.post('/policy-details/query', async (req, res) => {
+    try {
+        const { company, month } = req.body || {};
+        if (!company || !month) return res.send(utils.returnData({ code: 1, data: { success: false, msg: '缺少公司或月份' } }));
+        const ensurePolicy = `CREATE TABLE IF NOT EXISTS \`pt_fy_company_policy\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY,
+            company VARCHAR(128),
+            team TEXT,
+            base_policy_id VARCHAR(64),
+            ladder_policy_id TEXT,
+            month VARCHAR(10),
+            upload_time DATETIME,
+            updated_time DATETIME
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`;
+        await pools({ sql: ensurePolicy, res, req });
+        const { result: polRows } = await pools({
+            sql: 'SELECT `base_policy_id`,`ladder_policy_id` FROM `pt_fy_company_policy` WHERE `company`=? AND `month`=? LIMIT 1',
+            val: [company, month],
+            res, req
+        });
+        if (!polRows || polRows.length === 0) {
+            return res.send(utils.returnData({ msg: '无配置', data: { success: true, base_policy_id: '', ladder_policy_ids: [], base_rows: [], ladder_rows: [] } }));
+        }
+        const basePolicyId = polRows[0].base_policy_id || '';
+        let ladderPolicyIds = [];
+        try {
+            const arr = JSON.parse(polRows[0].ladder_policy_id || '[]');
+            ladderPolicyIds = Array.isArray(arr) ? arr.map(x => x.policy_id).filter(Boolean) : [];
+        } catch {}
+        await pools({ sql: `CREATE TABLE IF NOT EXISTS \`pt_fy_rules_base_simple\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`, res, req });
+        await pools({ sql: `CREATE TABLE IF NOT EXISTS \`pt_fy_rules_ladder\` (
+            id VARCHAR(64) NOT NULL PRIMARY KEY
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`, res, req });
+        let base_rows = [];
+        if (basePolicyId) {
+            const { result: baseRes } = await pools({
+                sql: 'SELECT * FROM `pt_fy_rules_base_simple` WHERE `policy_id` = ?',
+                val: [basePolicyId], res, req
+            });
+            base_rows = baseRes || [];
+        }
+        let ladder_rows = [];
+        if (ladderPolicyIds.length > 0) {
+            const placeholders = ladderPolicyIds.map(() => '?').join(',');
+            const { result: ladRes } = await pools({
+                sql: `SELECT * FROM \`pt_fy_rules_ladder\` WHERE \`policy_id\` IN (${placeholders})`,
+                val: ladderPolicyIds, res, req
+            });
+            ladder_rows = ladRes || [];
+        }
+        return res.send(utils.returnData({
+            msg: '查询成功',
+            data: { success: true, base_policy_id: basePolicyId, ladder_policy_ids: ladderPolicyIds, base_rows, ladder_rows }
+        }));
+    } catch (err) {
+        return res.send(utils.returnData({ code: 1, data: { success: false, msg: '查询失败: ' + err.message } }));
+    }
+});
 router.post('/company-policy/query', async (req, res) => {
     try {
         const { month } = req.body || {};

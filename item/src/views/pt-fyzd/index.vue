@@ -90,7 +90,7 @@
             <!-- Detail Data (Example Row) -->
             <tr>
               <td class="data-cell bold">合计：</td>
-              <td class="data-cell">94.60</td>
+              <td class="data-cell">{{ fmt2(statementData.shareBase) }}</td>
               <td class="data-cell">5.00%</td>
               <td class="data-cell">4.73</td>
               <td class="data-cell">-</td>
@@ -164,6 +164,7 @@
         <!-- Driver Side Table -->
         <div class="caliber-section">
           <div class="section-title">司机端数据</div>
+          <div class="company-title">{{ filters.company }}</div>
           <div class="table-scroll-container">
             <table class="caliber-table">
               <thead>
@@ -199,6 +200,7 @@
         <!-- Client Side Table -->
         <div class="caliber-section">
           <div class="section-title">客户端数据</div>
+          <div class="company-title">{{ filters.company }}</div>
           <div class="table-scroll-container">
             <table class="caliber-table">
               <thead>
@@ -235,7 +237,7 @@
         <div class="caliber-section">
           <div class="section-title">司机流水详情</div>
           <div class="summary-bar">
-            本月天数：{{ monthDays }} ｜ 日均订单量：{{ fmt2(driverFlowSummary.order_qty_avg) }} ｜ 日均订单收入：{{ fmt2(driverFlowSummary.order_income_avg) }}
+            本月天数：{{ monthDays }} ｜ 总订单量：{{ driverFlowSummary.order_qty_total }} ｜ 总订单收入：{{ fmt2(driverFlowSummary.order_income_total) }} ｜ 日均订单量：{{ fmt2(driverFlowSummary.order_qty_avg) }} ｜ 日均订单收入：{{ fmt2(driverFlowSummary.order_income_avg) }}
           </div>
           <div class="table-scroll-container">
             <table class="caliber-table">
@@ -272,9 +274,87 @@
         <div class="caliber-section">
           <div class="section-title">商务规则</div>
           <div class="rules-container">
-            <div v-for="(rule, index) in businessRules" :key="'rule-'+index" class="rule-item">
-              <span class="rule-label">{{ rule.label }}：</span>
-              <span class="rule-value">{{ rule.value }}</span>
+            <div class="rule-item">
+              <span class="rule-label">基础政策ID：</span>
+              <span class="rule-value">{{ policyDetail.base_policy_id || '-' }}</span>
+            </div>
+            <div class="rule-item">
+              <span class="rule-label">阶梯政策ID：</span>
+              <span class="rule-value">{{ (policyDetail.ladder_policy_ids || []).join('，') || '-' }}</span>
+            </div>
+            <div class="rule-item">
+              <span class="rule-label">基础政策明细：</span>
+              <span class="rule-value">{{ policyDetail.base_rows && policyDetail.base_rows.length ? policyDetail.base_rows.length+' 条' : '-' }}</span>
+            </div>
+            <div class="rule-item">
+              <span class="rule-label">阶梯政策明细：</span>
+              <span class="rule-value">{{ policyDetail.ladder_rows && policyDetail.ladder_rows.length ? policyDetail.ladder_rows.length+' 条' : '-' }}</span>
+            </div>
+          </div>
+          <div class="policy-tables">
+            <div class="policy-block">
+              <div class="sub-title">基础配置</div>
+              <div class="table-scroll-container">
+                <table class="caliber-table">
+                  <thead>
+                    <tr>
+                      <th>政策ID</th>
+                      <th>分类</th>
+                      <th>端口</th>
+                      <th>基数</th>
+                      <th>是否免佣</th>
+                      <th>返佣方式</th>
+                      <th>费率/单价</th>
+                      <th>备注</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, i) in policyDetail.base_rows" :key="'base-'+i">
+                      <td class="org-name">{{ row.policy_id }}</td>
+                      <td>{{ row.category }}</td>
+                      <td>{{ row.port }}</td>
+                      <td>{{ row.base_metric }}</td>
+                      <td>{{ row.subtract_free ? '是' : '否' }}</td>
+                      <td>{{ row.method }}</td>
+                      <td>{{ fmtRate(row.rate_value, row.method) }}</td>
+                      <td>{{ row.remark }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="policy-block">
+              <div class="sub-title">阶梯规则</div>
+              <div class="table-scroll-container">
+                <table class="caliber-table">
+                  <thead>
+                    <tr>
+                      <th>政策ID</th>
+                      <th>规则类型</th>
+                      <th>维度</th>
+                      <th>基数</th>
+                      <th>最小值</th>
+                      <th>最大值</th>
+                      <th>返佣方式</th>
+                      <th>费率/单价</th>
+                      <th>是否免佣</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, i) in policyDetail.ladder_rows" :key="'lad-'+i">
+                      <td class="org-name">{{ row.policy_id }}</td>
+                      <td>{{ row.rule_type }}</td>
+                      <td>{{ row.dimension }}</td>
+                      <td>{{ row.metric }}</td>
+                      <td>{{ fmt2(row.min_val) }}</td>
+                      <td>{{ fmt2(row.max_val) }}</td>
+                      <td>{{ row.method }}</td>
+                      <td>{{ fmtRate(row.rule_value, row.method) }}</td>
+                      <td>{{ row.subtract_free ? '是' : '否' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -336,7 +416,8 @@ const statementData = reactive({
   invoiceAddress: '四川省成都市武侯区二环路南四段69号2栋1层2号',
   mailAddress: '四川省成都市金牛区迎宾大道318号（信泰集团财务室）',
   mailReceiver: '刘磊',
-  mailPhone: '18696916911'
+  mailPhone: '18696916911',
+  shareBase: 0
 });
 
 watch(() => filters.company, (val) => {
@@ -344,6 +425,7 @@ watch(() => filters.company, (val) => {
   ElMessage.success(`已切换至: ${val}`);
   loadInvoiceInfo();
   loadDriverSummary();
+  loadPolicyDetails();
   loadDriverFlow();
 });
 
@@ -372,6 +454,7 @@ watch(() => filters.month, async (val) => {
     if (filters.company) ElMessage.success(`已切换账期: ${val}`);
     if (filters.company) await loadInvoiceInfo();
     if (filters.company) await loadDriverSummary();
+    if (filters.company) await loadPolicyDetails();
     if (filters.company) await loadDriverFlow();
   }
 });
@@ -420,12 +503,7 @@ const clientRows = computed(() => [
 // 已移除司机流水静态示例，改为车队明细数据追加在上方两个表
 const driverFlowRows = ref([]);
 
-const businessRules = reactive([
-  { label: '基础分佣比率', value: '5.00%' },
-  { label: '阶梯奖励', value: '无' },
-  { label: '司机奖励策略', value: '月单量>100单，每单奖励1元' },
-  { label: '特殊说明', value: '以上数据基于2025-12月账期统计' }
-]);
+const policyDetail = reactive({ base_policy_id: '', ladder_policy_ids: [], base_rows: [], ladder_rows: [] });
 
 const scale = ref(0.7);
 
@@ -463,32 +541,44 @@ const handleDownloadPDF = async () => {
   if (!element) return;
 
   try {
+    const scaleContainer = document.querySelector('.statement-scale-container');
+    const prevTransform = scaleContainer ? scaleContainer.style.transform : '';
+    if (scaleContainer) scaleContainer.style.transform = 'scale(1)';
+
     const canvas = await html2canvas(element, {
-      scale: 2, // Improve resolution
+      scale: Math.max(2, window.devicePixelRatio || 2),
       useCORS: true,
       logging: false,
-      backgroundColor: '#ffffff'
+      backgroundColor: '#ffffff',
+      width: element.scrollWidth,
+      height: element.scrollHeight
     });
 
-    const imgData = canvas.toDataURL('image/jpeg', 1.0);
-    
-    // A4 dimensions in mm
-    const pdfWidth = 210;
-    const pdfHeight = 297;
-    
+    if (scaleContainer) scaleContainer.style.transform = prevTransform;
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
     const pdf = new jsPDF('p', 'mm', 'a4');
-    
-    // Calculate image dimensions to fit A4 width
-    const imgProps = pdf.getImageProperties(imgData);
-    const imgWidth = pdfWidth;
-    const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-    
-    pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-    
-    // Construct filename: Company + Period + 结算金额： + Amount
+    const pageWidth = 210;
+    const pageHeight = 297;
+
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    let position = 0;
+    let heightLeft = imgHeight;
+
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+
+    while (heightLeft > 0) {
+      pdf.addPage();
+      position = heightLeft - imgHeight;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+
     const filename = `${statementData.companyName} ${statementData.period} 结算金额：${statementData.amount}.pdf`;
     pdf.save(filename);
-    
     ElMessage.success('PDF 下载成功');
   } catch (error) {
     console.error('PDF generation error:', error);
@@ -536,6 +626,7 @@ const loadDriverSummary = async () => {
       unfree_qty: sum.unfree_qty, free_qty: sum.free_qty, total_qty: sum.total_qty,
       unfree_trip_fee: sum.unfree_trip_fee, free_trip_fee: sum.free_trip_fee, total_trip_fee: sum.total_trip_fee
     });
+    statementData.shareBase = sum.unfree_trip_fee;
   } catch (e) {
     // ignore
   }
@@ -545,6 +636,22 @@ const loadDriverFlow = async () => {
   try {
     const res = await request.post('/pt_fylist/driver-flow-summary', { company: filters.company, month: filters.month }, { headers: { repeatSubmit: false } });
     driverFlowRows.value = res.data?.list || [];
+  } catch {}
+};
+const loadPolicyDetails = async () => {
+  try {
+    const res = await request.post('/pt_fylist/policy-details/query', { company: filters.company, month: filters.month }, { headers: { repeatSubmit: false } });
+    const d = res.data || {};
+    policyDetail.base_policy_id = d.base_policy_id || '';
+    policyDetail.ladder_policy_ids = d.ladder_policy_ids || [];
+    policyDetail.base_rows = d.base_rows || [];
+    policyDetail.ladder_rows = (d.ladder_rows || []).slice().sort((a, b) => {
+      const c1 = String(a.policy_id).localeCompare(String(b.policy_id), 'zh-Hans-CN', { numeric: true });
+      if (c1 !== 0) return c1;
+      const av = Number(a.min_val ?? 0);
+      const bv = Number(b.min_val ?? 0);
+      return av - bv;
+    });
   } catch {}
 };
 const monthDays = computed(() => {
@@ -568,6 +675,14 @@ const driverFlowSummary = computed(() => {
     order_income_avg: totals.order_income / days
   };
 });
+const fmtRate = (n, method) => {
+  const num = Number(n || 0);
+  if (method === '百分比') {
+    const pct = (num * 100);
+    return `${pct.toFixed(2)}%`;
+  }
+  return fmt2(num);
+};
 
 const teamDetailData = reactive([]);
 const loadTeamDetails = async () => {
@@ -778,20 +893,32 @@ const saveInvoiceInfo = async () => {
 }
 
 .section-title {
-  font-weight: bold;
-  margin-bottom: 10px;
-  font-size: 16px;
-  color: #409EFF;
-  border-left: 4px solid #409EFF;
-  padding-left: 10px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  font-size: 18px;
+  color: #1f2d3d;
+  background-color: #EEF5FF;
+  border-left: 6px solid #409EFF;
+  padding: 8px 10px;
 }
 
 .summary-bar {
-  font-size: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+  margin: 6px 0 10px;
+  letter-spacing: 0.2px;
+}
+
+.company-title {
+  font-size: 14px;
   font-weight: 600;
-  color: #303133;
-  margin: 8px 0 12px;
-  letter-spacing: 0.5px;
+  color: #606266;
+  background-color: #F5F7FA;
+  padding: 6px 8px;
+  border: 1px solid #EBEEF5;
+  border-radius: 4px;
+  margin-bottom: 8px;
 }
 
 .table-scroll-container {
@@ -855,6 +982,23 @@ const saveInvoiceInfo = async () => {
 
 .rule-value {
   color: #303133;
+}
+
+.policy-tables {
+  margin-top: 10px;
+}
+.policy-block {
+  margin-top: 12px;
+}
+.sub-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2d3d;
+  background-color: #EEF5FF;
+  padding: 6px 8px;
+  border-left: 4px solid #409EFF;
+  border-radius: 2px;
+  margin-bottom: 8px;
 }
 
 .org-name {
