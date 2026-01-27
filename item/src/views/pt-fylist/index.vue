@@ -270,7 +270,8 @@ const handleDownloadTemplate = async () => {
       1: '司机流水导入模板.xlsx',
       2: '结算明细-订单导入模板.xlsx',
       3: '平台活动导入模板.xlsx',
-      4: '优惠账单导入模板.xlsx'
+      4: '优惠账单导入模板.xlsx',
+      5: '司机信息模板.xlsx'
     };
     
     const fileName = fileNameMap[formData.tableType] || '模板.xlsx';

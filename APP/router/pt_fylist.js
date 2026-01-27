@@ -151,6 +151,7 @@ router.get('/template', async (req, res) => {
             case 2: fileName = '结算明细-订单导入模板.xlsx'; break;
             case 3: fileName = '平台活动导入模板.xlsx'; break;
             case 4: fileName = '优惠账单导入模板.xlsx'; break;
+            case 5: fileName = '司机信息模板.xlsx'; break;
         }
 
         const workbook = new ExcelJS.Workbook();
