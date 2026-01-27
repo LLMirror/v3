@@ -93,7 +93,7 @@
               <td class="data-cell">{{ fmt2(statementData.shareBase) }}</td>
               <td class="data-cell">{{ fmtRate(statementData.baseRate, '百分比') }}</td>
               <td class="data-cell">{{ fmt2(statementData.baseAmount) }}</td>
-              <td class="data-cell">-</td>
+              <td class="data-cell">{{ fmtRate(statementData.ladderRatio, statementData.ladderMethod || '百分比') }}</td>
               <td class="data-cell">{{ fmt2(statementData.ladderAmount) }}</td>
               <td class="data-cell">{{ fmt2(statementData.driverRewardAmount) }}</td>
               <td class="data-cell">{{ fmt2(statementData.mozhuAmount) }}</td>
@@ -248,6 +248,7 @@
                   <th>订单量</th>
                   <th>订单收入</th>
                   <th>奖励</th>
+                  <th>返现金额</th>
                   <th>日均单量</th>
                   <th>日均订单收入</th>
                   <th>总金额</th>
@@ -260,6 +261,7 @@
                   <td>{{ item.order_qty }}</td>
                   <td>{{ fmt2(item.order_income) }}</td>
                   <td>{{ fmt2(item.reward_income) }}</td>
+                  <td>{{ fmt2(item.cashback) }}</td>
                   <td :class="{'avg-qty-strong': (Number(item.order_qty || 0) / monthDays) > 350}">{{ fmt2(item.order_qty / monthDays) }}</td>
                   <td>{{ fmt2(item.order_income / monthDays) }}</td>
                   <td class="total-col">{{ fmt2(item.total_income) }}</td>
@@ -444,6 +446,8 @@ const statementData = reactive({
   baseRate: 0,
   baseAmount: 0,
   ladderAmount: 0,
+  ladderRatio: 0,
+  ladderMethod: '百分比',
   mozhuAmount: 0,
   driverRewardAmount: 0,
   amount: 0
@@ -660,6 +664,7 @@ const loadDriverSummary = async () => {
     });
     clientUnfreeTripFeeTotal.value = Number(sum.unfree_trip_fee || 0);
     updateBaseVars();
+  computeLadderBase();
   } catch (e) {
     // ignore
   }
@@ -671,6 +676,7 @@ const loadDriverFlow = async () => {
     driverFlowRows.value = res.data?.list || [];
     statementData.driverRewardAmount = 0;
     updateTotalAmount();
+  computeDriverIncentive();
   } catch {}
 };
 const loadDiscountSummary = async () => {
@@ -707,6 +713,8 @@ const loadPolicyDetails = async () => {
       return av - bv;
     });
     updateBaseVars();
+  computeLadderBase();
+  computeDriverIncentive();
   } catch {}
 };
 const monthDays = computed(() => {
@@ -750,6 +758,70 @@ const getBaseRow = () => {
 };
 const updateTotalAmount = () => {
   statementData.amount = Number(statementData.baseAmount || 0) + Number(statementData.ladderAmount || 0) + Number(statementData.driverRewardAmount || 0);
+};
+const computeLadderBase = () => {
+  const rows = (policyDetail.ladder_rows || []).filter(r => r.rule_type === '阶梯《基础》规则' && r.metric === '单量');
+  if (!rows.length) {
+    statementData.ladderRatio = 0;
+    statementData.ladderMethod = '百分比';
+    statementData.ladderAmount = 0;
+    updateTotalAmount();
+    return;
+  }
+  const getBaseVal = (dim) => {
+    if (dim === '司机') return Number((driverData[0]?.total_qty) || 0);
+    if (dim === '乘客') return Number((clientData[0]?.total_qty) || 0);
+    return 0;
+  };
+  let matched = null;
+  let baseVal = 0;
+  for (const r of rows) {
+    const val = getBaseVal(r.dimension);
+    if (val === 0) continue;
+    if (Number(val) >= Number(r.min_val ?? 0) && Number(val) < Number(r.max_val ?? Infinity)) {
+      matched = r;
+      baseVal = val;
+      break;
+    }
+  }
+  if (!matched) {
+    statementData.ladderRatio = 0;
+    statementData.ladderMethod = '百分比';
+    statementData.ladderAmount = 0;
+    updateTotalAmount();
+    return;
+  }
+  statementData.ladderRatio = Number(matched.rule_value || 0);
+  statementData.ladderMethod = matched.method || '百分比';
+  if (statementData.ladderMethod === '百分比') {
+    statementData.ladderAmount = baseVal * Number(matched.rule_value || 0);
+  } else {
+    statementData.ladderAmount = baseVal * Number(matched.rule_value || 0);
+  }
+  updateTotalAmount();
+};
+const computeDriverIncentive = () => {
+  const rules = (policyDetail.ladder_rows || []).filter(r => r.rule_type === '阶梯《激励》规则' && r.dimension === '司机' && r.metric === '金额');
+  if (!rules.length || !(driverFlowRows.value?.length)) {
+    driverFlowRows.value = (driverFlowRows.value || []).map(it => ({ ...it, cashback: 0 }));
+    statementData.driverRewardAmount = 0;
+    updateTotalAmount();
+    return;
+  }
+  let totalCashback = 0;
+  driverFlowRows.value = (driverFlowRows.value || []).map(it => {
+    const amt = Number(it.order_income || 0);
+    const rule = rules.find(r => amt >= Number(r.min_val ?? 0) && amt < Number(r.max_val ?? Infinity));
+    let cashback = 0;
+    if (rule) {
+      if (rule.method === '百分比') cashback = amt * Number(rule.rule_value || 0);
+      else cashback = Number(rule.rule_value || 0);
+    }
+    totalCashback += cashback;
+    return { ...it, cashback };
+  });
+  statementData.driverRewardAmount = totalCashback;
+  updateTotalAmount();
 };
 const updateBaseVars = () => {
   const row = getBaseRow();
