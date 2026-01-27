@@ -499,7 +499,8 @@ async function loadOverview() {
     // 汇总顶部指标
     totalIncome.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalIncome || 0), 0);
     totalExpense.value = companyFunds.value.reduce((sum, i) => sum + Number(i.totalExpense || 0), 0);
-    totalNet.value = totalIncome.value - totalExpense.value;
+    // 使用余额汇总作为总可用资金，确保与“各公司当日汇总”一致
+    totalNet.value = companyFunds.value.reduce((sum, i) => sum + Number(i.balance || 0), 0);
 
     await nextTick();
     initCompanyChart();
@@ -1119,12 +1120,42 @@ function initDailyChart() {
   const chart = getOrInitChart(el);
   dailyChart.value = chart;
   // 直接使用后端返回的趋势数据（已按日期范围筛选）
-  const trendData = dailyTrend.value || [];
+  let trendData = dailyTrend.value || [];
+  
+  // 如果没有选择日期范围，默认只显示当月
+  if (!dateRange.value || dateRange.value.length === 0) {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const prefix = `${y}-${m}`;
+    trendData = trendData.filter(i => i.date && i.date.startsWith(prefix));
+  }
+
   const dates = trendData.map(i => i.date);
   const incomes = trendData.map(i => Number(i.income || 0));
   const expenses = trendData.map(i => Number(i.expense || 0));
   // 每日实时余额（后端已提供每日日终余额）
-  const balances = trendData.map(i => Number(i.balance ?? 0));
+  // 修正：后端返回的 dailyTrend 余额可能与当前实时余额（companyFunds汇总）存在偏差（如期初差异或实时性问题）
+  // 我们计算一个 offset，将趋势图整体平移，使其终点（如果是今天）与顶部 TotalNet 对齐
+  let balances = trendData.map(i => Number(i.balance ?? 0));
+  
+  if (trendData.length > 0 && dailyTrend.value.length > 0) {
+    // 1. 获取全量数据的最后一天（通常是今天）
+    const lastItem = dailyTrend.value[dailyTrend.value.length - 1];
+    // 2. 只有当全量数据的最后一天在显示范围内时，才进行对齐（避免查看历史月份时被强制对齐到今日余额）
+    const isLastItemInView = trendData.some(i => i.date === lastItem.date);
+    
+    if (isLastItemInView) {
+      const lastTrendBalance = Number(lastItem.balance ?? 0);
+      const currentRealBalance = totalNet.value; // 已在 loadOverview 中修正为 companyFunds 余额汇总
+      const offset = currentRealBalance - lastTrendBalance;
+      
+      if (Math.abs(offset) > 0.01) {
+        balances = balances.map(b => b + offset);
+      }
+    }
+  }
+
   chart.clear();
   chart.setOption({
     tooltip: { trigger: 'axis' },
