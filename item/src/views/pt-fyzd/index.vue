@@ -233,6 +233,55 @@
           </div>
         </div>
 
+        <!-- Metrics Overview Table -->
+        <div class="caliber-section">
+          <div class="section-title">指标总览</div>
+          <div class="table-scroll-container" style="max-height:none">
+            <table class="caliber-table">
+              <thead>
+                <tr>
+                  <th>指标</th>
+                  <th>数值</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="org-name">本月天数</td>
+                  <td>{{ monthDays }}</td>
+                </tr>
+                <tr>
+                  <td class="org-name">总订单量</td>
+                  <td>{{ driverFlowSummary.order_qty_total }}</td>
+                </tr>
+                <tr>
+                  <td class="org-name">总订单收入</td>
+                  <td>{{ fmt2(driverFlowSummary.order_income_total) }}</td>
+                </tr>
+                <tr>
+                  <td class="org-name">日均订单量</td>
+                  <td>{{ fmt2(driverFlowSummary.order_qty_avg) }}</td>
+                </tr>
+                <tr>
+                  <td class="org-name">日均订单收入</td>
+                  <td>{{ fmt2(driverFlowSummary.order_income_avg) }}</td>
+                </tr>
+                <tr>
+                  <td class="org-name">当月激活司机量</td>
+                  <td>{{ driverFlowSummary.activated_count }}</td>
+                </tr>
+                <tr>
+                  <td class="org-name">当月激活且单量>1的司机数</td>
+                  <td>{{ driverFlowSummary.activated_over1_count }}</td>
+                </tr>
+                <tr>
+                  <td class="org-name">前三个月司机量（累计月1-3）</td>
+                  <td>{{ driverFlowSummary.first_three_months_count }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Driver Flow Table -->
         <div class="caliber-section">
           <div class="section-title">司机流水详情</div>
@@ -760,14 +809,23 @@ const driverFlowSummary = computed(() => {
     if (r.activate_month === filters.month) {
       acc.activated_count += 1;
     }
+    if ((r.activated_in_month === '是') && Number(r.order_qty || 0) > 1) {
+      acc.activated_over1 += 1;
+    }
+    const cm = Number(r.cumulative_months);
+    if (Number.isFinite(cm) && cm >= 1 && cm <= 3) {
+      acc.first_three += 1;
+    }
     return acc;
-  }, { order_qty: 0, order_income: 0, activated_count: 0 });
+  }, { order_qty: 0, order_income: 0, activated_count: 0, activated_over1: 0, first_three: 0 });
   return {
     order_qty_total: totals.order_qty,
     order_income_total: totals.order_income,
     order_qty_avg: totals.order_qty / days,
     order_income_avg: totals.order_income / days,
-    activated_count: totals.activated_count
+    activated_count: totals.activated_count,
+    activated_over1_count: totals.activated_over1,
+    first_three_months_count: totals.first_three
   };
 });
 const fmtRate = (n, method) => {
