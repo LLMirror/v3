@@ -418,6 +418,7 @@
                       <th>政策ID</th>
                       <th>规则类型</th>
                       <th>维度</th>
+                      <th>前几月</th>
                       <th>基数</th>
                       <th>最小值</th>
                       <th>最大值</th>
@@ -431,6 +432,7 @@
                       <td class="org-name">{{ row.policy_id }}</td>
                       <td>{{ row.rule_type }}</td>
                       <td>{{ row.dimension }}</td>
+                      <td>{{ row.months_prior ?? '-' }}</td>
                       <td>{{ row.metric }}</td>
                       <td>{{ fmt2(row.min_val) }}</td>
                       <td>{{ fmt2(row.max_val) }}</td>
