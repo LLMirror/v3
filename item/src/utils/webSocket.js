@@ -14,7 +14,16 @@ class SingletonWebSocket {
     SingletonWebSocket.instance = this;
 
     // 基础配置
-    this.url = url || import.meta.env.VITE_APP_BASE_SOCKET_HOST;
+    // 优先使用传入URL和环境变量；若未配置，则根据当前页面自动构建 ws/wss 地址
+    const envUrl = import.meta.env.VITE_APP_BASE_SOCKET_HOST;
+    if (url) {
+      this.url = url;
+    } else if (envUrl) {
+      this.url = envUrl;
+    } else {
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      this.url = `${proto}://${window.location.host}/ws`;
+    }
     this.socket = null;
 
     // 订阅系统（使用Map存储 { type: callback }）

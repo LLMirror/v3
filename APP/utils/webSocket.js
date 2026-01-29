@@ -1,5 +1,6 @@
 //目前用的是每个客户端传来的uuid做区分，如果需要根据每个用户做区分，可将uuid改成用户id。区别就是uuid可一个账号多登录不影响信息发送和接收
 import * as WebSocket from 'ws';
+import http from 'http';
 
 class WSService {
   constructor() {
@@ -62,7 +63,7 @@ class WSService {
     // 101: 用户活动上报 (心跳/路由切换)
     if (code === 101) {
       // console.log('Received 101 activity:', data.userId, data.userName);
-      this.handleUserActivity(data);
+      this.handleUserActivity(ws, data);
     }
     
     // 102: 请求监控数据 (驾驶舱初始化)
@@ -72,7 +73,7 @@ class WSService {
     }
   }
 
-  handleUserActivity(data) {
+  async handleUserActivity(ws, data) {
     const { userId, userName, path, location, ip } = data;
     if (!userId) {
         console.log('Missing userId in activity data');
@@ -90,7 +91,7 @@ class WSService {
         loginTime: now,
         history: [], // 访问记录 { path, enterTime, duration }
         location: location || { lat: 0, lng: 0 },
-        ip: ip || '',
+        ip: ip || (ws?._socket?.remoteAddress || '').replace('::ffff:', ''),
         currentPath: '',
         lastActive: now
       };
@@ -99,8 +100,9 @@ class WSService {
     }
 
     // 更新位置
-    if (location) user.location = location;
-    if (ip) user.ip = ip;
+    if (location && location.lat && location.lng) user.location = location;
+    const ipAddr = ip || (ws?._socket?.remoteAddress || '').replace('::ffff:', '');
+    if (ipAddr) user.ip = ipAddr;
     user.lastActive = now;
 
     // 处理页面访问逻辑
@@ -126,8 +128,57 @@ class WSService {
 
     this.onlineUsers.set(userId, user);
     
+    // 如果没有坐标且存在IP，尝试根据IP获取近似位置
+    if ((!user.location || !user.location.lat || !user.location.lng) && user.ip) {
+      try {
+        const approx = await this.fetchIpLocation(user.ip);
+        if (approx) {
+          user.location = approx;
+          this.onlineUsers.set(userId, user);
+        }
+      } catch (_) {}
+    }
+
     // 广播更新 (可以优化为节流广播)
     this.broadcastMonitorData();
+  }
+
+  fetchIpLocation(ip) {
+    return new Promise((resolve) => {
+      try {
+        // 本地/内网IP给一个中国默认中心点
+        const ipStr = String(ip || '');
+        const isLocal =
+          ipStr.startsWith('127.') ||
+          ipStr === '::1' ||
+          ipStr.startsWith('192.168.') ||
+          ipStr.startsWith('10.') ||
+          /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ipStr);
+        if (isLocal) {
+          resolve({ lat: 30.5728, lng: 104.0668 }); // 成都天府广场近似
+          return;
+        }
+        const url = `http://ip-api.com/json/${ip}?fields=status,lat,lon`;
+        http.get(url, (res) => {
+          let body = '';
+          res.on('data', (chunk) => body += chunk);
+          res.on('end', () => {
+            try {
+              const data = JSON.parse(body || '{}');
+              if (data.status === 'success' && data.lat && data.lon) {
+                resolve({ lat: data.lat, lng: data.lon });
+                return;
+              }
+              resolve(null);
+            } catch {
+              resolve(null);
+            }
+          });
+        }).on('error', () => resolve(null));
+      } catch {
+        resolve(null);
+      }
+    });
   }
 
   broadcastMonitorData() {
