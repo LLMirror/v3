@@ -911,8 +911,10 @@ const computeLadderBase = () => {
   updateTotalAmount();
 };
 const computeDriverIncentive = () => {
-  const rules = (policyDetail.ladder_rows || []).filter(r => r.rule_type === '阶梯《激励》规则' && r.dimension === '司机' && r.metric === '金额');
-  if (!rules.length || !(driverFlowRows.value?.length)) {
+  const allRules = (policyDetail.ladder_rows || []).filter(r => r.rule_type === '阶梯《激励》规则' && r.dimension === '司机');
+  const rulesAmt = allRules.filter(r => r.metric === '金额');
+  const rulesQty = allRules.filter(r => r.metric === '单量');
+  if ((!rulesAmt.length && !rulesQty.length) || !(driverFlowRows.value?.length)) {
     driverFlowRows.value = (driverFlowRows.value || []).map(it => ({ ...it, cashback: 0 }));
     statementData.driverRewardAmount = 0;
     updateTotalAmount();
@@ -921,12 +923,20 @@ const computeDriverIncentive = () => {
   let totalCashback = 0;
   driverFlowRows.value = (driverFlowRows.value || []).map(it => {
     const amt = Number(it.order_income || 0);
-    const rule = rules.find(r => amt >= Number(r.min_val ?? 0) && amt < Number(r.max_val ?? Infinity));
-    let cashback = 0;
-    if (rule) {
-      if (rule.method === '百分比') cashback = amt * Number(rule.rule_value || 0);
-      else cashback = Number(rule.rule_value || 0);
+    const qty = Number(it.order_qty || 0);
+    const ruleAmt = rulesAmt.find(r => amt >= Number(r.min_val ?? 0) && amt < Number(r.max_val ?? Infinity));
+    const ruleQty = rulesQty.find(r => qty >= Number(r.min_val ?? 0) && qty < Number(r.max_val ?? Infinity));
+    let cashbackAmt = 0;
+    let cashbackQty = 0;
+    if (ruleAmt) {
+      if (ruleAmt.method === '百分比') cashbackAmt = amt * Number(ruleAmt.rule_value || 0);
+      else cashbackAmt = Number(ruleAmt.rule_value || 0);
     }
+    if (ruleQty) {
+      if (ruleQty.method === '百分比') cashbackQty = qty * Number(ruleQty.rule_value || 0);
+      else cashbackQty = Number(ruleQty.rule_value || 0); // 单价/返现按固定金额
+    }
+    const cashback = cashbackAmt + cashbackQty;
     totalCashback += cashback;
     return { ...it, cashback };
   });
