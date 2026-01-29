@@ -927,7 +927,13 @@ const computeDriverIncentive = () => {
     const amt = Number(it.order_income || 0);
     const qty = Number(it.order_qty || 0);
     const ruleAmt = rulesAmt.find(r => amt >= Number(r.min_val ?? 0) && amt < Number(r.max_val ?? Infinity));
-    const ruleQty = rulesQty.find(r => qty >= Number(r.min_val ?? 0) && qty < Number(r.max_val ?? Infinity));
+    const cm = Number(it.cumulative_months);
+    const ruleQty = rulesQty.find(r => {
+      const inRange = qty >= Number(r.min_val ?? 0) && qty < Number(r.max_val ?? Infinity);
+      const mp = Number(r.months_prior ?? NaN);
+      const monthsOk = Number.isFinite(mp) ? (Number.isFinite(cm) && cm <= mp) : true;
+      return inRange && monthsOk;
+    });
     let cashbackAmt = 0;
     let cashbackQty = 0;
     if (ruleAmt) {
