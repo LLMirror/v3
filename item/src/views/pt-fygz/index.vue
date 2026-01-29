@@ -109,6 +109,8 @@
                   <el-select v-model="scope.row.rule_type" style="width:140px" :disabled="isLadderDisabled(scope.row)">
                     <el-option label="阶梯《基础》规则" value="阶梯《基础》规则" />
                     <el-option label="阶梯《激励》规则" value="阶梯《激励》规则" />
+                    <el-option label="阶梯《双计算》规则" value="阶梯《双计算》规则" />
+                    <el-option label="阶梯《双匹配取最高》规则" value="阶梯《双匹配取最高》规则" />
                   </el-select>
                 </template>
               </el-table-column>
