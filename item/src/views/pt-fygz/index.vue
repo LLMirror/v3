@@ -121,7 +121,7 @@
                 </template>
               </el-table-column>
               <el-table-column prop="subtract_free" label="扣减免佣" width="120">
-                <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" :disabled="isLadderDisabled(scope.row)" /></template>
+                <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" :disabled="isLadderDisabled(scope.row) || scope.row.double_calc === 1" /></template>
               </el-table-column>
               <el-table-column prop="metric" label="基数" width="120">
                 <template #default="scope">
@@ -148,8 +148,23 @@
                   </el-select>
                 </template>
               </el-table-column>
+              <el-table-column prop="double_calc" label="双计算开关" width="120">
+                <template #default="scope">
+                  <el-switch v-model="scope.row.double_calc" :active-value="1" :inactive-value="0" :disabled="isLadderDisabled(scope.row)" @change="onLadderDoubleCalcChange(scope.row)" />
+                </template>
+              </el-table-column>
+              <el-table-column prop="free_rate_value" label="免佣费率/单价" width="140">
+                <template #default="scope">
+                  <el-input v-model="scope.row.free_rate_display" @blur="formatRateWithKey(scope.row,'free_rate_display','free_rate_value')" :disabled="isLadderDisabled(scope.row) || scope.row.double_calc !== 1" />
+                </template>
+              </el-table-column>
+              <el-table-column prop="unfree_rate_value" label="不免佣费率/单价" width="160">
+                <template #default="scope">
+                  <el-input v-model="scope.row.unfree_rate_display" @blur="formatRateWithKey(scope.row,'unfree_rate_display','unfree_rate_value')" :disabled="isLadderDisabled(scope.row) || scope.row.double_calc !== 1" />
+                </template>
+              </el-table-column>
               <el-table-column prop="rule_value" label="费率/单价" width="140">
-                <template #default="scope"><el-input v-model="scope.row.rule_display" @blur="formatRule(scope.row)" :disabled="isLadderDisabled(scope.row)" /></template>
+                <template #default="scope"><el-input v-model="scope.row.rule_display" @blur="formatRule(scope.row)" :disabled="isLadderDisabled(scope.row) || scope.row.double_calc === 1" /></template>
               </el-table-column>
               <el-table-column prop="unit" label="单位" width="100" />
             </el-table>
@@ -546,7 +561,9 @@ const loadLadderOnline = async () => {
         ...r,
         range_preview: `${Number(r.min_val ?? 0).toFixed(2)} ≤ x < ${Number(r.max_val ?? 0).toFixed(2)}`,
         unit: r.method === '百分比' ? '%' : (r.method === '返现' ? '元/人' : '元/单'),
-        rule_display: (r.method === '百分比' && r.rule_value != null) ? ((Number(r.rule_value) * 100).toFixed(2) + '%') : (r.rule_value != null ? Number(r.rule_value).toFixed(2) : '')
+        rule_display: (r.method === '百分比' && r.rule_value != null) ? ((Number(r.rule_value) * 100).toFixed(2) + '%') : (r.rule_value != null ? Number(r.rule_value).toFixed(2) : ''),
+        free_rate_display: (r.method === '百分比' && r.free_rate_value != null) ? ((Number(r.free_rate_value) * 100).toFixed(2) + '%') : (r.free_rate_value != null ? Number(r.free_rate_value).toFixed(2) : ''),
+        unfree_rate_display: (r.method === '百分比' && r.unfree_rate_value != null) ? ((Number(r.unfree_rate_value) * 100).toFixed(2) + '%') : (r.unfree_rate_value != null ? Number(r.unfree_rate_value).toFixed(2) : '')
       }));
       ladderTotal.value = res.total || 0;
     }
@@ -584,6 +601,12 @@ const onDoubleCalcChange = (row) => {
   if (row.double_calc === 1) {
     row.rate_display = '';
     row.rate_value = null;
+  }
+};
+const onLadderDoubleCalcChange = (row) => {
+  if (row.double_calc === 1) {
+    row.rule_display = '';
+    row.rule_value = null;
   }
 };
 const formatRule = (row) => {
@@ -736,7 +759,24 @@ const addNewBase = () => {
   });
 };
 const addNewLadder = () => {
-  ladderOnlineRows.value.unshift({ id: undefined, policy_id: '', rule_type: '', dimension: '', metric: '', min_val: null, max_val: null, method: '单价', rule_display: '', rule_value: null, subtract_free: 0 });
+  ladderOnlineRows.value.unshift({
+    id: undefined,
+    policy_id: '',
+    rule_type: '',
+    dimension: '',
+    metric: '',
+    min_val: null,
+    max_val: null,
+    method: '单价',
+    double_calc: 0,
+    free_rate_display: '',
+    free_rate_value: null,
+    unfree_rate_display: '',
+    unfree_rate_value: null,
+    rule_display: '',
+    rule_value: null,
+    subtract_free: 0
+  });
 };
 
 loadBaseOnline();

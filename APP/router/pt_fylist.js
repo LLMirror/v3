@@ -265,7 +265,7 @@ router.get('/rules-template', async (req, res) => {
         const h1 = ['政策ID','分类','端口','计算基数','双计算开关','是否减去免佣','是否扣除墨竹','返佣方式','费率/单价','免佣费率/单价','不免佣费率/单价','备注'];
         sheet1.columns = h1.map(h => ({ header: h, key: h, width: w(h) }));
         const sheet2 = workbook.addWorksheet('阶梯规则');
-        const h2 = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','费率/单价','扣减免佣'];
+        const h2 = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','双计算开关','免佣费率/单价','不免佣费率/单价','费率/单价','扣减免佣'];
         sheet2.columns = h2.map(h => ({ header: h, key: h, width: w(h) }));
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent('规则导入模板.xlsx')}`);
@@ -338,7 +338,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
         const baseSimpleRows = [];
         const ladderRows = [];
         const baseHeaders = ['政策ID','分类','端口','计算基数','双计算开关','是否减去免佣','是否扣除墨竹','返佣方式','费率/单价','免佣费率/单价','不免佣费率/单价','备注'];
-        const ladderHeaders = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','费率/单价','扣减免佣'];
+        const ladderHeaders = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','双计算开关','免佣费率/单价','不免佣费率/单价','费率/单价','扣减免佣'];
         if (ws[0] && ws[0].data && ws[0].data.length > 1) {
             const data = ws[0].data;
             const headers = (data[0] || []).map(v => v ? String(v).trim() : '');
@@ -409,11 +409,20 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                 const minVal = toNum(r[idx('最小值 (>=)')]);
                 const maxVal = toNum(r[idx('最大值 (<)')]);
                 const method = r[idx('返佣方式')] || null;
+                const doubleCalc = String(r[idx('双计算开关')] || '').includes('是') ? 1 : 0;
+                const freeRateVal = toNum(r[idx('免佣费率/单价')]);
+                const unfreeRateVal = toNum(r[idx('不免佣费率/单价')]);
                 const ruleValue = toNum(r[idx('费率/单价')]);
                 const subtractFree = String(r[idx('扣减免佣')] || '').includes('是') ? 1 : 0;
                 const ruleDisplay = method === '百分比'
                     ? (ruleValue !== null && ruleValue !== undefined ? ((ruleValue * 100).toFixed(2) + '%') : '')
                     : (ruleValue !== null && ruleValue !== undefined ? Number(ruleValue).toFixed(2) : '');
+                const freeRateDisplay = method === '百分比'
+                    ? (freeRateVal !== null && freeRateVal !== undefined ? ((freeRateVal * 100).toFixed(2) + '%') : '')
+                    : (freeRateVal !== null && freeRateVal !== undefined ? Number(freeRateVal).toFixed(2) : '');
+                const unfreeRateDisplay = method === '百分比'
+                    ? (unfreeRateVal !== null && unfreeRateVal !== undefined ? ((unfreeRateVal * 100).toFixed(2) + '%') : '')
+                    : (unfreeRateVal !== null && unfreeRateVal !== undefined ? Number(unfreeRateVal).toFixed(2) : '');
                 ladderRows.push({
                     policy_id: policyId,
                     rule_type: ruleType,
@@ -422,8 +431,13 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                     min_val: minVal,
                     max_val: maxVal,
                     method,
+                    double_calc: doubleCalc,
                     rule_value: ruleValue,
                     rule_display: ruleDisplay,
+                    free_rate_value: freeRateVal,
+                    unfree_rate_value: unfreeRateVal,
+                    free_rate_display: freeRateDisplay,
+                    unfree_rate_display: unfreeRateDisplay,
                     subtract_free: subtractFree
                 });
                 ladderCount++;
@@ -455,6 +469,9 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                     { prop: 'min_val', label: '最小值 (>=)' },
                     { prop: 'max_val', label: '最大值 (<)' },
                     { prop: 'method', label: '返佣方式' },
+                    { prop: 'double_calc', label: '双计算开关' },
+                    { prop: 'free_rate_display', label: '免佣费率/单价' },
+                    { prop: 'unfree_rate_display', label: '不免佣费率/单价' },
                     { prop: 'rule_display', label: '费率/单价' },
                     { prop: 'subtract_free', label: '扣减免佣' }
                 ],
@@ -543,6 +560,9 @@ router.post('/rules-save', async (req, res) => {
             max_val DECIMAL(20,6),
             method VARCHAR(32),
             rule_value DECIMAL(20,6),
+            double_calc TINYINT(1),
+            free_rate_value DECIMAL(20,6),
+            unfree_rate_value DECIMAL(20,6),
             subtract_free TINYINT(1),
             upload_time DATETIME,
             updated_time DATETIME
@@ -622,12 +642,12 @@ router.post('/rules-save', async (req, res) => {
             savedBase = baseSimpleRows.length;
         }
         if (ladderRows.length > 0) {
-            const cols = ['id','policy_id','rule_type','dimension','metric','min_val','max_val','method','rule_value','subtract_free','upload_time','updated_time'];
+            const cols = ['id','policy_id','rule_type','dimension','metric','min_val','max_val','method','rule_value','double_calc','free_rate_value','unfree_rate_value','subtract_free','upload_time','updated_time'];
             let sql = `INSERT INTO \`pt_fy_rules_ladder\` (\`${cols.join('`,`')}\`) VALUES `;
             let vals = [];
             ladderRows.forEach(r => {
-                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
-                vals.push(uuidv4(), r.policy_id ?? null, r.rule_type || null, r.dimension || null, r.metric || null, r.min_val ?? null, r.max_val ?? null, r.method || null, r.rule_value ?? null, r.subtract_free ? 1 : 0, now, now);
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.policy_id ?? null, r.rule_type || null, r.dimension || null, r.metric || null, r.min_val ?? null, r.max_val ?? null, r.method || null, r.rule_value ?? null, r.double_calc ? 1 : 0, r.free_rate_value ?? null, r.unfree_rate_value ?? null, r.subtract_free ? 1 : 0, now, now);
             });
             sql = sql.slice(0, -1);
             await pools({ sql, val: vals, res, req });
@@ -1102,6 +1122,9 @@ router.post('/rules-save-chunk', async (req, res) => {
         ]);
         await ensureCols('pt_fy_rules_ladder', req, res, [
             { name: 'policy_id', type: 'VARCHAR(64)' },
+            { name: 'double_calc', type: 'TINYINT(1)' },
+            { name: 'free_rate_value', type: 'DECIMAL(20,6)' },
+            { name: 'unfree_rate_value', type: 'DECIMAL(20,6)' },
             { name: 'method', type: 'VARCHAR(32)' },
             { name: 'upload_time', type: 'DATETIME' },
             { name: 'updated_time', type: 'DATETIME' }
@@ -1120,12 +1143,12 @@ router.post('/rules-save-chunk', async (req, res) => {
             savedBase = baseSimpleRows.length;
         }
         if (Array.isArray(ladderRows) && ladderRows.length > 0) {
-            const cols = ['id','policy_id','rule_type','dimension','metric','min_val','max_val','method','rule_value','subtract_free','upload_time','updated_time'];
+            const cols = ['id','policy_id','rule_type','dimension','metric','min_val','max_val','method','rule_value','double_calc','free_rate_value','unfree_rate_value','subtract_free','upload_time','updated_time'];
             let sql = `INSERT INTO \`pt_fy_rules_ladder\` (\`${cols.join('`,`')}\`) VALUES `;
             let vals = [];
             ladderRows.forEach(r => {
-                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
-                vals.push(uuidv4(), r.policy_id ?? null, r.rule_type || null, r.dimension || null, r.metric || null, r.min_val ?? null, r.max_val ?? null, r.method || null, r.rule_value ?? null, r.subtract_free ? 1 : 0, now, now);
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.policy_id ?? null, r.rule_type || null, r.dimension || null, r.metric || null, r.min_val ?? null, r.max_val ?? null, r.method || null, r.rule_value ?? null, r.double_calc ? 1 : 0, r.free_rate_value ?? null, r.unfree_rate_value ?? null, r.subtract_free ? 1 : 0, now, now);
             });
             sql = sql.slice(0, -1);
             await pools({ sql, val: vals, res, req });
@@ -1226,8 +1249,8 @@ router.post('/rules-update', async (req, res) => {
             updatedBase++;
         }
         for (const r of Array.isArray(ladderUpdates) ? ladderUpdates : []) {
-            const sql = 'UPDATE `pt_fy_rules_ladder` SET `policy_id`=?,`rule_type`=?,`dimension`=?,`metric`=?,`min_val`=?,`max_val`=?,`method`=?,`rule_value`=?,`subtract_free`=?,`updated_time`=? WHERE `id`=?';
-            const val = [r.policy_id ?? null, r.rule_type ?? null, r.dimension ?? null, r.metric ?? null, r.min_val ?? null, r.max_val ?? null, r.method ?? null, r.rule_value ?? null, r.subtract_free ? 1 : 0, now, r.id];
+            const sql = 'UPDATE `pt_fy_rules_ladder` SET `policy_id`=?,`rule_type`=?,`dimension`=?,`metric`=?,`min_val`=?,`max_val`=?,`method`=?,`rule_value`=?,`double_calc`=?,`free_rate_value`=?,`unfree_rate_value`=?,`subtract_free`=?,`updated_time`=? WHERE `id`=?';
+            const val = [r.policy_id ?? null, r.rule_type ?? null, r.dimension ?? null, r.metric ?? null, r.min_val ?? null, r.max_val ?? null, r.method ?? null, r.rule_value ?? null, r.double_calc ? 1 : 0, r.free_rate_value ?? null, r.unfree_rate_value ?? null, r.subtract_free ? 1 : 0, now, r.id];
             await pools({ sql, val, res, req });
             updatedLadder++;
         }
