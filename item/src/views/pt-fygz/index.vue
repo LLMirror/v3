@@ -63,8 +63,23 @@
                   </el-select>
                 </template>
               </el-table-column>
+              <el-table-column prop="double_calc" label="双计算开关" width="120">
+                <template #default="scope">
+                  <el-switch v-model="scope.row.double_calc" :active-value="1" :inactive-value="0" :disabled="isBaseDisabled(scope.row)" @change="onDoubleCalcChange(scope.row)" />
+                </template>
+              </el-table-column>
+              <el-table-column prop="free_rate_value" label="免佣费率/单价" width="140">
+                <template #default="scope">
+                  <el-input v-model="scope.row.free_rate_display" @blur="formatRateWithKey(scope.row,'free_rate_display','free_rate_value')" :disabled="isBaseDisabled(scope.row) || scope.row.double_calc !== 1" />
+                </template>
+              </el-table-column>
+              <el-table-column prop="unfree_rate_value" label="不免佣费率/单价" width="160">
+                <template #default="scope">
+                  <el-input v-model="scope.row.unfree_rate_display" @blur="formatRateWithKey(scope.row,'unfree_rate_display','unfree_rate_value')" :disabled="isBaseDisabled(scope.row) || scope.row.double_calc !== 1" />
+                </template>
+              </el-table-column>
               <el-table-column prop="subtract_free" label="是否减免佣" width="120">
-                <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" :disabled="isBaseDisabled(scope.row)" /></template>
+                <template #default="scope"><el-switch v-model="scope.row.subtract_free" :active-value="1" :inactive-value="0" :disabled="isBaseDisabled(scope.row) || scope.row.double_calc === 1" /></template>
               </el-table-column>
               <el-table-column prop="subtract_mozhu" label="是否扣除墨竹" width="120">
                 <template #default="scope"><el-switch v-model="scope.row.subtract_mozhu" :active-value="1" :inactive-value="0" :disabled="isBaseDisabled(scope.row)" /></template>
@@ -73,7 +88,7 @@
                 <template #default="scope"><el-select v-model="scope.row.method" :disabled="isBaseDisabled(scope.row)"><el-option label="百分比" value="百分比" /><el-option label="单价" value="单价" /></el-select></template>
               </el-table-column>
               <el-table-column prop="rate_value" label="费率/单价" width="140">
-                <template #default="scope"><el-input v-model="scope.row.rate_display" @blur="formatRate(scope.row)" :disabled="isBaseDisabled(scope.row)" /></template>
+                <template #default="scope"><el-input v-model="scope.row.rate_display" @blur="formatRate(scope.row)" :disabled="isBaseDisabled(scope.row) || scope.row.double_calc === 1" /></template>
               </el-table-column>
               <el-table-column prop="remark" label="备注" min-width="180">
                 <template #default="scope"><el-input v-model="scope.row.remark" :disabled="isBaseDisabled(scope.row)" /></template>
@@ -512,7 +527,13 @@ const loadBaseOnline = async () => {
   try {
     const res = await request.post('/pt_fylist/rules-query', { table: 'base', page: basePage.value, size: baseSize.value }, { headers: { repeatSubmit: false } });
     if (res.code === 1) {
-      baseOnlineRows.value = (res.data?.list || []).map(r => ({ ...r, category: '基础', rate_display: (r.method === '百分比' && r.rate_value != null) ? ((Number(r.rate_value) * 100).toFixed(2) + '%') : (r.rate_value != null ? Number(r.rate_value).toFixed(2) : '') }));
+      baseOnlineRows.value = (res.data?.list || []).map(r => ({
+        ...r,
+        category: '基础',
+        rate_display: (r.method === '百分比' && r.rate_value != null) ? ((Number(r.rate_value) * 100).toFixed(2) + '%') : (r.rate_value != null ? Number(r.rate_value).toFixed(2) : ''),
+        free_rate_display: (r.method === '百分比' && r.free_rate_value != null) ? ((Number(r.free_rate_value) * 100).toFixed(2) + '%') : (r.free_rate_value != null ? Number(r.free_rate_value).toFixed(2) : ''),
+        unfree_rate_display: (r.method === '百分比' && r.unfree_rate_value != null) ? ((Number(r.unfree_rate_value) * 100).toFixed(2) + '%') : (r.unfree_rate_value != null ? Number(r.unfree_rate_value).toFixed(2) : '')
+      }));
       baseTotal.value = res.total || 0;
     }
   } catch {}
@@ -545,6 +566,26 @@ const formatRate = (row) => {
     row.rate_value = n;
   }
 };
+const formatRateWithKey = (row, displayKey, valueKey) => {
+  const s = String(row[displayKey] || '').trim();
+  if (row.method === '百分比') {
+    let n = s.endsWith('%') ? parseFloat(s.replace('%','')) : parseFloat(s);
+    if (Number.isNaN(n)) n = 0;
+    row[displayKey] = n.toFixed(2) + '%';
+    row[valueKey] = n / 100;
+  } else {
+    let n = parseFloat(s.replace(/[^\d.\-\.]/g,''));
+    if (Number.isNaN(n)) n = 0;
+    row[displayKey] = n.toFixed(2);
+    row[valueKey] = n;
+  }
+};
+const onDoubleCalcChange = (row) => {
+  if (row.double_calc === 1) {
+    row.rate_display = '';
+    row.rate_value = null;
+  }
+};
 const formatRule = (row) => {
   const s = String(row.rule_display || '').trim();
   if (row.method === '百分比') {
@@ -566,9 +607,80 @@ const formatNumber = (row, key) => {
 };
 const saveOnlineEdits = async () => {
   try {
+    const baseEditable = baseOnlineRows.value.filter(r => !isBaseDisabled(r));
+    const ladderEditable = ladderOnlineRows.value.filter(r => !isLadderDisabled(r));
+
+    const baseCreates = baseEditable
+      .filter(r => !r.id)
+      .map(r => ({
+        policy_id: r.policy_id,
+        category: '基础',
+        port: r.port,
+        base_metric: r.base_metric,
+        double_calc: r.double_calc ? 1 : 0,
+        subtract_free: r.subtract_free,
+        subtract_mozhu: r.subtract_mozhu,
+        method: r.method,
+        rate_value: r.rate_value,
+        free_rate_value: r.free_rate_value,
+        unfree_rate_value: r.unfree_rate_value,
+        remark: r.remark
+      }));
+    const baseUpdates = baseEditable
+      .filter(r => !!r.id)
+      .map(r => ({
+        id: r.id,
+        policy_id: r.policy_id,
+        category: '基础',
+        port: r.port,
+        base_metric: r.base_metric,
+        double_calc: r.double_calc ? 1 : 0,
+        subtract_free: r.subtract_free,
+        subtract_mozhu: r.subtract_mozhu,
+        method: r.method,
+        rate_value: r.rate_value,
+        free_rate_value: r.free_rate_value,
+        unfree_rate_value: r.unfree_rate_value,
+        remark: r.remark
+      }));
+    const ladderCreates = ladderEditable
+      .filter(r => !r.id)
+      .map(r => ({
+        policy_id: r.policy_id,
+        rule_type: r.rule_type,
+        dimension: r.dimension,
+        metric: r.metric,
+        min_val: r.min_val,
+        max_val: r.max_val,
+        method: r.method,
+        rule_value: r.rule_value,
+        subtract_free: r.subtract_free
+      }));
+    const ladderUpdates = ladderEditable
+      .filter(r => !!r.id)
+      .map(r => ({
+        id: r.id,
+        policy_id: r.policy_id,
+        rule_type: r.rule_type,
+        dimension: r.dimension,
+        metric: r.metric,
+        min_val: r.min_val,
+        max_val: r.max_val,
+        method: r.method,
+        rule_value: r.rule_value,
+        subtract_free: r.subtract_free
+      }));
+
+    if (baseCreates.length || ladderCreates.length) {
+      await request.post('/pt_fylist/rules-save-chunk', {
+        baseSimpleRows: baseCreates,
+        ladderRows: ladderCreates
+      }, { headers: { repeatSubmit: false }, timeout: 600000 });
+    }
+
     const res = await request.post('/pt_fylist/rules-update', {
-      baseUpdates: baseOnlineRows.value.filter(r => !isBaseDisabled(r)).map(r => ({ id: r.id, policy_id: r.policy_id, category: '基础', port: r.port, base_metric: r.base_metric, subtract_free: r.subtract_free, subtract_mozhu: r.subtract_mozhu, method: r.method, rate_value: r.rate_value, remark: r.remark })),
-      ladderUpdates: ladderOnlineRows.value.filter(r => !isLadderDisabled(r)).map(r => ({ id: r.id, policy_id: r.policy_id, rule_type: r.rule_type, dimension: r.dimension, metric: r.metric, min_val: r.min_val, max_val: r.max_val, method: r.method, rule_value: r.rule_value, subtract_free: r.subtract_free }))
+      baseUpdates,
+      ladderUpdates
     }, { headers: { repeatSubmit: false }, timeout: 600000 });
     if (res.code === 1 && res.data && res.data.success) {
       ElMessage.success('保存修改成功');
@@ -604,7 +716,24 @@ const deleteSelectedOnline = async () => {
   }
 };
 const addNewBase = () => {
-  baseOnlineRows.value.unshift({ id: undefined, policy_id: '', category: '基础', port: '', base_metric: '', subtract_free: 0, subtract_mozhu: 0, method: '单价', rate_display: '', rate_value: null, remark: '' });
+  baseOnlineRows.value.unshift({
+    id: undefined,
+    policy_id: '',
+    category: '基础',
+    port: '',
+    base_metric: '',
+    double_calc: 0,
+    subtract_free: 0,
+    subtract_mozhu: 0,
+    method: '单价',
+    rate_display: '',
+    rate_value: null,
+    free_rate_display: '',
+    free_rate_value: null,
+    unfree_rate_display: '',
+    unfree_rate_value: null,
+    remark: ''
+  });
 };
 const addNewLadder = () => {
   ladderOnlineRows.value.unshift({ id: undefined, policy_id: '', rule_type: '', dimension: '', metric: '', min_val: null, max_val: null, method: '单价', rule_display: '', rule_value: null, subtract_free: 0 });

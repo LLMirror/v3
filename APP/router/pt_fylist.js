@@ -262,7 +262,7 @@ router.get('/rules-template', async (req, res) => {
             return Math.max(n * 1.5 + 2, 12);
         };
         const sheet1 = workbook.addWorksheet('基础配置');
-        const h1 = ['政策ID','分类','端口','计算基数','是否减去免佣','是否扣除墨竹','返佣方式','费率/单价','备注'];
+        const h1 = ['政策ID','分类','端口','计算基数','双计算开关','是否减去免佣','是否扣除墨竹','返佣方式','费率/单价','免佣费率/单价','不免佣费率/单价','备注'];
         sheet1.columns = h1.map(h => ({ header: h, key: h, width: w(h) }));
         const sheet2 = workbook.addWorksheet('阶梯规则');
         const h2 = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','费率/单价','扣减免佣'];
@@ -337,7 +337,7 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
         let baseSimpleCount = 0, ladderCount = 0;
         const baseSimpleRows = [];
         const ladderRows = [];
-        const baseHeaders = ['政策ID','分类','端口','计算基数','是否减去免佣','是否扣除墨竹','返佣方式','费率/单价','备注'];
+        const baseHeaders = ['政策ID','分类','端口','计算基数','双计算开关','是否减去免佣','是否扣除墨竹','返佣方式','费率/单价','免佣费率/单价','不免佣费率/单价','备注'];
         const ladderHeaders = ['政策ID','规则类型','维度','计算基数','最小值 (>=)','最大值 (<)','返佣方式','费率/单价','扣减免佣'];
         if (ws[0] && ws[0].data && ws[0].data.length > 1) {
             const data = ws[0].data;
@@ -354,24 +354,38 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                 const category = r[idx('分类')] || null;
                 const port = r[idx('端口')] || null;
                 const baseMetric = r[idx('计算基数')] || null;
+                const doubleCalc = String(r[idx('双计算开关')] || '').includes('是') ? 1 : 0;
                 const subtractFree = String(r[idx('是否减去免佣')] || '').includes('是') ? 1 : 0;
                 const subtractMoZhu = String(r[idx('是否扣除墨竹')] || '').includes('是') ? 1 : 0;
                 const method = r[idx('返佣方式')] || null;
                 const rateVal = toNum(r[idx('费率/单价')]);
+                const freeRateVal = toNum(r[idx('免佣费率/单价')]);
+                const unfreeRateVal = toNum(r[idx('不免佣费率/单价')]);
                 const remark = r[idx('备注')] || null;
                 const rateDisplay = method === '百分比'
                     ? (rateVal !== null && rateVal !== undefined ? ((rateVal * 100).toFixed(2) + '%') : '')
                     : (rateVal !== null && rateVal !== undefined ? Number(rateVal).toFixed(2) : '');
+                const freeRateDisplay = method === '百分比'
+                    ? (freeRateVal !== null && freeRateVal !== undefined ? ((freeRateVal * 100).toFixed(2) + '%') : '')
+                    : (freeRateVal !== null && freeRateVal !== undefined ? Number(freeRateVal).toFixed(2) : '');
+                const unfreeRateDisplay = method === '百分比'
+                    ? (unfreeRateVal !== null && unfreeRateVal !== undefined ? ((unfreeRateVal * 100).toFixed(2) + '%') : '')
+                    : (unfreeRateVal !== null && unfreeRateVal !== undefined ? Number(unfreeRateVal).toFixed(2) : '');
                 baseSimpleRows.push({
                     policy_id: policyId,
                     category,
                     port,
                     base_metric: baseMetric,
+                    double_calc: doubleCalc,
                     subtract_free: subtractFree,
                     subtract_mozhu: subtractMoZhu,
                     method,
                     rate_value: rateVal,
+                    free_rate_value: freeRateVal,
+                    unfree_rate_value: unfreeRateVal,
                     rate_display: rateDisplay,
+                    free_rate_display: freeRateDisplay,
+                    unfree_rate_display: unfreeRateDisplay,
                     remark
                 });
                 baseSimpleCount++;
@@ -424,10 +438,13 @@ router.post('/rules-import', upload.single('file'), async (req, res) => {
                     { prop: 'category', label: '分类' },
                     { prop: 'port', label: '端口' },
                     { prop: 'base_metric', label: '计算基数' },
+                    { prop: 'double_calc', label: '双计算开关' },
                     { prop: 'subtract_free', label: '是否减去免佣' },
                     { prop: 'subtract_mozhu', label: '是否扣除墨竹' },
                     { prop: 'method', label: '返佣方式' },
                     { prop: 'rate_display', label: '费率/单价' },
+                    { prop: 'free_rate_display', label: '免佣费率/单价' },
+                    { prop: 'unfree_rate_display', label: '不免佣费率/单价' },
                     { prop: 'remark', label: '备注' }
                 ],
                 ladderHeaders: [
@@ -505,9 +522,12 @@ router.post('/rules-save', async (req, res) => {
             category VARCHAR(32),
             port VARCHAR(32),
             base_metric VARCHAR(32),
+            double_calc TINYINT(1),
             subtract_free TINYINT(1),
             method VARCHAR(32),
             rate_value DECIMAL(20,6),
+            free_rate_value DECIMAL(20,6),
+            unfree_rate_value DECIMAL(20,6),
             remark TEXT,
             upload_time DATETIME,
             updated_time DATETIME
@@ -562,8 +582,11 @@ router.post('/rules-save', async (req, res) => {
         };
         await ensureCols('pt_fy_rules_base_simple', req, res, [
             { name: 'policy_id', type: 'VARCHAR(64)' },
+            { name: 'double_calc', type: 'TINYINT(1)' },
             { name: 'subtract_mozhu', type: 'TINYINT(1)' },
             { name: 'method', type: 'VARCHAR(32)' },
+            { name: 'free_rate_value', type: 'DECIMAL(20,6)' },
+            { name: 'unfree_rate_value', type: 'DECIMAL(20,6)' },
             { name: 'upload_time', type: 'DATETIME' },
             { name: 'updated_time', type: 'DATETIME' }
         ]);
@@ -587,12 +610,12 @@ router.post('/rules-save', async (req, res) => {
         }
         let savedBase = 0, savedLadder = 0;
         if (baseSimpleRows.length > 0) {
-            const cols = ['id','policy_id','category','port','base_metric','subtract_free','method','rate_value','remark','upload_time','updated_time'];
+            const cols = ['id','policy_id','category','port','base_metric','double_calc','subtract_free','method','rate_value','free_rate_value','unfree_rate_value','remark','upload_time','updated_time'];
             let sql = `INSERT INTO \`pt_fy_rules_base_simple\` (\`${cols.join('`,`')}\`) VALUES `;
             let vals = [];
             baseSimpleRows.forEach(r => {
-                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
-                vals.push(uuidv4(), r.policy_id ?? null, r.category || null, r.port || null, r.base_metric || null, r.subtract_free ? 1 : 0, r.method || null, r.rate_value ?? null, r.remark || null, now, now);
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.policy_id ?? null, r.category || null, r.port || null, r.base_metric || null, r.double_calc ? 1 : 0, r.subtract_free ? 1 : 0, r.method || null, r.rate_value ?? null, r.free_rate_value ?? null, r.unfree_rate_value ?? null, r.remark || null, now, now);
             });
             sql = sql.slice(0, -1);
             await pools({ sql, val: vals, res, req });
@@ -701,7 +724,7 @@ router.post('/rules-query', async (req, res) => {
             where = 'WHERE `policy_id` = ?';
             vals = [policyId];
         }
-        const listSql = `SELECT * FROM \`${tbl}\` ${where} ORDER BY \`updated_time\` DESC LIMIT ? OFFSET ?`;
+        const listSql = `SELECT * FROM \`${tbl}\` ${where} ORDER BY \`policy_id\` ASC LIMIT ? OFFSET ?`;
         vals.push(Number(size), Number(offset));
         const countSql = `SELECT COUNT(*) AS c FROM \`${tbl}\` ${where}`;
         const { result: list } = await pools({ sql: listSql, val: vals, res, req });
@@ -1070,6 +1093,9 @@ router.post('/rules-save-chunk', async (req, res) => {
         };
         await ensureCols('pt_fy_rules_base_simple', req, res, [
             { name: 'policy_id', type: 'VARCHAR(64)' },
+            { name: 'double_calc', type: 'TINYINT(1)' },
+            { name: 'free_rate_value', type: 'DECIMAL(20,6)' },
+            { name: 'unfree_rate_value', type: 'DECIMAL(20,6)' },
             { name: 'method', type: 'VARCHAR(32)' },
             { name: 'upload_time', type: 'DATETIME' },
             { name: 'updated_time', type: 'DATETIME' }
@@ -1082,12 +1108,12 @@ router.post('/rules-save-chunk', async (req, res) => {
         ]);
         let savedBase = 0, savedLadder = 0;
         if (Array.isArray(baseSimpleRows) && baseSimpleRows.length > 0) {
-            const cols = ['id','policy_id','category','port','base_metric','subtract_free','subtract_mozhu','method','rate_value','remark','upload_time','updated_time'];
+            const cols = ['id','policy_id','category','port','base_metric','double_calc','subtract_free','subtract_mozhu','method','rate_value','free_rate_value','unfree_rate_value','remark','upload_time','updated_time'];
             let sql = `INSERT INTO \`pt_fy_rules_base_simple\` (\`${cols.join('`,`')}\`) VALUES `;
             let vals = [];
             baseSimpleRows.forEach(r => {
-                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
-                vals.push(uuidv4(), r.policy_id ?? null, r.category || null, r.port || null, r.base_metric || null, r.subtract_free ? 1 : 0, r.subtract_mozhu ? 1 : 0, r.method || null, r.rate_value ?? null, r.remark || null, now, now);
+                sql += `(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?),`;
+                vals.push(uuidv4(), r.policy_id ?? null, r.category || null, r.port || null, r.base_metric || null, r.double_calc ? 1 : 0, r.subtract_free ? 1 : 0, r.subtract_mozhu ? 1 : 0, r.method || null, r.rate_value ?? null, r.free_rate_value ?? null, r.unfree_rate_value ?? null, r.remark || null, now, now);
             });
             sql = sql.slice(0, -1);
             await pools({ sql, val: vals, res, req });
@@ -1194,8 +1220,8 @@ router.post('/rules-update', async (req, res) => {
         const now = dayjs().format('YYYY-MM-DD HH:mm:ss');
         let updatedBase = 0, updatedLadder = 0;
         for (const r of Array.isArray(baseUpdates) ? baseUpdates : []) {
-            const sql = 'UPDATE `pt_fy_rules_base_simple` SET `policy_id`=?,`category`=?,`port`=?,`base_metric`=?,`subtract_free`=?,`subtract_mozhu`=?,`method`=?,`rate_value`=?,`remark`=?,`updated_time`=? WHERE `id`=?';
-            const val = [r.policy_id ?? null, r.category ?? null, r.port ?? null, r.base_metric ?? null, r.subtract_free ? 1 : 0, r.subtract_mozhu ? 1 : 0, r.method ?? null, r.rate_value ?? null, r.remark ?? null, now, r.id];
+            const sql = 'UPDATE `pt_fy_rules_base_simple` SET `policy_id`=?,`category`=?,`port`=?,`base_metric`=?,`double_calc`=?,`subtract_free`=?,`subtract_mozhu`=?,`method`=?,`rate_value`=?,`free_rate_value`=?,`unfree_rate_value`=?,`remark`=?,`updated_time`=? WHERE `id`=?';
+            const val = [r.policy_id ?? null, r.category ?? null, r.port ?? null, r.base_metric ?? null, r.double_calc ? 1 : 0, r.subtract_free ? 1 : 0, r.subtract_mozhu ? 1 : 0, r.method ?? null, r.rate_value ?? null, r.free_rate_value ?? null, r.unfree_rate_value ?? null, r.remark ?? null, now, r.id];
             await pools({ sql, val, res, req });
             updatedBase++;
         }
