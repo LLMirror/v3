@@ -77,8 +77,8 @@
             <!-- Detail Headers -->
             <tr class="gray-header">
               <td class="col-header">运力公司明细：</td>
-              <td class="col-header">分佣基数（元）</td>
-              <td class="col-header">基础分佣比率（%）</td>
+              <td class="col-header">{{ baseMetricLabel }}</td>
+              <td class="col-header">{{ baseRateLabel }}</td>
               <td class="col-header">基础分佣金额（元）</td>
               <td class="col-header">阶梯比率</td>
               <td class="col-header">阶梯分佣金额(元)</td>
@@ -91,7 +91,7 @@
             <tr>
               <td class="data-cell bold">合计：</td>
               <td class="data-cell">{{ fmt2(statementData.shareBase) }}</td>
-              <td class="data-cell">{{ fmtRate(statementData.baseRate, '百分比') }}</td>
+              <td class="data-cell">{{ baseRateDisplay }}</td>
               <td class="data-cell">{{ fmt2(statementData.baseAmount) }}</td>
               <td class="data-cell">{{ fmtRate(statementData.ladderRatio, statementData.ladderMethod || '百分比') }}</td>
               <td class="data-cell">{{ fmt2(statementData.ladderAmount) }}</td>
@@ -380,9 +380,12 @@
                       <th>分类</th>
                       <th>端口</th>
                       <th>基数</th>
+                      <th>是否双计算</th>
                       <th>是否免佣</th>
                       <th>是否扣除墨竹</th>
                       <th>返佣方式</th>
+                      <th>免佣费率/单价</th>
+                      <th>不免佣费率/单价</th>
                       <th>费率/单价</th>
                       <th>备注</th>
                     </tr>
@@ -393,9 +396,12 @@
                       <td>{{ row.category }}</td>
                       <td>{{ row.port }}</td>
                       <td>{{ row.base_metric }}</td>
+                      <td>{{ row.double_calc ? '是' : '否' }}</td>
                       <td>{{ row.subtract_free ? '是' : '否' }}</td>
                       <td>{{ row.subtract_mozhu ? '是' : '否' }}</td>
                       <td>{{ row.method }}</td>
+                      <td>{{ fmtRate(row.free_rate_value, row.method) }}</td>
+                      <td>{{ fmtRate(row.unfree_rate_value, row.method) }}</td>
                       <td>{{ fmtRate(row.rate_value, row.method) }}</td>
                       <td>{{ row.remark }}</td>
                     </tr>
@@ -508,7 +514,9 @@ const statementData = reactive({
   ladderMethod: '百分比',
   mozhuAmount: 0,
   driverRewardAmount: 0,
-  amount: 0
+  amount: 0,
+  baseRateDriverFree: 0,
+  baseRateDriverUnfree: 0
 });
 
 watch(() => filters.company, (val) => {
@@ -836,6 +844,14 @@ const fmtRate = (n, method) => {
   }
   return fmt2(num);
 };
+const baseMetricLabel = computed(() => (getDriverQtyDoubleRow() ? '分佣基数（单量）' : '分佣基数（元）'));
+const baseRateLabel = computed(() => (getDriverQtyDoubleRow() ? '基础分佣比率（单价）' : '基础分佣比率（%）'));
+const baseRateDisplay = computed(() => {
+  if (getDriverQtyDoubleRow()) {
+    return `${fmt2(statementData.baseRateDriverFree)}/${fmt2(statementData.baseRateDriverUnfree)}`;
+  }
+  return fmtRate(statementData.baseRate, '百分比');
+});
 const clientUnfreeTripFeeTotal = ref(0);
 const clientDiscountPlatformTotal = ref(0);
 const meetsBasicPolicy = () => {
@@ -845,6 +861,10 @@ const meetsBasicPolicy = () => {
 const getBaseRow = () => {
   const rows = policyDetail.base_rows || [];
   return rows.find(r => r.port === '乘客' && r.base_metric === '金额' && (r.subtract_free ? true : false) && r.method === '百分比');
+};
+const getDriverQtyDoubleRow = () => {
+  const rows = policyDetail.base_rows || [];
+  return rows.find(r => r.port === '司机' && r.base_metric === '单量' && (r.double_calc ? true : false) && r.method === '单价');
 };
 const updateTotalAmount = () => {
   statementData.amount = Number(statementData.baseAmount || 0) + Number(statementData.ladderAmount || 0) + Number(statementData.driverRewardAmount || 0);
@@ -914,6 +934,21 @@ const computeDriverIncentive = () => {
   updateTotalAmount();
 };
 const updateBaseVars = () => {
+  const driverRow = getDriverQtyDoubleRow();
+  if (driverRow) {
+    const summary = driverData[0] || { unfree_qty: 0, free_qty: 0, total_qty: 0 };
+    statementData.shareBase = Number(summary.total_qty || 0);
+    statementData.baseRateDriverFree = Number(driverRow.free_rate_value || 0);
+    statementData.baseRateDriverUnfree = Number(driverRow.unfree_rate_value || 0);
+    // 基础分佣金额（元）= 不免佣单量 * 不免佣单价 + 免佣单量 * 免佣单价
+    statementData.baseAmount =
+      Number(summary.unfree_qty || 0) * Number(statementData.baseRateDriverUnfree || 0) +
+      Number(summary.free_qty || 0) * Number(statementData.baseRateDriverFree || 0);
+    // 双计算场景不参与墨竹扣减
+    updateTotalAmount();
+    return;
+  }
+  // 旧规则保持不变（乘客金额百分比）
   const row = getBaseRow();
   const valid = !!row;
   statementData.shareBase = valid ? clientUnfreeTripFeeTotal.value : 0;
