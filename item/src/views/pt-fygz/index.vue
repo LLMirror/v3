@@ -134,6 +134,11 @@
                   </el-select>
                 </template>
               </el-table-column>
+              <el-table-column prop="months_prior" label="前几月" width="120">
+                <template #default="scope">
+                  <el-input v-model="scope.row.months_prior" @blur="formatNumber(scope.row,'months_prior')" :disabled="isLadderDisabled(scope.row)" />
+                </template>
+              </el-table-column>
               <el-table-column prop="min_val" label="最小值(>=)" width="140">
                 <template #default="scope"><el-input v-model="scope.row.min_val" @blur="formatNumber(scope.row,'min_val')" :disabled="isLadderDisabled(scope.row)" /></template>
               </el-table-column>
@@ -674,10 +679,14 @@ const saveOnlineEdits = async () => {
         policy_id: r.policy_id,
         rule_type: r.rule_type,
         dimension: r.dimension,
+        months_prior: r.months_prior,
         metric: r.metric,
         min_val: r.min_val,
         max_val: r.max_val,
         method: r.method,
+        double_calc: r.double_calc ? 1 : 0,
+        free_rate_value: r.free_rate_value,
+        unfree_rate_value: r.unfree_rate_value,
         rule_value: r.rule_value,
         subtract_free: r.subtract_free
       }));
@@ -688,10 +697,14 @@ const saveOnlineEdits = async () => {
         policy_id: r.policy_id,
         rule_type: r.rule_type,
         dimension: r.dimension,
+        months_prior: r.months_prior,
         metric: r.metric,
         min_val: r.min_val,
         max_val: r.max_val,
         method: r.method,
+        double_calc: r.double_calc ? 1 : 0,
+        free_rate_value: r.free_rate_value,
+        unfree_rate_value: r.unfree_rate_value,
         rule_value: r.rule_value,
         subtract_free: r.subtract_free
       }));
